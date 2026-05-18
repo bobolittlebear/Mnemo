@@ -1,0 +1,36 @@
+{
+  "name": "express-service",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node dist/bin/www",
+    "build": "tsc",
+    "dev": "cross-env NODE_ENV=development nodemon"
+  },
+  "dependencies": {
+    "cookie-parser": "~1.4.4",
+    "debug": "~2.6.9",
+    "express": "~4.16.1",
+    "http-errors": "~1.6.3",
+    "mongoose": "^8.23.1",
+    "morgan": "^1.9.1",
+    "pug": "2.0.0-beta11",
+    "winston": "^3.19.0"
+  },
+  "devDependencies": {
+    "@types/cookie-parser": "^1.4.10",
+    "@types/express": "^5.0.6",
+    "@types/morgan": "^1.9.10",
+    "@types/node": "^25.7.0",
+    "@typescript-eslint/eslint-plugin": "^8.59.3",
+    "@typescript-eslint/parser": "^8.59.3",
+    "cross-env": "^7.0.3",
+    "eslint": "^9.39.4",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.5",
+    "nodemon": "^3.1.14",
+    "prettier": "^3.8.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3"
+  }
+}
