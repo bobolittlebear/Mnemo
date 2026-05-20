@@ -1,3 +1,5 @@
 {
-    "exec": "ts-node ./src/app"
+    "watch": ["src"],
+    "exec": "ts-node ./src/app",
+    "ext": "ts, js, json"
 }

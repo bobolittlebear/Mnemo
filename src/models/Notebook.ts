@@ -1,20 +1,11 @@
 import mongoose from 'mongoose';
 
-const noteSchema = new mongoose.Schema(
+const notebookSchema = new mongoose.Schema(
     {
-        notebookId: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'Notebook',
-            required: true,
-        },
         title: {
             type: String,
             required: true,
             trim: true,
-        },
-        content: {
-            type: String,
-            default: '',
         },
         createUser: {
             type: String,
@@ -24,6 +15,7 @@ const noteSchema = new mongoose.Schema(
             type: String,
             required: true,
         },
+        // 软删除标志
         isDeleted: {
             type: Boolean,
             default: false,
@@ -34,4 +26,4 @@ const noteSchema = new mongoose.Schema(
     },
 );
 
-export default mongoose.model('Note', noteSchema);
+export default mongoose.model('Notebook', notebookSchema);
