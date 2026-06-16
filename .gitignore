@@ -1,3 +1,5 @@
 node_modules
 dist
 run_logs
+.env.development
+.env.production
