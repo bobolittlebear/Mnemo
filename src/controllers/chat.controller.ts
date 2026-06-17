@@ -2,8 +2,12 @@
 import { Request, Response } from 'express';
 import { createStreamChat } from '../service/ai.service';
 import logger from '../lib/logger';
+import { StreamCleaner } from '../util/streamCleaner';
+import { MAX_CHECK_LENGTH } from '../util/constant';
 
 export const handleStreamChat = async (req: Request, res: Response) => {
+    // 为每个请求创建一个独立的清洗器实例
+    const cleaner = new StreamCleaner();
     try {
         const messages = Object.values(req.body?.messages);
         logger.info('Received chat request', messages);
@@ -24,16 +28,22 @@ export const handleStreamChat = async (req: Request, res: Response) => {
             messages,
         )) as unknown as AsyncIterable<any>;
 
-        // 3. 遍历流并写入响应
-        for await (const chunk of stream) {
-            // OpenAI SDK 的流式块结构
-            const content = chunk.choices?.[0]?.delta?.content || '';
+        // 【关键】维护一个缓冲区，用于检测重复
+        // 在生产环境中，如果对话极长，建议只保留最近 500-1000 个字符以节省内存
+        let lastTail = ''; // 维护上一个 Chunk 的尾部状态
 
-            console.log('Stream Chunk:', content); // 调试输出
+        for await (const chunk of stream) {
+            const content = chunk.choices[0]?.delta?.content || '';
+
             if (content) {
-                // SSE 格式：data: <JSON>\n\n
-                // 建议将内容包装在 JSON 中，方便前端解析（特别是处理换行符时）
-                res.write(`data: ${JSON.stringify({ content })}\n\n`);
+                // 【关键步骤】调用清洗器
+                const { cleaned, isDuplicate } = cleaner.clean(content);
+                // 只有当清洗后有内容，且不是完全重复时，才发送给前端
+                if (cleaned && !isDuplicate) {
+                    res.write(
+                        `data: ${JSON.stringify({ content: cleaned })}\n\n`,
+                    );
+                }
             }
         }
 
