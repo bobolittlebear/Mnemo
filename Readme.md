@@ -21,7 +21,13 @@
 
 本项目正在按照企业级 AI Agent 的标准进行持续迭代，下一阶段的核心目标包括：
 
-- [进行中] RAG 检索增强生成：引入 LlamaIndex 与向量数据库（Chroma/Milvus），实现基于文档分块（Chunking）与混合检索的精准问答，解决大模型幻觉问题。
+- [进行中] 记忆治理机制：
+    1. 短期记忆（In-Memory/Context）：在 Express 的请求生命周期中，将当前会话的最近 N 轮对话（如最近 10 轮）按时间正序组装进 System Prompt。
+    2. 长期记忆（MongoDB + Vector Search）：
+        - 写入：每次对话结束后，异步调用大模型提取 1-3 个核心事实/用户偏好（JSON 格式），连同原始对话片段存入 MongoDB。
+        - 检索：利用 MongoDB Atlas Vector Search（或本地轻量级向量库），在每次新对话开始前，用当前用户输入作为 Query 检索 Top-K 条相关记忆，注入到 System Prompt 中。
+    3. 状态管理雏形：在 MongoDB 中建立 Sessions 集合，记录当前会话的元数据（如会话 ID、创建时间、最后活跃时间），为后续的上下文管理打基础。
+- [规划中] RAG 检索增强生成：引入 LlamaIndex 与向量数据库（Chroma/Milvus），实现基于文档分块（Chunking）与混合检索的精准问答，解决大模型幻觉问题。
 - [规划中] Tool Calling (工具调用)：赋予 AI 自主规划能力，使其能够根据用户意图自动调用日历、邮件或代码执行等外部工具。
 - [规划中] Multi-Agent 协作：基于 LangGraph/CrewAI 框架，拆分 Researcher（检索）、Writer（总结）、Reviewer（校验）等多智能体，协同完成复杂任务。
 - [规划中] 数据闭环与评测：建立用户反馈机制（点赞/踩）与自动化评测集，持续优化检索准确率与回答质量。

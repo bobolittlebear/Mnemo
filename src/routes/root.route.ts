@@ -1,7 +1,8 @@
-import express, { Request, Response, NextFunction } from 'express';
+import { Request, Response, Router } from 'express';
 import logger from '../lib/logger';
-const router = express.Router();
+import {} from 'express';
 
+const router: Router = Router();
 /* GET home page. */
 router.get('/', function (req: Request, res: Response) {
     logger.info('首页被访问', { ip: req.ip });

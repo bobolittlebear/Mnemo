@@ -1,9 +1,10 @@
-import Express from 'express';
 import notebookController from '../controllers/notebook.controller';
 import noteController from '../controllers/note.controller';
 import authController from '../controllers/auth.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
-const router = Express.Router();
+import { Router } from 'express';
+
+const router: Router = Router();
 
 router.use(authMiddleware); // 保护所有后续路由，必须先通过认证
 
