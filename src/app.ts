@@ -1,10 +1,12 @@
+// 必须是文件的第一行代码
+import 'module-alias/register';
 import dotenv from 'dotenv';
 dotenv.config({
     path: `.env.${process.env.NODE_ENV || 'development'}`,
 });
 
 import createError from 'http-errors';
-import express, { Request, Response, NextFunction } from 'express';
+import express, { Request, Response, NextFunction, Application } from 'express';
 import path from 'path';
 import cookieParser from 'cookie-parser';
 import morgan from 'morgan';
@@ -13,7 +15,7 @@ import logger from './lib/logger';
 import indexRouter from './routes';
 import connectDB from './db';
 
-const app = express();
+const app: Application = express();
 
 // 允许跨域请求
 app.use(
@@ -61,8 +63,12 @@ app.use(function (err: any, req: Request, res: Response, next: NextFunction) {
     res.locals.error = req.app.get('env') === 'development' ? err : {};
 
     // render the error page
-    res.status(err.status || 500);
-    res.render('error');
+    console.error(err.stack); // 在控制台打印详细错误，方便调试
+    res.status(err.status || 500).json({
+        status: 'error',
+        message: err.message,
+        // stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
 });
 
 app.listen(3000);

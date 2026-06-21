@@ -3,8 +3,8 @@
     "version": "0.0.0",
     "private": true,
     "scripts": {
-        "start": "cross-env NODE_ENV=production node dist/app.js",
-        "build": "tsc",
+        "start": "cross-env NODE_ENV=production node -r tsconfig-paths/register dist/app.js",
+        "build": "tsc && tsc-alias",
         "dev": "cross-env NODE_ENV=development nodemon"
     },
     "dependencies": {
@@ -39,9 +39,12 @@
         "eslint": "^9.39.4",
         "eslint-config-prettier": "^10.1.8",
         "eslint-plugin-prettier": "^5.5.5",
+        "module-alias": "^2.3.4",
         "nodemon": "^3.1.14",
         "prettier": "^3.8.3",
         "ts-node": "^10.9.2",
+        "tsc-alias": "^1.8.17",
+        "tsconfig-paths": "^4.2.0",
         "typescript": "^6.0.3"
     }
 }

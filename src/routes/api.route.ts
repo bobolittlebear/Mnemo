@@ -1,7 +1,6 @@
-import notebookController from '../controllers/notebook.controller';
-import noteController from '../controllers/note.controller';
-import authController from '../controllers/auth.controller';
-import { authMiddleware } from '../middleware/auth.middleware';
+import notebookController from '@/controllers/notebook.controller';
+import noteController from '@/controllers/note.controller';
+import { authMiddleware } from '@/middleware/auth.middleware';
 import { Router } from 'express';
 
 const router: Router = Router();

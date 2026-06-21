@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import ApiResponse from '../util/ApiResponse';
-import { UNKNOWN_ERROR } from '../util/constant';
+import ApiResponse from '@/util/ApiResponse';
+import { UNKNOWN_ERROR } from '@/util/constant';
 import Joi from 'joi';
 import authService from '../service/auth.service';
 
@@ -25,7 +25,6 @@ export const register = async (
     res: Response,
     next: NextFunction,
 ) => {
-    console.log('Received registration request:', req.body); // 添加日志输出请求体
     try {
         const { error, value } = registerSchema.validate(req.body);
         if (error) {
@@ -35,12 +34,12 @@ export const register = async (
                     new ApiResponse(false, null, error?.details?.[0]?.message),
                 );
         }
-        const token = await authService.register(
+        const result = await authService.register(
             value.username,
             value.email,
             value.password,
         );
-        setTokenCookie(res, token.token); // 将 token 设置为 cookie
+        setTokenCookie(res, result.token); // 将 token 设置为 cookie
         res.json(ApiResponse.success(null, '注册成功'));
     } catch (err) {
         console.error('Registration error:', err); // 添加日志输出错误信息
