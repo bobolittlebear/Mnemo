@@ -22,6 +22,7 @@
         "morgan": "^1.9.1",
         "openai": "^6.42.0",
         "pug": "2.0.0-beta11",
+        "redis": "^6.0.0",
         "winston": "^3.19.0"
     },
     "devDependencies": {

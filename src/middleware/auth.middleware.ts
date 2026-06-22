@@ -9,6 +9,7 @@ declare global {
         interface Request {
             user: {
                 userId?: string;
+                memoryKey?: string;
             };
         }
     }

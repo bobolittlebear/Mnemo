@@ -5,7 +5,8 @@ import { RENEW_THRESHOLD } from './constant';
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
 
 export const generateToken = (userId: string) => {
-    return jwt.sign({ id: userId }, JWT_SECRET, { expiresIn: '1w' });
+    // 改成一个月过期
+    return jwt.sign({ id: userId }, JWT_SECRET, { expiresIn: '30d' });
 };
 
 export const verifyToken = (token: string) => {

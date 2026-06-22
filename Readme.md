@@ -22,7 +22,14 @@
 本项目正在按照企业级 AI Agent 的标准进行持续迭代，下一阶段的核心目标包括：
 
 - [进行中] 记忆治理机制：
-    1. 短期记忆（In-Memory/Context）：在 Express 的请求生命周期中，将当前会话的最近 N 轮对话（如最近 10 轮）按时间正序组装进 System Prompt。
+    1. 短期记忆（In-Request Short-Term Memory）：在 Express 的请求生命周期中，将当前会话的最近 N 轮对话（如最近 10 轮）按时间正序组装进 System Prompt。
+        - 已实现（Redis层面短期记忆管理）：在 `src/util/shortTermMemory.ts` 中提供Redis缓存短期记忆管理器（带 TTL、会话数上限与单会话消息上限），避免 N+1 查询并使用定时清理避免内存泄漏。
+        - 在 `src/middleware/memory.middleware.ts`中实现memoryKey管理，根据用户id拼接key，亦支持临时会话生成random key
+        - 在 `src/controllers/chat.controller.ts` 中已集成：
+            1. 在发起 AI 请求前，使用 `memoryKey`查询Redis中存储的最近 N 轮对话（默认 N=10），按时间正序组装并注入到发送给 LLM 的 messages 里，作为 System Prompt 的一部分。
+            2. 在流式响应结束后，异步将本次请求的消息追加回短期记忆，避免阻塞主流程。
+        - 边界与鲁棒性处理：
+            - 对空消息、无 memoryKey 、并发请求做兜底处理，所有 STM 操作捕获内部异常并记录日志，不抛异常以免影响主流程。
     2. 长期记忆（MongoDB + Vector Search）：
         - 写入：每次对话结束后，异步调用大模型提取 1-3 个核心事实/用户偏好（JSON 格式），连同原始对话片段存入 MongoDB。
         - 检索：利用 MongoDB Atlas Vector Search（或本地轻量级向量库），在每次新对话开始前，用当前用户输入作为 Query 检索 Top-K 条相关记忆，注入到 System Prompt 中。
@@ -31,3 +38,20 @@
 - [规划中] Tool Calling (工具调用)：赋予 AI 自主规划能力，使其能够根据用户意图自动调用日历、邮件或代码执行等外部工具。
 - [规划中] Multi-Agent 协作：基于 LangGraph/CrewAI 框架，拆分 Researcher（检索）、Writer（总结）、Reviewer（校验）等多智能体，协同完成复杂任务。
 - [规划中] 数据闭环与评测：建立用户反馈机制（点赞/踩）与自动化评测集，持续优化检索准确率与回答质量。
+
+# 项目启动
+
+# redis
+
+```docker run -d \
+--name aiquicknote-redis \
+-p 6379:6379 \
+-v ~/work/aiquicknote-redis:/data \
+--restart always \
+redis:8.6-alpine \
+redis-server --requirepass aiquicknote
+```
+
+# node服务
+
+pnpm run dev

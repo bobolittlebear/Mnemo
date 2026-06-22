@@ -1,0 +1,104 @@
+// src/util/shortTermMemory.ts
+/**
+ * 简单的短期内存管理器（内存中 LRU 样式，带 TTL 与大小上限）
+ * 目的：在 Express 请求生命周期中保存最近若干轮对话，按时间正序组装进 System Prompt
+ */
+import redisClient from '@/lib/redis';
+import logger from '@/lib/logger';
+
+type Role = 'system' | 'user' | 'assistant' | string;
+
+export type STMMessage = {
+    role: Role;
+    content: string;
+    timestamp: number;
+};
+
+class ShortTermMemory {
+    private maxMessagesPerSession: number;
+    private sessionTTLSeconds: number;
+
+    constructor({
+        maxMessagesPerSession = 1000,
+        sessionTTLSeconds = 30 * 60, // Redis TTL 以秒为单位，30分钟
+    } = {}) {
+        this.maxMessagesPerSession = maxMessagesPerSession;
+        this.sessionTTLSeconds = sessionTTLSeconds;
+    }
+
+    /**
+     * 添加消息数组到 Redis List
+     */
+    async addMessages(id: string, messages: Array<any>) {
+        try {
+            if (
+                !id ||
+                !messages ||
+                !Array.isArray(messages) ||
+                messages.length === 0
+            )
+                return;
+            const pipeline = redisClient.multi(); // 使用 Pipeline 减少网络 RTT
+            for (const m of messages) {
+                if (!m || !m.role || m.content == null) continue;
+                const payload: STMMessage = {
+                    role: m.role,
+                    content: String(m.content),
+                    timestamp: m.timestamp || Date.now(),
+                };
+                pipeline.rPush(id, JSON.stringify(payload));
+            }
+            // 仅保留最近的 N 条消息（实现 LRU 截断）
+            pipeline.lTrim(id, -this.maxMessagesPerSession, -1);
+            // 刷新/设置 TTL
+            pipeline.expire(id, this.sessionTTLSeconds);
+
+            await pipeline.exec();
+        } catch (err) {
+            logger.warn('STM addMessages error', err);
+        }
+    }
+
+    /**
+     * 获取最近 N 轮对话（以 user 消息为计数基准）
+     */
+    async getRecentRounds(id: string, rounds = 10): Promise<STMMessage[]> {
+        try {
+            if (!id) return [];
+
+            // 1. 获取该会话的所有消息（由于有 lTrim 限制，数据量可控）
+            const rawMessages = await redisClient.lRange(id, 0, -1);
+            if (!rawMessages || rawMessages.length === 0) return [];
+
+            // 2. 解析 JSON
+            const parsedMessages: STMMessage[] = rawMessages.map((msg) =>
+                JSON.parse(msg),
+            );
+
+            // 3. 从后向前遍历，收集 rounds 个 user 消息
+            const res: STMMessage[] = [];
+            let userCount = 0;
+            for (let i = parsedMessages.length - 1; i >= 0; i--) {
+                const m = parsedMessages[i]!;
+                res.push(m);
+                if (m.role === 'user') {
+                    userCount++;
+                    if (userCount >= rounds) break;
+                }
+            }
+            // 返回时间正序
+            return res.reverse();
+        } catch (err) {
+            logger.warn('STM getRecentRounds error', err);
+            return [];
+        }
+    }
+
+    // 手动清理（可选保留）
+    async clearSession(id: string) {
+        await redisClient.del(id);
+    }
+}
+
+const defaultSTM = new ShortTermMemory();
+export default defaultSTM;
