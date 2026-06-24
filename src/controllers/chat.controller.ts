@@ -106,13 +106,14 @@ async function safeGetRecentRounds(
 const endSession = async (req: Request, res: Response) => {
     try {
         const memoryKey = req.cookies.memory_key;
-        // 清除redis会话记录
         if (memoryKey) {
-            await STM.clearSession(memoryKey); // 加上 await 确保原子性
-            res.json(ApiResponse.success({}));
-        } else {
-            res.json(ApiResponse.error('未找到可结束的会话！'));
+            // 1. 仅清除 Redis 中的短期记忆（STM）
+            // 这相当于 AI 的“大脑清空”，但用户的“身份证”还在
+            await STM.clearSession(memoryKey);
         }
+        // 2. 无论有没有 memoryKey，都直接返回成功
+        // 前端只需要知道“当前聊天窗口被重置了”
+        res.json(ApiResponse.success({}));
     } catch (error) {
         res.json(
             ApiResponse.error(
