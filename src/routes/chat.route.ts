@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { handleStreamChat } from '../controllers/chat.controller';
+import { chat, endSession } from '@/controllers/chat.controller';
 // import { authMiddleware } from '../middleware/auth.middleware'; // 如果需要鉴权
 import { memoryMiddleware } from '@/middleware/memory.middleware';
 const router: Router = Router();
@@ -8,6 +8,7 @@ const router: Router = Router();
 router.use(memoryMiddleware); // 开启会话时加上短期记忆key
 // POST /api/chat
 
-router.post('/chat', handleStreamChat);
+router.post('/chat', chat);
+router.post('/session/end', endSession);
 
 export default router;

@@ -4,11 +4,13 @@ import { createStreamChat } from '../service/ai.service';
 import logger from '../lib/logger';
 import { StreamCleaner } from '@/util/streamCleaner';
 import STM, { STMMessage } from '@/util/shortTermMemory';
+import ApiResponse from '@/util/apiResponse';
+import { UNKNOWN_ERROR } from '@/util/constant';
 
 // 配置：短期记忆要注入的最近轮数
 const SHORT_TERM_ROUNDS = Number(process.env.STM_ROUNDS || 10);
 
-export const handleStreamChat = async (req: Request, res: Response) => {
+const chat = async (req: Request, res: Response) => {
     // 为每个请求创建一个独立的清洗器实例
     const cleaner = new StreamCleaner();
     try {
@@ -100,3 +102,24 @@ async function safeGetRecentRounds(
         ),
     ]);
 }
+
+const endSession = async (req: Request, res: Response) => {
+    try {
+        const memoryKey = req.cookies.memory_key;
+        // 清除redis会话记录
+        if (memoryKey) {
+            await STM.clearSession(memoryKey); // 加上 await 确保原子性
+            res.json(ApiResponse.success({}));
+        } else {
+            res.json(ApiResponse.error('未找到可结束的会话！'));
+        }
+    } catch (error) {
+        res.json(
+            ApiResponse.error(
+                error instanceof Error ? error.message : UNKNOWN_ERROR,
+            ),
+        );
+    }
+};
+
+export { chat, endSession };

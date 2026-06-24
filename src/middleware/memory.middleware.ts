@@ -4,6 +4,9 @@
  */
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
+import { generateMemoryKey } from '@/util/tool';
+import logger from '@/lib/logger';
+import { SESSION_PREFIX } from '@/util/constant';
 
 // 扩展Express的Request类型，添加userId属性
 declare global {
@@ -25,35 +28,33 @@ export const memoryMiddleware = (
 ) => {
     // 假设从鉴权中间件或上下文中获取 userId
     const userId = req.user?.userId;
-
-    // 定义 Redis Key 的前缀
-    const SESSION_PREFIX = 'quick_note:session:';
+    let memoryKey: string;
 
     if (userId) {
         // 场景 A：用户已登录，使用 userId 作为标识
-        req.user = { ...req.user, memoryKey: `${SESSION_PREFIX}${userId}` };
+        memoryKey = generateMemoryKey(userId);
     } else {
         // 场景 B：用户未登录（匿名访客）
 
-        // 1. 检查请求中是否已经携带了匿名 memory_key Cookie
-        let memoryKey = req.cookies.memory_key;
+        // 1. 优先检查请求中是否已经携带了匿名 memory_key Cookie
+        memoryKey = req.cookies?.memory_key;
 
         // 2. 如果 Cookie 中不存在，则生成一个新的随机 Key
-        if (!memoryKey) {
+        if (!memoryKey || !memoryKey.startsWith(SESSION_PREFIX)) {
             // 使用加密安全的随机字节生成 16 字节的十六进制字符串
-            memoryKey = crypto.randomBytes(16).toString('hex');
-
-            // 3. 将新生成的 memory_key 注入到客户端的 Cookie 中
-            res.cookie('memory_key', memoryKey, {
-                httpOnly: true, // 防止 XSS 攻击，禁止 JS 读取
-                secure: true, // 仅在 HTTPS 下传输
-                sameSite: 'strict', // 防止 CSRF 攻击
-                maxAge: 24 * 60 * 60 * 1000, // 设置过期时间，例如 24 小时
-            });
+            const temporaryID = crypto.randomBytes(16).toString('hex');
+            memoryKey = generateMemoryKey(temporaryID);
         }
-
-        // 4. 拼接最终的 Redis Key
-        req.user = { ...req.user, memoryKey: `${SESSION_PREFIX}${memoryKey}` };
     }
+
+    // 3. 将新生成的 memory_key 注入到客户端的 Cookie 中
+    res.cookie('memory_key', memoryKey, {
+        httpOnly: true, // 防止 XSS 攻击，禁止 JS 读取
+        // secure: true, // 仅在 HTTPS 下传输（本地测试如果是 HTTP 请改为 false）
+        sameSite: 'strict', // 防止 CSRF 攻击
+        maxAge: 24 * 60 * 60 * 1000, // 设置过期时间，例如 24 小时
+    });
+    req.user = { ...req.user, memoryKey };
+
     next();
 };

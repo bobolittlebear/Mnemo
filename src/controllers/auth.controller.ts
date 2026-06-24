@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import ApiResponse from '@/util/ApiResponse';
+import ApiResponse from '@/util/apiResponse';
 import { UNKNOWN_ERROR } from '@/util/constant';
 import Joi from 'joi';
 import authService from '../service/auth.service';

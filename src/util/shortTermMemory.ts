@@ -19,8 +19,8 @@ class ShortTermMemory {
     private sessionTTLSeconds: number;
 
     constructor({
-        maxMessagesPerSession = 1000,
-        sessionTTLSeconds = 30 * 60, // Redis TTL 以秒为单位，30分钟
+        maxMessagesPerSession = 100,
+        sessionTTLSeconds = 60 * 60, // Redis TTL 以秒为单位，30分钟
     } = {}) {
         this.maxMessagesPerSession = maxMessagesPerSession;
         this.sessionTTLSeconds = sessionTTLSeconds;
@@ -94,8 +94,9 @@ class ShortTermMemory {
         }
     }
 
-    // 手动清理（可选保留）
+    // 手动清理会话
     async clearSession(id: string) {
+        logger.info(`[EndSession] Clearing STM key: ${id}`);
         await redisClient.del(id);
     }
 }
