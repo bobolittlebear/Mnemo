@@ -5,7 +5,9 @@ import logger from '../lib/logger';
 import { StreamCleaner } from '@/util/streamCleaner';
 import STM, { STMMessage } from '@/util/shortTermMemory';
 import ApiResponse from '@/util/apiResponse';
-import { UNKNOWN_ERROR } from '@/util/constant';
+import { TIMEOUT_MS, UNKNOWN_ERROR } from '@/util/constant';
+import ChatMessage, { IChatMessage } from '@/models/ChatMessage';
+import mongoose from 'mongoose';
 
 // 配置：短期记忆要注入的最近轮数
 const SHORT_TERM_ROUNDS = Number(process.env.STM_ROUNDS || 10);
@@ -14,7 +16,9 @@ const chat = async (req: Request, res: Response) => {
     // 为每个请求创建一个独立的清洗器实例
     const cleaner = new StreamCleaner();
     try {
-        const rawMessages = Object.values(req.body?.messages || []);
+        const rawMessages = Object.values(
+            req.body?.messages || [],
+        ) as Partial<IChatMessage>[];
         const messages = Array.isArray(rawMessages) ? rawMessages : [];
 
         if (!messages || !Array.isArray(messages)) {
@@ -47,7 +51,8 @@ const chat = async (req: Request, res: Response) => {
         const stream = (await createStreamChat(
             finalMessages,
         )) as unknown as AsyncIterable<any>;
-
+        // 【关键】用于收集完整的 AI 回复
+        let fullAssistantResponse = '';
         for await (const chunk of stream) {
             const content = chunk.choices[0]?.delta?.content || '';
 
@@ -59,25 +64,65 @@ const chat = async (req: Request, res: Response) => {
                     res.write(
                         `data: ${JSON.stringify({ content: cleaned })}\n\n`,
                     );
+                    fullAssistantResponse += cleaned; // 累加完整的回复内容
                 }
+            }
+        }
+
+        // 4. 【核心修改】流结束后，立即持久化数据
+        // 此时 fullAssistantResponse 已经是完整的回答
+        if (fullAssistantResponse.trim()) {
+            try {
+                const memoryKey = req.user.memoryKey!;
+                const now = Date.now();
+
+                // 提取本次对话中最新的 User 消息（即触发本次请求的消息）
+                // 注意：这里假设 messages 数组的最后一条是用户的最新输入
+                const latestUserMsg = messages[messages.length - 1]!;
+
+                const docsToSave = [
+                    // 保存用户刚才发的消息（防止之前没存进去）
+                    {
+                        memoryKey,
+                        role: 'user',
+                        content: latestUserMsg.content,
+                        timestamp: now, // 使用当前时间
+                    },
+                    // 保存刚刚生成的完整 AI 回答
+                    {
+                        memoryKey,
+                        role: 'assistant',
+                        content: fullAssistantResponse,
+                        timestamp: now + 1, // 强制比用户消息晚 1ms，保证排序正确
+                    },
+                ];
+                // 并行写入 Redis 和 MongoDB
+                // 使用 Promise.all 确保两者都尝试写入
+                await Promise.all([
+                    STM.addMessages(memoryKey, docsToSave).catch((e) =>
+                        logger.warn('Redis STM save failed', e),
+                    ),
+                    ChatMessage.insertMany(docsToSave, { ordered: true }).catch(
+                        (e) => logger.warn('MongoDB save failed', e),
+                    ),
+                ]);
+                // 写入成功后，触发滑动窗口清理
+                // 这里依然不需要 await，清理是后台任务
+                ChatMessage.trimOldMessages(memoryKey, 100).catch((e) =>
+                    logger.warn('Trim messages error', e),
+                );
+            } catch (error) {
+                logger.error(
+                    'Failed to save chat history after stream:',
+                    error,
+                );
+                // 即使保存失败，也不应该中断给前端的流，因为用户已经看到了内容
             }
         }
 
         // 4. 发送结束标记
         res.write('data: [DONE]\n\n');
         res.end();
-
-        // 5. 异步保存本次会话消息到短期记忆（不阻塞主流程）
-        (async () => {
-            try {
-                // 保存原始发送的消息（user -> assistant）
-                STM.addMessages(memoryKey, messages).catch((e) => {
-                    logger.warn('STM save error', e);
-                });
-            } catch (e) {
-                logger.warn('STM save error', e);
-            }
-        })();
     } catch (error: any) {
         console.error('Stream Chat Error:', error);
         // 如果还没发送响应头，可以返回错误 JSON；如果已经开始流式传输，只能断开连接
@@ -93,7 +138,7 @@ const chat = async (req: Request, res: Response) => {
 async function safeGetRecentRounds(
     id: string,
     rounds: number,
-    timeoutMs = 100,
+    timeoutMs = TIMEOUT_MS,
 ): Promise<STMMessage[]> {
     return Promise.race([
         STM.getRecentRounds(id, rounds),
@@ -123,4 +168,85 @@ const endSession = async (req: Request, res: Response) => {
     }
 };
 
-export { chat, endSession };
+/**
+ * 获取历史消息（修复版）
+ * GET /stream/chat/history?limit=20&before_id=64a...
+ */
+const getChatHistory = async (req: Request, res: Response) => {
+    try {
+        const memoryKey = req.user?.memoryKey!;
+        const limit = Math.min(Number(req.query?.limit) || 20, 100); // 限制最大拉取数量
+        const beforeId = req.query?.before_id as string; // 使用 _id 作为游标，而不是时间戳
+
+        // 构建查询条件
+        const query: any = { memoryKey };
+
+        // 如果有游标，查询该 ID 之前的消息（利用 _id 的单调递增特性）
+        if (beforeId && mongoose.Types.ObjectId.isValid(beforeId)) {
+            query._id = { $lt: new mongoose.Types.ObjectId(beforeId) };
+        }
+
+        // 1. 按 _id 倒序查找（最新的在最前面）
+        // 注意：这里不需要 reverse()，因为我们只需要把数据给前端，让前端决定怎么插
+        // 但通常为了配合前端的 unshift (插入头部)，我们保持数据库里的倒序返回即可
+        // 或者：如果你希望返回正序（旧->新），就 sort({ _id: 1 })
+        // 这里建议：返回 旧 -> 新 (Ascending)，方便前端直接渲染列表
+        const messages = await ChatMessage.find(query)
+            .sort({ _id: -1 }) // 先倒序取最新的 limit 条
+            .limit(limit)
+            .select('role content timestamp') // 不要排除 _id，也不要排除 timestamp
+            .lean(); // 使用 lean() 提高性能，返回纯 JSON 对象
+
+        // 2. 在内存中将数组反转为正序（旧 -> 新）
+        // 这样前端拿到的数组 index 0 是最早的，index N 是最新的
+        messages.reverse();
+
+        // 3. 格式化数据
+        const formattedMessages = messages.map((msg) => ({
+            id: msg._id.toString(), // 必须返回 ID，用于前端去重和作为下次查询的游标
+            role: msg.role,
+            content: msg.content,
+            timestamp: new Date(msg.timestamp).toISOString(),
+        }));
+
+        res.json(ApiResponse.success(formattedMessages));
+    } catch (error) {
+        console.error(error);
+        res.status(500).json(
+            ApiResponse.error(
+                error instanceof Error ? error.message : UNKNOWN_ERROR,
+            ),
+        );
+    }
+};
+
+// src/controllers/chat.controller.ts
+
+/**
+ * 彻底清空当前用户的会话记录（测试专用）
+ * DELETE /stream/chat/clear
+ */
+const clearChatHistory = async (req: Request, res: Response) => {
+    try {
+        const memoryKey = req.user.memoryKey!;
+
+        // 1. 清除 Redis STM
+        await STM.clearSession(memoryKey);
+
+        // 2. 清除 MongoDB 历史记录
+        const result = await ChatMessage.deleteMany({ memoryKey });
+        logger.info(
+            `[ClearHistory] Cleared ${result.deletedCount} messages for key: ${memoryKey}`,
+        );
+
+        res.json(ApiResponse.success({ deletedCount: result.deletedCount }));
+    } catch (error) {
+        res.json(
+            ApiResponse.error(
+                error instanceof Error ? error.message : UNKNOWN_ERROR,
+            ),
+        );
+    }
+};
+
+export { chat, endSession, getChatHistory, clearChatHistory };

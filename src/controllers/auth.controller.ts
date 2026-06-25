@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import ApiResponse from '@/util/apiResponse';
-import { UNKNOWN_ERROR } from '@/util/constant';
+import { COOKIE_TOKEN_MAX_AGE, UNKNOWN_ERROR } from '@/util/constant';
 import Joi from 'joi';
 import authService from '../service/auth.service';
 
@@ -15,7 +15,7 @@ const setTokenCookie = (res: Response, token: string) => {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict',
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 1 week
+        maxAge: COOKIE_TOKEN_MAX_AGE,
         path: '/', // 确保 cookie 在整个站点范围内可用
     });
 };

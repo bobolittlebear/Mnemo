@@ -5,6 +5,7 @@
  */
 import redisClient from '@/lib/redis';
 import logger from '@/lib/logger';
+import { MAX_MESSAGE_PER_SESSION, SESSION_TTL_SECONDS } from './constant';
 
 type Role = 'system' | 'user' | 'assistant' | string;
 
@@ -19,8 +20,8 @@ class ShortTermMemory {
     private sessionTTLSeconds: number;
 
     constructor({
-        maxMessagesPerSession = 100,
-        sessionTTLSeconds = 60 * 60, // Redis TTL 以秒为单位，30分钟
+        maxMessagesPerSession = MAX_MESSAGE_PER_SESSION,
+        sessionTTLSeconds = SESSION_TTL_SECONDS,
     } = {}) {
         this.maxMessagesPerSession = maxMessagesPerSession;
         this.sessionTTLSeconds = sessionTTLSeconds;

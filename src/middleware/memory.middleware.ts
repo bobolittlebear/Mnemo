@@ -5,8 +5,7 @@
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import { generateMemoryKey } from '@/util/tool';
-import logger from '@/lib/logger';
-import { SESSION_PREFIX } from '@/util/constant';
+import { COOKIE_MEMORY_KEY_MAX_AGE, SESSION_PREFIX } from '@/util/constant';
 
 // 扩展Express的Request类型，添加userId属性
 declare global {
@@ -52,7 +51,7 @@ export const memoryMiddleware = (
         httpOnly: true, // 防止 XSS 攻击，禁止 JS 读取
         // secure: true, // 仅在 HTTPS 下传输（本地测试如果是 HTTP 请改为 false）
         sameSite: 'strict', // 防止 CSRF 攻击
-        maxAge: 24 * 60 * 60 * 1000, // 设置过期时间，例如 24 小时
+        maxAge: COOKIE_MEMORY_KEY_MAX_AGE,
     });
     req.user = { ...req.user, memoryKey };
 

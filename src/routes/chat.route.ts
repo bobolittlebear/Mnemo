@@ -1,5 +1,10 @@
 import { Router } from 'express';
-import { chat, endSession } from '@/controllers/chat.controller';
+import {
+    chat,
+    endSession,
+    getChatHistory,
+    clearChatHistory,
+} from '@/controllers/chat.controller';
 // import { authMiddleware } from '../middleware/auth.middleware'; // 如果需要鉴权
 import { memoryMiddleware } from '@/middleware/memory.middleware';
 const router: Router = Router();
@@ -10,5 +15,7 @@ router.use(memoryMiddleware); // 开启会话时加上短期记忆key
 
 router.post('/chat', chat);
 router.post('/session/end', endSession);
+router.get('/chat/history', getChatHistory);
+router.delete('/chat/history', clearChatHistory);
 
 export default router;
