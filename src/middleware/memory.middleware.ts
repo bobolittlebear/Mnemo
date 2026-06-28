@@ -5,7 +5,7 @@
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import { generateMemoryKey } from '@/util/tool';
-import { COOKIE_MEMORY_KEY_MAX_AGE, SESSION_PREFIX } from '@/util/constant';
+import { COOKIE_MEMORY_KEY_MAX_AGE, SESSION_KEY_PREFIX } from '@/util/constant';
 
 // 扩展Express的Request类型，添加userId属性
 declare global {
@@ -39,7 +39,7 @@ export const memoryMiddleware = (
         memoryKey = req.cookies?.memory_key;
 
         // 2. 如果 Cookie 中不存在，则生成一个新的随机 Key
-        if (!memoryKey || !memoryKey.startsWith(SESSION_PREFIX)) {
+        if (!memoryKey || !memoryKey.startsWith(SESSION_KEY_PREFIX)) {
             // 使用加密安全的随机字节生成 16 字节的十六进制字符串
             const temporaryID = crypto.randomBytes(16).toString('hex');
             memoryKey = generateMemoryKey(temporaryID);

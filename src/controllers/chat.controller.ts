@@ -6,8 +6,12 @@ import { StreamCleaner } from '@/util/streamCleaner';
 import STM, { STMMessage } from '@/util/shortTermMemory';
 import ApiResponse from '@/util/apiResponse';
 import { TIMEOUT_MS, UNKNOWN_ERROR } from '@/util/constant';
-import ChatMessage, { IChatMessage } from '@/models/ChatMessage';
+import ChatMessage from '@/models/ChatMessage';
 import mongoose from 'mongoose';
+import type {
+    ChatCompletionMessageParam,
+    ChatCompletionChunk,
+} from 'openai/resources/chat/completions';
 
 // 配置：短期记忆要注入的最近轮数
 const SHORT_TERM_ROUNDS = Number(process.env.STM_ROUNDS || 10);
@@ -16,10 +20,16 @@ const chat = async (req: Request, res: Response) => {
     // 为每个请求创建一个独立的清洗器实例
     const cleaner = new StreamCleaner();
     try {
+        // 从 res.locals 中安全获取由中间件生成的 traceId
+        const traceId = res.locals.traceId;
         const rawMessages = Object.values(
             req.body?.messages || [],
-        ) as Partial<IChatMessage>[];
-        const messages = Array.isArray(rawMessages) ? rawMessages : [];
+        ) as ChatCompletionMessageParam[];
+        const messages: ChatCompletionMessageParam[] = Array.isArray(
+            rawMessages,
+        )
+            ? rawMessages
+            : [];
 
         if (!messages || !Array.isArray(messages)) {
             logger.error('Invalid messages format:', messages);
@@ -40,22 +50,25 @@ const chat = async (req: Request, res: Response) => {
         const systemInjected = recent.map((m) => ({
             role: m.role,
             content: m.content,
-        }));
-        const finalMessages = [
+        })) as ChatCompletionMessageParam[];
+        const finalMessages: ChatCompletionMessageParam[] = [
             ...systemInjected,
             messages[messages.length - 1],
-        ];
+        ].filter(Boolean) as ChatCompletionMessageParam[];
+
         logger.info('Received chat request', finalMessages);
 
         // 3. 发起 AI 流请求
-        const stream = (await createStreamChat(
-            finalMessages,
-        )) as unknown as AsyncIterable<any>;
+        const stream = (await createStreamChat(finalMessages, {
+            traceId,
+        })) as unknown as AsyncIterable<ChatCompletionChunk>;
         // 【关键】用于收集完整的 AI 回复
         let fullAssistantResponse = '';
-        for await (const chunk of stream) {
-            const content = chunk.choices[0]?.delta?.content || '';
+        // let assistantContent = '';
+        // let lastMsgId: string | null = null;
 
+        for await (const chunk of stream) {
+            const content = chunk.choices?.[0]?.delta?.content || '';
             if (content) {
                 // 【关键步骤】调用清洗器
                 const { cleaned, isDuplicate } = cleaner.clean(content);
@@ -66,34 +79,38 @@ const chat = async (req: Request, res: Response) => {
                     );
                     fullAssistantResponse += cleaned; // 累加完整的回复内容
                 }
+
+                // 提取 usage（最后一个 chunk）
+                // const usage = extractUsageFromChunk(chunk);
+                // if (usage) {
+                //     // 可选：记录 token 消耗日志
+                // }
             }
         }
 
-        // 4. 【核心修改】流结束后，立即持久化数据
-        // 此时 fullAssistantResponse 已经是完整的回答
+        // 4. 流结束后持久化数据
         if (fullAssistantResponse.trim()) {
             try {
                 const memoryKey = req.user.memoryKey!;
                 const now = Date.now();
 
                 // 提取本次对话中最新的 User 消息（即触发本次请求的消息）
-                // 注意：这里假设 messages 数组的最后一条是用户的最新输入
                 const latestUserMsg = messages[messages.length - 1]!;
 
-                const docsToSave = [
+                const docsToSave: Array<Partial<STMMessage>> = [
                     // 保存用户刚才发的消息（防止之前没存进去）
                     {
-                        memoryKey,
                         role: 'user',
-                        content: latestUserMsg.content,
+                        content: latestUserMsg.content as string,
                         timestamp: now, // 使用当前时间
+                        traceId,
                     },
                     // 保存刚刚生成的完整 AI 回答
                     {
-                        memoryKey,
                         role: 'assistant',
                         content: fullAssistantResponse,
                         timestamp: now + 1, // 强制比用户消息晚 1ms，保证排序正确
+                        traceId,
                     },
                 ];
                 // 并行写入 Redis 和 MongoDB
@@ -134,7 +151,7 @@ const chat = async (req: Request, res: Response) => {
     }
 };
 
-// 封装一个带超时的安全读取方法
+// 带超时的安全读取方法
 async function safeGetRecentRounds(
     id: string,
     rounds: number,
@@ -153,11 +170,9 @@ const endSession = async (req: Request, res: Response) => {
         const memoryKey = req.cookies.memory_key;
         if (memoryKey) {
             // 1. 仅清除 Redis 中的短期记忆（STM）
-            // 这相当于 AI 的“大脑清空”，但用户的“身份证”还在
             await STM.clearSession(memoryKey);
         }
-        // 2. 无论有没有 memoryKey，都直接返回成功
-        // 前端只需要知道“当前聊天窗口被重置了”
+        // 2. 无论有没有 memoryKey，都直接返回成功。前端只需要知道“当前聊天窗口被重置了”
         res.json(ApiResponse.success({}));
     } catch (error) {
         res.json(

@@ -5,14 +5,21 @@
  */
 import redisClient from '@/lib/redis';
 import logger from '@/lib/logger';
-import { MAX_MESSAGE_PER_SESSION, SESSION_TTL_SECONDS } from './constant';
+import {
+    MAX_MESSAGE_PER_SESSION,
+    SESSION_TTL_SECONDS,
+    LAST_EXTRACTED_MSG_KEY_PREFIX,
+} from './constant';
+import { randomUUID } from 'crypto';
 
 type Role = 'system' | 'user' | 'assistant' | string;
 
 export type STMMessage = {
+    id: string; // 全局唯一消息ID
     role: Role;
     content: string;
     timestamp: number;
+    traceId?: string;
 };
 
 class ShortTermMemory {
@@ -30,7 +37,11 @@ class ShortTermMemory {
     /**
      * 添加消息数组到 Redis List
      */
-    async addMessages(id: string, messages: Array<any>) {
+    async addMessages(
+        id: string,
+        messages: Array<Partial<STMMessage>>,
+        traceId?: string,
+    ) {
         try {
             if (
                 !id ||
@@ -39,13 +50,16 @@ class ShortTermMemory {
                 messages.length === 0
             )
                 return;
+
             const pipeline = redisClient.multi(); // 使用 Pipeline 减少网络 RTT
             for (const m of messages) {
                 if (!m || !m.role || m.content == null) continue;
                 const payload: STMMessage = {
+                    id: m.id || randomUUID(), // 优先使用传入的ID，否则自动生成UUID
                     role: m.role,
                     content: String(m.content),
                     timestamp: m.timestamp || Date.now(),
+                    traceId: m.traceId || traceId, // ✅ 优先使用消息自身的，其次使用批量注入的
                 };
                 pipeline.rPush(id, JSON.stringify(payload));
             }
@@ -99,6 +113,38 @@ class ShortTermMemory {
     async clearSession(id: string) {
         logger.info(`[EndSession] Clearing STM key: ${id}`);
         await redisClient.del(id);
+    }
+
+    /**
+     * 设置上次提取记忆的messageID
+     * 使用独立的 Redis Key 存储游标，避免与消息列表耦合
+     */
+    async setLastExtractedMsgId(sessionId: string, msgId: string) {
+        try {
+            if (!sessionId || !msgId) return;
+            const lastExtractedKey = `${LAST_EXTRACTED_MSG_KEY_PREFIX}${sessionId}`;
+            const pipeline = redisClient.multi();
+            pipeline.set(lastExtractedKey, msgId);
+            pipeline.expire(lastExtractedKey, this.sessionTTLSeconds); // 游标TTL与会话保持一致
+            await pipeline.exec();
+        } catch (err) {
+            logger.warn('STM setLastExtractedMsgId error', err);
+        }
+    }
+
+    /**
+     * 获取上次提取的消息ID
+     */
+    async getLastExtractedMsgId(sessionId: string): Promise<string | null> {
+        try {
+            if (!sessionId) return null;
+            return await redisClient.get(
+                `${LAST_EXTRACTED_MSG_KEY_PREFIX}${sessionId}`,
+            );
+        } catch (err) {
+            logger.warn('STM getLastExtractedMsgId error', err);
+            return null;
+        }
     }
 }
 

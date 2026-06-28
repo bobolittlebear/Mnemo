@@ -31,7 +31,7 @@
 
         // Stricter Typechecking Options
         "noUncheckedIndexedAccess": true,
-        "exactOptionalPropertyTypes": true,
+        "exactOptionalPropertyTypes": false, // 可选?属性是否严格约束
 
         // Style Options
         // "noImplicitReturns": true,
@@ -52,5 +52,5 @@
         "forceConsistentCasingInFileNames": true,
         "esModuleInterop": true
     },
-    "include": ["src/**/*"]
+    "include": ["src/**/*", "script"]
 }
