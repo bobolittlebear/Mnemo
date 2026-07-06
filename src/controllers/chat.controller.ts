@@ -32,9 +32,12 @@ const chat = async (req: Request, res: Response) => {
             : [];
 
         if (!messages || !Array.isArray(messages)) {
-            logger.error('Invalid messages format:', messages);
+            logger.error('[API][Invalid messages format] ', messages);
             return res.status(400).json({ error: 'Invalid messages format' });
         }
+
+        const latestUserMsg = messages[messages.length - 1]!;
+        const memoryKey = req.user.memoryKey!; // 中间件已处理过, 能够保证有值
 
         // 1. 设置 SSE 响应头
         res.setHeader('Content-Type', 'text/event-stream');
@@ -43,7 +46,6 @@ const chat = async (req: Request, res: Response) => {
         res.setHeader('X-Accel-Buffering', 'no'); // 关键：防止 Nginx 等反向代理缓冲流数据
 
         // 2. 从短期记忆检索最近对话并组装 System Prompt
-        const memoryKey = req.user.memoryKey!; // 中间件已处理过, 能够保证有值
         const recent = await safeGetRecentRounds(memoryKey, SHORT_TERM_ROUNDS);
 
         // 将 recent 转换为 LLM messages（按时间正序）并插入到当前 messages 之前
@@ -53,22 +55,30 @@ const chat = async (req: Request, res: Response) => {
         })) as ChatCompletionMessageParam[];
         const finalMessages: ChatCompletionMessageParam[] = [
             ...systemInjected,
-            messages[messages.length - 1],
+            latestUserMsg,
         ].filter(Boolean) as ChatCompletionMessageParam[];
 
-        logger.info('Received chat request', finalMessages);
+        logger.info(
+            '[DEBUG][/stream/chat] Received chat request: ',
+            finalMessages,
+        );
 
         // 3. 发起 AI 流请求
         const stream = (await createStreamChat(finalMessages, {
             traceId,
         })) as unknown as AsyncIterable<ChatCompletionChunk>;
-        // 【关键】用于收集完整的 AI 回复
+
         let fullAssistantResponse = '';
-        // let assistantContent = '';
-        // let lastMsgId: string | null = null;
+        // catch 块中不置 true，确保只有正常结束的流才会触发 STM 写入
+        let streamCompleted = false;
 
         for await (const chunk of stream) {
             const content = chunk.choices?.[0]?.delta?.content || '';
+            if (chunk.choices[0]?.finish_reason === 'content_filter') {
+                logger.warn(
+                    `[API][/stream/chat] Content filter triggered for traceId=${traceId}`,
+                );
+            }
             if (content) {
                 // 【关键步骤】调用清洗器
                 const { cleaned, isDuplicate } = cleaner.clean(content);
@@ -79,73 +89,91 @@ const chat = async (req: Request, res: Response) => {
                     );
                     fullAssistantResponse += cleaned; // 累加完整的回复内容
                 }
-
-                // 提取 usage（最后一个 chunk）
-                // const usage = extractUsageFromChunk(chunk);
-                // if (usage) {
-                //     // 可选：记录 token 消耗日志
-                // }
             }
         }
+        // 仅在 for-await 完整消费（无中途异常）后置 true
+        streamCompleted = true;
 
-        // 4. 流结束后持久化数据
-        if (fullAssistantResponse.trim()) {
+        // 延迟写入：仅在 streamCompleted && 有实际回复内容时，才将 User + Assistant 一起写入 STM
+        if (streamCompleted && fullAssistantResponse.trim()) {
+            // 内层 try-catch 包裹 Redis 同步写入，失败仅 log.warn，不中断响应
             try {
-                const memoryKey = req.user.memoryKey!;
                 const now = Date.now();
 
-                // 提取本次对话中最新的 User 消息（即触发本次请求的消息）
-                const latestUserMsg = messages[messages.length - 1]!;
-
                 const docsToSave: Array<Partial<STMMessage>> = [
-                    // 保存用户刚才发的消息（防止之前没存进去）
                     {
                         role: 'user',
                         content: latestUserMsg.content as string,
-                        timestamp: now, // 使用当前时间
+                        timestamp: now,
                         traceId,
                     },
-                    // 保存刚刚生成的完整 AI 回答
                     {
                         role: 'assistant',
                         content: fullAssistantResponse,
-                        timestamp: now + 1, // 强制比用户消息晚 1ms，保证排序正确
+                        // RPUSH 已经保证了 User 在 Assistant 前面
+                        timestamp: now,
                         traceId,
                     },
                 ];
-                // 并行写入 Redis 和 MongoDB
-                // 使用 Promise.all 确保两者都尝试写入
-                await Promise.all([
-                    STM.addMessages(memoryKey, docsToSave).catch((e) =>
-                        logger.warn('Redis STM save failed', e),
-                    ),
-                    ChatMessage.insertMany(docsToSave, { ordered: true }).catch(
-                        (e) => logger.warn('MongoDB save failed', e),
-                    ),
-                ]);
-                // 写入成功后，触发滑动窗口清理
-                // 这里依然不需要 await，清理是后台任务
-                ChatMessage.trimOldMessages(memoryKey, 100).catch((e) =>
-                    logger.warn('Trim messages error', e),
-                );
+
+                // Redis 必须 await 同步写入，确保下一轮请求能读到完整上下文
+                await STM.addMessages(memoryKey, docsToSave);
             } catch (error) {
-                logger.error(
-                    'Failed to save chat history after stream:',
-                    error,
-                );
-                // 即使保存失败，也不应该中断给前端的流，因为用户已经看到了内容
+                logger.warn('[Redis][Redis STM save failed]', error);
             }
+
+            // MongoDB 写入 + 清理作为后台任务，不阻塞响应结束
+            // 使用 setImmediate 将其推入下一个事件循环（macro task）
+            setImmediate(() => {
+                console.log(`[TIMING] mongo insertMany at ${Date.now()}`);
+
+                ChatMessage.insertMany(
+                    [
+                        {
+                            role: 'user',
+                            content: latestUserMsg.content as string,
+                            timestamp: Date.now(),
+                            traceId,
+                            memoryKey,
+                        },
+                        {
+                            role: 'assistant',
+                            content: fullAssistantResponse,
+                            timestamp: Date.now(),
+                            traceId,
+                            memoryKey,
+                        },
+                    ],
+                    { ordered: true },
+                )
+                    .then(() => ChatMessage.trimOldMessages(memoryKey, 100))
+                    .catch((e) =>
+                        logger.warn('[MongoDB][save/trim failed] ', e),
+                    );
+            });
         }
 
-        // 4. 发送结束标记
-        res.write('data: [DONE]\n\n');
+        console.log(`[TIMING] res.end at ${Date.now()}`);
+
+        // SSE 协议规范化：正常结束发送 event: done
+        res.write('event: done\ndata: [DONE]\n\n');
         res.end();
     } catch (error: any) {
-        console.error('Stream Chat Error:', error);
-        // 如果还没发送响应头，可以返回错误 JSON；如果已经开始流式传输，只能断开连接
+        logger.error('[API][Stream Chat Error] ', error);
+        // 错误分级处理
         if (!res.headersSent) {
+            // 响应头尚未发送 → 返回标准 JSON 错误
             res.status(500).json({ error: 'Internal Server Error' });
         } else {
+            // 响应头已发送（流已开始）→ 发送 SSE event: error 后结束
+            // streamCompleted 保持 false，不会触发 STM 写入，避免上下文污染
+            try {
+                res.write(
+                    `event: error\ndata: ${JSON.stringify({ error: 'Stream interrupted' })}\n\n`,
+                );
+            } catch (_) {
+                // 连接可能已断开，忽略写入失败
+            }
             res.end();
         }
     }
@@ -226,7 +254,7 @@ const getChatHistory = async (req: Request, res: Response) => {
 
         res.json(ApiResponse.success(formattedMessages));
     } catch (error) {
-        console.error(error);
+        logger.error('[Code] Error: ' + error);
         res.status(500).json(
             ApiResponse.error(
                 error instanceof Error ? error.message : UNKNOWN_ERROR,

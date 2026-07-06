@@ -61,7 +61,7 @@ class ShortTermMemory {
                     timestamp: m.timestamp || Date.now(),
                     traceId: m.traceId || traceId, // ✅ 优先使用消息自身的，其次使用批量注入的
                 };
-                pipeline.rPush(id, JSON.stringify(payload));
+                pipeline.rPush(id, JSON.stringify(payload)); // 尾部追加，插入顺序 = 时间顺序
             }
             // 仅保留最近的 N 条消息（实现 LRU 截断）
             pipeline.lTrim(id, -this.maxMessagesPerSession, -1);

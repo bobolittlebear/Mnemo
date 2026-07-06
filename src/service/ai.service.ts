@@ -1,20 +1,8 @@
 // src/services/ai.service.ts
 import OpenAI from 'openai';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
-// ==================== 配置与初始化 ====================
-const AI_BASE_URL = process.env.AI_BASE_URL;
-const AI_API_KEY = process.env.AI_API_KEY;
-const AI_MODEL = process.env.AI_MODEL || 'qwen3.7-plus';
+import { getAIApi, AI_MODEL } from './core/config';
 
-if (!AI_BASE_URL || !AI_API_KEY) {
-    console.warn(
-        '[AI Service] ⚠️ AI_BASE_URL or AI_API_KEY is not configured. AI features may fail.',
-    );
-}
-const client = new OpenAI({
-    baseURL: AI_BASE_URL,
-    apiKey: AI_API_KEY,
-});
 // ==================== 类型定义 ====================
 
 export interface StreamChatOptions {
@@ -58,7 +46,9 @@ export interface UsageInfo {
         ? [{ role: 'system', content: systemPrompt }, ...messages]
         : messages;
 
-    return client.chat.completions.create({
+    const ai = getAIApi();
+
+    return ai.chat.completions.create({
         model: AI_MODEL,
         messages: finalMessages,
         stream: true,
@@ -98,7 +88,9 @@ export async function createChat(
         ? [{ role: 'system', content: systemPrompt }, ...messages]
         : messages;
 
-    const response = await client.chat.completions.create({
+    const ai = getAIApi();
+
+    const response = await ai.chat.completions.create({
         model: AI_MODEL,
         messages: finalMessages,
         temperature,
