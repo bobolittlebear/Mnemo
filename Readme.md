@@ -1,57 +1,217 @@
-# 🧠 AI Quick Note: 基于 LLM 的智能知识检索与问答系统
+# AIQuickNote —— 带上下文记忆的个人 AI 笔记助手
 
-项目定位：一个极简主义效率工具，旨在解决碎片化信息记录与知识检索的痛点。本项目不仅实现了基础的流式对话，更在架构设计上对标企业级 AI Agent 应用标准，探索大模型在私有知识库场景下的工程化落地。
+> 一边记笔记，一边和你的知识库对话。
 
-## ✨ 核心特性 (Core Features)
+---
 
-- ⚡️ 极速流式响应：基于原生 Fetch API 与 Server-Sent Events (SSE) 实现大模型流式输出，提供低延迟、打字机般的丝滑交互体验。
-- 🔍 智能知识问答：支持用户基于个人笔记进行自然语言检索，精准提取关键信息并生成结构化摘要。
-- ☁️ 云端数据同步：采用 MERN 架构，笔记数据持久化存储于 MongoDB，支持多端同步与结构化查询，保障数据资产安全。
-- 🧱 模块化架构：前后端解耦设计，前端专注 UI/UX 交互与状态管理，后端提供标准化的 RESTful/Streaming API。
+## 📖 项目背景
 
-## 🛠️ 技术栈 (Tech Stack)
+在飞书知识库写作时，飞书尚未上线「问问知识库」功能。我迫切需要一个能**基于个人知识库 / 学习笔记进行 AI 对话**的工具——例如让 AI 快速提炼我面试总结里的常考题目。
 
-- 前端：React + TypeScript, Vite (极速构建), Ant Design (企业级 UI 组件库)
-- 后端：Node.js + Express (轻量级 RESTful API 服务)
-- 数据库：MongoDB (灵活的文档型数据库，完美适配非结构化笔记数据)
-- AI 集成：OpenAI API (Chat Completions & Streaming)
-- 核心亮点（混合网络请求架构）：常规 RESTful API 调用采用 Axios，利用其拦截器与异常处理机制保障基础业务稳定性；针对 AI 流式响应，摒弃 Axios 限制，采用原生 Fetch API 手动处理流式数据读取（ReadableStream），实现边接收边解析边渲染。
+于是 AIQuickNote 诞生了：一个支持创建个人笔记本，并**基于笔记本知识库做 RAG 增强的 AI 聊天会话**的个人知识管理工具。
 
-## 🚀 进阶演进路线 (Roadmap to AI Agent)
+---
 
-本项目正在按照企业级 AI Agent 的标准进行持续迭代，下一阶段的核心目标包括：
+## ✨ 核心定位
 
-- [进行中] 记忆治理机制：
-    1. 短期记忆（In-Request Short-Term Memory）：在 Express 的请求生命周期中，将当前会话的最近 N 轮对话（如最近 10 轮）按时间正序组装进 System Prompt。
-        - 已实现（Redis层面短期记忆管理）：在 `src/util/shortTermMemory.ts` 中提供Redis缓存短期记忆管理器（带 TTL、会话数上限与单会话消息上限），避免 N+1 查询并使用定时清理避免内存泄漏。
-        - 在 `src/middleware/memory.middleware.ts`中实现memoryKey管理，根据用户id拼接key，亦支持临时会话生成random key
-        - 在 `src/controllers/chat.controller.ts` 中已集成：
-            1. 在发起 AI 请求前，使用 `memoryKey`查询Redis中存储的最近 N 轮对话（默认 N=10），按时间正序组装并注入到发送给 LLM 的 messages 里，作为 System Prompt 的一部分。
-            2. 在流式响应结束后，异步将本次请求的消息追加回短期记忆，避免阻塞主流程。
-        - 边界与鲁棒性处理：
-            - 对空消息、无 memoryKey 、并发请求做兜底处理，所有 STM 操作捕获内部异常并记录日志，不抛异常以免影响主流程。
-    2. 长期记忆（MongoDB + Vector Search）：
-        - 写入：每次对话结束后，异步调用大模型提取 1-3 个核心事实/用户偏好（JSON 格式），连同原始对话片段存入 MongoDB。
-        - 检索：利用 MongoDB Atlas Vector Search（或本地轻量级向量库），在每次新对话开始前，用当前用户输入作为 Query 检索 Top-K 条相关记忆，注入到 System Prompt 中。
-    3. 状态管理雏形：在 MongoDB 中建立 Sessions 集合，记录当前会话的元数据（如会话 ID、创建时间、最后活跃时间），为后续的上下文管理打基础。
-- [规划中] RAG 检索增强生成：引入 LlamaIndex 与向量数据库（Chroma/Milvus），实现基于文档分块（Chunking）与混合检索的精准问答，解决大模型幻觉问题。
-- [规划中] Tool Calling (工具调用)：赋予 AI 自主规划能力，使其能够根据用户意图自动调用日历、邮件或代码执行等外部工具。
-- [规划中] Multi-Agent 协作：基于 LangGraph/CrewAI 框架，拆分 Researcher（检索）、Writer（总结）、Reviewer（校验）等多智能体，协同完成复杂任务。
-- [规划中] 数据闭环与评测：建立用户反馈机制（点赞/踩）与自动化评测集，持续优化检索准确率与回答质量。
+AIQuickNote 不只是一个笔记应用，而是一个具备**完整上下文管理能力**的「笔记 + AI」工具：
 
-# 项目启动
+- 📝 **记笔记时随时唤起 AI 对话窗口**，边问答边记录
+- 🧠 **多层记忆治理机制**（短期记忆 STM + 长期记忆 LTM），让 AI 真正「记得你」
+- 🔍 **基于个人笔记本的 RAG 检索**，回答有据可依
+- 🛠️ **工具调用能力**，对 AI 说「把这段总结写入笔记」，Agent 自动执行
+- 📋 **任务状态管理**，追踪待办与进度
 
-# redis
+---
 
-```docker run -d \
---name aiquicknote-redis \
--p 6379:6379 \
--v ~/work/aiquicknote-redis:/data \
---restart always \
-redis:8.6-alpine \
-redis-server --requirepass aiquicknote
+## 🏗️ 技术栈
+
+| 层级 | 技术 |
+|------|------|
+| 后端框架 | Express + TypeScript |
+| 数据库 | MongoDB（Mongoose ODM） |
+| AI 能力 | OpenAI API（兼容接口） |
+| 缓存 / 短时记忆 | Redis |
+| 定时任务 | node-cron |
+| 向量检索 | *规划中* |
+
+---
+
+## 🗂️ 核心功能模块
+
+### 1. 笔记本 & 笔记管理
+- 笔记本的创建、删除、修改、查询
+- 笔记的创建、删除、修改、查询
+- 支持多笔记本隔离
+
+### 2. 上下文记忆治理机制
+
+#### 2.1 短期记忆（STM — Short-Term Memory）
+以 `前缀 + memory_key` 为 key 缓存在 Redis 中，实现方式：
+
+- 基于 **Redis List** 实现 LRU 样式的消息截断（`LTRIM`）
+- 实现按 User 消息为基准的 `getRecentRounds` **滑动窗口算法**
+- 设计 **TTL 自动过期与会话清理机制**
+- 每次调用 LLM 时，从 STM 提取最近 N 轮历史对话注入 System Prompt
+
+#### 2.2 会话溯源
+- 每轮会话生成 `traceId`，便于后期长期记忆提取时溯源追踪
+
+#### 2.3 长期记忆（LTM — Long-Term Memory）
+已完成的模型与基础设施：
+
+- `MemoryFact` 数据模型：存储从对话中提取的事实性记忆
+- `ChatMessage` 历史会话记录模型
+- `MemoryExtractionService`：大模型提取服务，从对话中提炼长期记忆
+
+**三层触发机制**（开发中）：
+
+| 层级 | 触发方式 | 说明 |
+|------|----------|------|
+| 第一层 | 显性结束触发 | 每次 SSE 流式响应结束后，**异步执行**（不阻塞 `[DONE]` 发送） |
+| 第二层 | 超时静默触发 | 用户停止发消息超过 T 分钟（如 30 分钟），基于 `lastExtractedAt` 标记判断，使用 Cron 实现 |
+| 第三层 | 强制兜底触发 | 每日固定时间（如凌晨 3 点），扫描所有存在未提取消息的会话 |
+
+**规划中**：
+- 长期记忆向量化 & 向量检索
+- 长期记忆遗忘机制
+- 版本冲突管理方案
+
+---
+
+### 3. RAG 知识库检索（规划中）
+- 个人笔记向量化构建
+- 混合检索（向量 + 关键词）
+- 笔记更新时**先删除再重建**向量化
+
+### 4. 工具调用（规划中）
+- AI 生成内容并**直接写入笔记**
+- 扩展更多 Tool：搜索、计算、绘图……
+
+### 5. 任务状态管理（规划中）
+- 任务创建、状态流转
+- 与笔记联动，任务完成自动归档
+
+---
+
+## 🚦 开发进度
+
+| 模块 | 状态 |
+|------|------|
+| 笔记本 / 笔记 CRUD | ✅ 已实现 |
+| 用户登录鉴权 | ✅ 已实现（`/stream/chat` 暂未接入，允许临时会话） |
+| 短期记忆 STM | ✅ 已实现 |
+| traceId 会话溯源 | ✅ 已实现 |
+| 长期记忆数据模型 & 提取服务 | ✅ 已实现 |
+| 长期记忆三层触发机制 | 🔄 开发中 |
+| 长期记忆向量化 & 检索 | 📋 规划中 |
+| 笔记 RAG 向量化 & 混合检索 | 📋 规划中 |
+| 笔记工具调用（AI 写入） | 📋 规划中 |
+| 任务状态管理 | 📋 规划中 |
+
+---
+
+## 📐 项目结构（示意）
+
+```
+src/
+├── controllers/          # 路由控制器
+├── services/
+│   ├── memory/          # 记忆治理
+│   │   ├── shortTermMemory.ts   # STM（Redis List LRU）
+│   │   └── memoryExtractionService.ts  # LTM 提取服务
+│   ├── rag/             # RAG 检索服务（规划中）
+│   └── note/            # 笔记服务
+├── models/
+│   ├── MemoryFact.ts    # 长期记忆事实模型
+│   ├── ChatMessage.ts   # 历史会话记录模型
+│   ├── Notebook.ts      # 笔记本模型
+│   └── Note.ts          # 笔记模型
+├── routes/              # Express 路由
+├── middleware/          # 鉴权、日志等中间件
+├── utils/
+│   └── traceId.ts      # 会话溯源工具
+└── index.ts             # 入口文件
 ```
 
-# node服务
+---
 
+## 🚀 快速开始
+
+### 1. 启动 Redis
+
+```bash
+docker run -d \
+  --name aiquicknote-redis \
+  -p 6379:6379 \
+  -v ~/work/aiquicknote-redis:/data \
+  --restart always \
+  redis:8.6-alpine \
+  redis-server --requirepass aiquicknote
+```
+
+### 2. 启动 Node 服务
+
+```bash
+# 安装依赖
+pnpm install
+
+# 启动开发服务器
 pnpm run dev
+
+# 构建生产版本
+pnpm run build
+
+# 启动生产服务器
+pnpm start
+```
+
+### 环境变量说明
+
+| 变量名 | 说明 |
+|--------|------|
+| `MONGODB_URI` | MongoDB 连接地址 |
+| `REDIS_URL` | Redis 连接地址 |
+| `OPENAI_API_KEY` | OpenAI API Key |
+| `OPENAI_BASE_URL` | OpenAI 兼容接口地址（可选） |
+| `JWT_SECRET` | JWT 签名密钥 |
+| `PORT` | 服务端口（默认 3000） |
+
+---
+
+## 📡 主要 API 端点
+
+| 方法 | 路径 | 说明 | 鉴权 |
+|------|------|------|------|
+| POST | `/api/auth/register` | 用户注册 | ❌ |
+| POST | `/api/auth/login` | 用户登录 | ❌ |
+| GET | `/api/notebooks` | 获取笔记本列表 | ✅ |
+| POST | `/api/notebooks` | 创建笔记本 | ✅ |
+| GET | `/api/notes` | 获取笔记列表 | ✅ |
+| POST | `/api/notes` | 创建笔记 | ✅ |
+| POST | `/stream/chat` | AI 流式对话（SSE） | ❌*（临时会话）* |
+| GET | `/api/memory/facts` | 查看长期记忆 | ✅ |
+
+> `* /stream/chat` 当前未接入鉴权，支持匿名临时会话，正式上线前需补全。
+
+---
+
+## 🎯 未来规划
+
+- [ ] 长期记忆向量化存储与语义检索
+- [ ] 笔记 RAG 混合检索（向量 + BM25）
+- [ ] 记忆遗忘机制（Ebbinghaus 曲线 / 引用计数）
+- [ ] Tool Calling：AI 直接操作笔记（写入、修改、删除）
+- [ ] 任务状态管理模块
+- [ ] 多人协作（可选）
+- [ ] 前端配套（Web / 桌面端）
+
+---
+
+## 📄 License
+
+MIT
+
+---
+
+*用 AI 记住你的知识，让笔记真正「活」起来。*
