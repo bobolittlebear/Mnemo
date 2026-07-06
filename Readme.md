@@ -20,7 +20,7 @@ AIQuickNote 不只是一个笔记应用，而是一个具备**完整上下文管
 - 🧠 **多层记忆治理机制**（短期记忆 STM + 长期记忆 LTM），让 AI 真正「记得你」
 - 🔍 **基于个人笔记本的 RAG 检索**，回答有据可依
 - 🛠️ **工具调用能力**，对 AI 说「把这段总结写入笔记」，Agent 自动执行
-- 📋 **任务状态管理**，追踪待办与进度
+- 🤖 **Agent 任务状态管理**，追踪 Tool Call 执行状态、保持多轮任务上下文、管理后台异步任务
 
 ---
 
@@ -88,9 +88,23 @@ AIQuickNote 不只是一个笔记应用，而是一个具备**完整上下文管
 - AI 生成内容并**直接写入笔记**
 - 扩展更多 Tool：搜索、计算、绘图……
 
-### 5. 任务状态管理（规划中）
-- 任务创建、状态流转
-- 与笔记联动，任务完成自动归档
+### 5. Agent 任务状态管理（规划中）
+
+管理 Agent 在执行任务过程中的全生命周期状态，覆盖三个维度：
+
+**A. Tool Call 执行状态追踪**
+- 记录每次工具调用的参数、执行结果（成功 / 失败）、耗时
+- 写入笔记后关联 `noteId`，方便溯源
+- 支持多步骤任务的每一步状态记录（如：搜知识库 → 生成总结 → 写入笔记）
+
+**B. 多轮对话中的任务上下文保持**
+- Agent 执行复杂任务时（跨多轮对话），保持任务上下文不丢失
+- 支持断点续接：用户离开后回来，Agent 知道上次做到哪一步
+
+**C. 后台异步任务管理**
+- 长期记忆提取、笔记向量化等后台任务的状态管理
+- 任务排队、执行中、完成、失败等状态流转
+- 用户可查询任务进度（如「我的笔记向量化进度」）
 
 ---
 
@@ -115,23 +129,50 @@ AIQuickNote 不只是一个笔记应用，而是一个具备**完整上下文管
 
 ```
 src/
-├── controllers/          # 路由控制器
-├── services/
-│   ├── memory/          # 记忆治理
-│   │   ├── shortTermMemory.ts   # STM（Redis List LRU）
-│   │   └── memoryExtractionService.ts  # LTM 提取服务
-│   ├── rag/             # RAG 检索服务（规划中）
-│   └── note/            # 笔记服务
-├── models/
-│   ├── MemoryFact.ts    # 长期记忆事实模型
-│   ├── ChatMessage.ts   # 历史会话记录模型
-│   ├── Notebook.ts      # 笔记本模型
-│   └── Note.ts          # 笔记模型
-├── routes/              # Express 路由
-├── middleware/          # 鉴权、日志等中间件
-├── utils/
-│   └── traceId.ts      # 会话溯源工具
-└── index.ts             # 入口文件
+├── bin/                       # 脚本入口
+├── controllers/               # 路由控制器
+│   ├── auth.controller.ts
+│   ├── chat.controller.ts
+│   ├── note.controller.ts
+│   └── notebook.controller.ts
+├── db/                        # 数据库连接
+│   └── index.ts
+├── lib/                       # 基础库与客户端
+│   ├── embedding.ts           # 向量化相关
+│   ├── logger.ts              # 日志工具
+│   └── redis.ts               # Redis 客户端
+├── middleware/                # 中间件
+│   ├── auth.middleware.ts     # 鉴权
+│   ├── memory.middleware.ts   # 记忆相关
+│   └── trace.middleware.ts    # traceId 溯源
+├── models/                    # 数据模型
+│   ├── ChatMessage.ts         # 历史会话记录
+│   ├── MemoryFact.ts          # 长期记忆事实
+│   ├── Note.ts                # 笔记
+│   ├── Notebook.ts            # 笔记本
+│   └── User.ts                # 用户
+├── routes/                    # 路由注册
+│   ├── api.route.ts
+│   ├── auth.route.ts
+│   ├── chat.route.ts
+│   ├── index.ts
+│   └── root.route.ts
+├── service/                   # 业务服务
+│   ├── core/                  # 核心配置
+│   │   └── config.ts
+│   ├── ai.service.ts
+│   ├── auth.service.ts
+│   ├── memoryExtraction.service.ts  # 长期记忆提取
+│   ├── note.service.ts
+│   └── notebook.service.ts
+├── types/models/              # 类型定义
+└── util/                      # 工具函数
+    ├── apiResponse.ts
+    ├── constant.ts
+    ├── jwt.ts
+    ├── shortTermMemory.ts     # 短期记忆（STM）
+    ├── streamCleaner.ts
+    └── tool.ts                # 工具调用
 ```
 
 ---
@@ -144,7 +185,7 @@ src/
 docker run -d \
   --name aiquicknote-redis \
   -p 6379:6379 \
-  -v ~/work/aiquicknote-redis:/data \
+  -v 你的redis目录:/data \
   --restart always \
   redis:8.6-alpine \
   redis-server --requirepass aiquicknote
@@ -171,11 +212,14 @@ pnpm start
 | 变量名 | 说明 |
 |--------|------|
 | `MONGODB_URI` | MongoDB 连接地址 |
-| `REDIS_URL` | Redis 连接地址 |
-| `OPENAI_API_KEY` | OpenAI API Key |
-| `OPENAI_BASE_URL` | OpenAI 兼容接口地址（可选） |
 | `JWT_SECRET` | JWT 签名密钥 |
-| `PORT` | 服务端口（默认 3000） |
+| `AI_BASE_URL` | AI 服务基础地址（OpenAI 兼容接口） |
+| `AI_API_KEY` | AI 服务 API Key |
+| `AI_MODEL` | 默认对话模型 |
+| `AI_MODEL_2` | 备用模型（如记忆提取、RAG 等场景） |
+| `REDIS_URL` | Redis 连接地址 |
+| `REDIS_PASSWORD` | Redis 密码 |
+| `STM_ROUNDS` | 短期记忆保留的对话轮数 |
 
 ---
 
@@ -202,7 +246,7 @@ pnpm start
 - [ ] 笔记 RAG 混合检索（向量 + BM25）
 - [ ] 记忆遗忘机制（Ebbinghaus 曲线 / 引用计数）
 - [ ] Tool Calling：AI 直接操作笔记（写入、修改、删除）
-- [ ] 任务状态管理模块
+- [ ] Agent 任务状态管理模块（Tool Call 追踪 + 多轮上下文保持 + 后台异步任务）
 - [ ] 多人协作（可选）
 - [ ] 前端配套（Web / 桌面端）
 
