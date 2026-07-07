@@ -1,5 +1,7 @@
 import { createClient } from 'redis';
-import logger from './logger';
+import { createLogger } from './logger';
+
+const logger = createLogger('redis');
 
 const redisClient = createClient({
     url: process.env.REDIS_URL || 'redis://localhost:6379',
@@ -11,7 +13,9 @@ const redisClient = createClient({
     pingInterval: 10000,
 });
 
-redisClient.on('error', (err) => logger.error('Redis Client Error', err));
+redisClient.on('error', (error) =>
+    logger.error('Redis Client Error', { error }),
+);
 redisClient.on('connect', () => logger.info('Connected to Redis'));
 
 // 确保在应用启动时连接

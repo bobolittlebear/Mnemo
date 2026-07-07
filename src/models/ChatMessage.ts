@@ -2,7 +2,7 @@
 /**
  * AI对话消息模型 - 支持按用户查询、按时间倒序分页
  */
-import logger from '@/lib/logger';
+import { createLogger } from '@/lib/logger';
 import { MAX_MESSAGE_PER_SESSION } from '@/util/constant';
 import mongoose, { Schema, Document, Model } from 'mongoose';
 
@@ -55,6 +55,7 @@ chatMessageSchema.statics.trimOldMessages = async function (
     memoryKey: string,
     maxMessages: number = MAX_MESSAGE_PER_SESSION,
 ) {
+    const logger = createLogger('mongodb');
     try {
         // 1. 找出需要被删除的消息的 _id
         // 逻辑：按时间正序排列，跳过最新的 maxMessages 条，剩下的就是要删除的

@@ -7,3 +7,10 @@ export function generateMemoryKey(userId: string) {
 export function generateTraceId(): string {
     return randomUUID(); // 例如: "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d"
 }
+export function safeStringify(obj: unknown): string {
+    try {
+        return JSON.stringify(obj);
+    } catch {
+        return '[Unserializable]';
+    }
+}

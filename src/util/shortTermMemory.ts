@@ -4,7 +4,7 @@
  * 目的：在 Express 请求生命周期中保存最近若干轮对话，按时间正序组装进 System Prompt
  */
 import redisClient from '@/lib/redis';
-import logger from '@/lib/logger';
+import { createLogger } from '@/lib/logger';
 import {
     MAX_MESSAGE_PER_SESSION,
     SESSION_TTL_SECONDS,
@@ -21,6 +21,8 @@ export type STMMessage = {
     timestamp: number;
     traceId?: string;
 };
+
+const logger = createLogger('stm');
 
 class ShortTermMemory {
     private maxMessagesPerSession: number;
@@ -69,8 +71,8 @@ class ShortTermMemory {
             pipeline.expire(id, this.sessionTTLSeconds);
 
             await pipeline.exec();
-        } catch (err) {
-            logger.warn('STM addMessages error', err);
+        } catch (error) {
+            logger.warn('STM addMessages error', { error });
         }
     }
 
@@ -103,15 +105,15 @@ class ShortTermMemory {
             }
             // 返回时间正序
             return res.reverse();
-        } catch (err) {
-            logger.warn('STM getRecentRounds error', err);
+        } catch (error) {
+            logger.warn('STM getRecentRounds error', { error });
             return [];
         }
     }
 
     // 手动清理会话
     async clearSession(id: string) {
-        logger.info(`[EndSession] Clearing STM key: ${id}`);
+        logger.info('Clearing STM key', { id });
         await redisClient.del(id);
     }
 
@@ -127,8 +129,8 @@ class ShortTermMemory {
             pipeline.set(lastExtractedKey, msgId);
             pipeline.expire(lastExtractedKey, this.sessionTTLSeconds); // 游标TTL与会话保持一致
             await pipeline.exec();
-        } catch (err) {
-            logger.warn('STM setLastExtractedMsgId error', err);
+        } catch (error) {
+            logger.warn('STM setLastExtractedMsgId error', { error });
         }
     }
 
@@ -141,8 +143,8 @@ class ShortTermMemory {
             return await redisClient.get(
                 `${LAST_EXTRACTED_MSG_KEY_PREFIX}${sessionId}`,
             );
-        } catch (err) {
-            logger.warn('STM getLastExtractedMsgId error', err);
+        } catch (error) {
+            logger.warn('STM getLastExtractedMsgId error', { error });
             return null;
         }
     }

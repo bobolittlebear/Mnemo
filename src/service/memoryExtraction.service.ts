@@ -2,7 +2,7 @@
 import { MemoryFact, IMemoryFact } from '@/models/MemoryFact';
 import STM from '@/util/shortTermMemory';
 import { generateEmbedding } from '@/lib/embedding'; // 假设你的向量化封装
-import logger from '../lib/logger';
+import { createLogger } from '@/lib/logger';
 import { createChat } from './ai.service';
 
 interface RawMessage {
@@ -26,6 +26,8 @@ const EXTRACTION_PROMPT = `你是一个记忆提取专家。请从以下对话�
 对话内容：
 {{CONVERSATION}}`;
 
+const logger = createLogger('ltm');
+
 export class MemoryExtractionService {
     /**
      * 核心提取方法
@@ -47,7 +49,7 @@ export class MemoryExtractionService {
         }).lean();
 
         if (existing) {
-            logger.debug(`[Memory] Skip duplicate extraction for ${memoryKey}`);
+            logger.debug('Skip duplicate extraction', { memoryKey });
             await STM.setLastExtractedMsgId(
                 memoryKey,
                 sourceIds[sourceIds.length - 1]!,
@@ -73,10 +75,7 @@ export class MemoryExtractionService {
             );
             facts = this.parseFacts(llmResponse?.content);
         } catch (error) {
-            logger.error(
-                `[Memory] LLM extraction failed for ${memoryKey}`,
-                error,
-            );
+            logger.error(`LLM extraction failed`, { memoryKey, error });
             // LLM 失败不更新标记，等待下次重试
             throw error;
         }
@@ -90,9 +89,9 @@ export class MemoryExtractionService {
                 memoryKey,
                 sourceIds[sourceIds.length - 1]!,
             );
-            logger.info(
-                `[Memory] No valid facts extracted for ${memoryKey}, marker updated`,
-            );
+            logger.info(`No valid facts extracted, marker updated`, {
+                memoryKey,
+            });
             return 0;
         }
 
@@ -100,7 +99,9 @@ export class MemoryExtractionService {
         const docsToSave: Partial<IMemoryFact>[] = [];
         for (const fact of validFacts) {
             try {
-                const embedding = await generateEmbedding(fact.content);
+                const embedding = await generateEmbedding({
+                    input: fact.content,
+                });
                 docsToSave.push({
                     memoryKey,
                     content: fact.content,
@@ -110,7 +111,7 @@ export class MemoryExtractionService {
                 });
             } catch (embError) {
                 logger.warn(
-                    `[Memory] Embedding failed for fact: ${fact.content}`,
+                    `Embedding failed for fact: ${fact.content}`,
                     embError,
                 );
                 // 单条向量化失败不影响其他事实
@@ -127,9 +128,7 @@ export class MemoryExtractionService {
             memoryKey,
             sourceIds[sourceIds.length - 1]!,
         );
-        logger.info(
-            `[Memory] Extracted ${docsToSave.length} facts for ${memoryKey}`,
-        );
+        logger.info(`Extracted ${docsToSave.length} facts`, { memoryKey });
 
         return docsToSave.length;
     }
@@ -144,7 +143,7 @@ export class MemoryExtractionService {
             const parsed = JSON.parse(cleaned);
 
             if (!Array.isArray(parsed.facts)) {
-                logger.warn('[Memory] Invalid facts format:', parsed);
+                logger.warn('Invalid facts format:', { parsed });
                 return [];
             }
 
@@ -154,7 +153,7 @@ export class MemoryExtractionService {
                     typeof f.confidence === 'number',
             );
         } catch (e) {
-            logger.error('[Memory] JSON parse failed:', raw.substring(0, 200));
+            logger.error('JSON parse failed', { raw: raw.substring(0, 200) });
             return [];
         }
     }

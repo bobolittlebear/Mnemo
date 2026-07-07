@@ -1,7 +1,7 @@
 // src/controllers/chat.controller.ts
 import { Request, Response } from 'express';
 import { createStreamChat } from '../service/ai.service';
-import logger from '../lib/logger';
+import { createLogger } from '@/lib/logger';
 import { StreamCleaner } from '@/util/streamCleaner';
 import STM, { STMMessage } from '@/util/shortTermMemory';
 import ApiResponse from '@/util/apiResponse';
@@ -15,10 +15,13 @@ import type {
 
 // 配置：短期记忆要注入的最近轮数
 const SHORT_TERM_ROUNDS = Number(process.env.STM_ROUNDS || 10);
+const logger = createLogger('api');
 
 const chat = async (req: Request, res: Response) => {
     // 为每个请求创建一个独立的清洗器实例
     const cleaner = new StreamCleaner();
+    const startTime = Date.now();
+
     try {
         // 从 res.locals 中安全获取由中间件生成的 traceId
         const traceId = res.locals.traceId;
@@ -32,7 +35,7 @@ const chat = async (req: Request, res: Response) => {
             : [];
 
         if (!messages || !Array.isArray(messages)) {
-            logger.error('[API][Invalid messages format] ', messages);
+            logger.warn('Invalid messages format', { traceId, body: req.body });
             return res.status(400).json({ error: 'Invalid messages format' });
         }
 
@@ -58,11 +61,6 @@ const chat = async (req: Request, res: Response) => {
             latestUserMsg,
         ].filter(Boolean) as ChatCompletionMessageParam[];
 
-        logger.info(
-            '[DEBUG][/stream/chat] Received chat request: ',
-            finalMessages,
-        );
-
         // 3. 发起 AI 流请求
         const stream = (await createStreamChat(finalMessages, {
             traceId,
@@ -75,9 +73,7 @@ const chat = async (req: Request, res: Response) => {
         for await (const chunk of stream) {
             const content = chunk.choices?.[0]?.delta?.content || '';
             if (chunk.choices[0]?.finish_reason === 'content_filter') {
-                logger.warn(
-                    `[API][/stream/chat] Content filter triggered for traceId=${traceId}`,
-                );
+                logger.warn('Content filter triggered', { traceId });
             }
             if (content) {
                 // 【关键步骤】调用清洗器
@@ -119,14 +115,17 @@ const chat = async (req: Request, res: Response) => {
                 // Redis 必须 await 同步写入，确保下一轮请求能读到完整上下文
                 await STM.addMessages(memoryKey, docsToSave);
             } catch (error) {
-                logger.warn('[Redis][Redis STM save failed]', error);
+                logger.warn('STM save failed', {
+                    traceId,
+                    component: 'redis',
+                    memoryKey,
+                    error,
+                });
             }
 
             // MongoDB 写入 + 清理作为后台任务，不阻塞响应结束
             // 使用 setImmediate 将其推入下一个事件循环（macro task）
             setImmediate(() => {
-                console.log(`[TIMING] mongo insertMany at ${Date.now()}`);
-
                 ChatMessage.insertMany(
                     [
                         {
@@ -147,19 +146,26 @@ const chat = async (req: Request, res: Response) => {
                     { ordered: true },
                 )
                     .then(() => ChatMessage.trimOldMessages(memoryKey, 100))
-                    .catch((e) =>
-                        logger.warn('[MongoDB][save/trim failed] ', e),
+                    .catch((error) =>
+                        logger.warn('ChatMessage save/trim failed', {
+                            traceId,
+                            component: 'mongodb',
+                            memoryKey,
+                            error,
+                        }),
                     );
             });
         }
-
-        console.log(`[TIMING] res.end at ${Date.now()}`);
 
         // SSE 协议规范化：正常结束发送 event: done
         res.write('event: done\ndata: [DONE]\n\n');
         res.end();
     } catch (error: any) {
-        logger.error('[API][Stream Chat Error] ', error);
+        logger.error('Stream chat failed', {
+            traceId: res.locals.traceId,
+            duration_ms: Date.now() - startTime,
+            error,
+        });
         // 错误分级处理
         if (!res.headersSent) {
             // 响应头尚未发送 → 返回标准 JSON 错误
@@ -216,6 +222,7 @@ const endSession = async (req: Request, res: Response) => {
  * GET /stream/chat/history?limit=20&before_id=64a...
  */
 const getChatHistory = async (req: Request, res: Response) => {
+    const startTime = Date.now();
     try {
         const memoryKey = req.user?.memoryKey!;
         const limit = Math.min(Number(req.query?.limit) || 20, 100); // 限制最大拉取数量
@@ -254,7 +261,11 @@ const getChatHistory = async (req: Request, res: Response) => {
 
         res.json(ApiResponse.success(formattedMessages));
     } catch (error) {
-        logger.error('[Code] Error: ' + error);
+        logger.error('Get stream chat history failed', {
+            traceId: res.locals.traceId,
+            duration_ms: Date.now() - startTime,
+            error,
+        });
         res.status(500).json(
             ApiResponse.error(
                 error instanceof Error ? error.message : UNKNOWN_ERROR,
@@ -278,9 +289,10 @@ const clearChatHistory = async (req: Request, res: Response) => {
 
         // 2. 清除 MongoDB 历史记录
         const result = await ChatMessage.deleteMany({ memoryKey });
-        logger.info(
-            `[ClearHistory] Cleared ${result.deletedCount} messages for key: ${memoryKey}`,
-        );
+        logger.info(`Chat History cleared`, {
+            deletedCount: result.deletedCount,
+            memoryKey,
+        });
 
         res.json(ApiResponse.success({ deletedCount: result.deletedCount }));
     } catch (error) {

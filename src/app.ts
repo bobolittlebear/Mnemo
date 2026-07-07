@@ -9,9 +9,7 @@ import createError from 'http-errors';
 import express, { Request, Response, NextFunction, Application } from 'express';
 import path from 'path';
 import cookieParser from 'cookie-parser';
-import morgan from 'morgan';
 import cors from 'cors';
-import logger from './lib/logger';
 import indexRouter from './routes';
 import connectDB from './db';
 
@@ -28,19 +26,10 @@ app.use(
 // 连接数据库
 connectDB();
 
-// winston 集成到 morgan 中
-// morgan 的日志也会通过 winston 写入文件
-app.use(
-    morgan('combined', {
-        stream: { write: (message) => logger.info(message.trim()) },
-    }),
-);
-
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'pug');
 
-// app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());

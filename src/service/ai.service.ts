@@ -1,5 +1,4 @@
 // src/services/ai.service.ts
-import OpenAI from 'openai';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import { getAIApi, AI_MODEL } from './core/config';
 
