@@ -1,6 +1,7 @@
 // src/services/ai.service.ts
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
-import { getAIApi, AI_MODEL } from './core/config';
+import { getAIApi } from './core/llm';
+import { AI_MODEL } from '@/util/config';
 
 // ==================== 类型定义 ====================
 
