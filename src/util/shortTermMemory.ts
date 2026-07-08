@@ -5,12 +5,9 @@
  */
 import redisClient from '@/lib/redis';
 import { createLogger } from '@/lib/logger';
-import {
-    MAX_MESSAGE_PER_SESSION,
-    SESSION_TTL_SECONDS,
-    LAST_EXTRACTED_MSG_KEY_PREFIX,
-} from './constant';
+import { MAX_MESSAGE_PER_SESSION, SESSION_TTL_SECONDS } from './constant';
 import { randomUUID } from 'crypto';
+import { getExtractionKey } from './tool';
 
 type Role = 'system' | 'user' | 'assistant' | string;
 
@@ -124,7 +121,7 @@ class ShortTermMemory {
     async setLastExtractedMsgId(sessionId: string, msgId: string) {
         try {
             if (!sessionId || !msgId) return;
-            const lastExtractedKey = `${LAST_EXTRACTED_MSG_KEY_PREFIX}${sessionId}`;
+            const lastExtractedKey = getExtractionKey(sessionId);
             const pipeline = redisClient.multi();
             pipeline.set(lastExtractedKey, msgId);
             pipeline.expire(lastExtractedKey, this.sessionTTLSeconds); // 游标TTL与会话保持一致
@@ -140,9 +137,7 @@ class ShortTermMemory {
     async getLastExtractedMsgId(sessionId: string): Promise<string | null> {
         try {
             if (!sessionId) return null;
-            return await redisClient.get(
-                `${LAST_EXTRACTED_MSG_KEY_PREFIX}${sessionId}`,
-            );
+            return await redisClient.get(getExtractionKey(sessionId));
         } catch (error) {
             logger.warn('STM getLastExtractedMsgId error', { error });
             return null;

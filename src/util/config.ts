@@ -10,7 +10,7 @@ export const AI_MODEL: string = process.env.AI_MODEL || AI_CONFIG.DEFAULT_MODEL;
 
 export const EMBEDDING_CONFIG = {
     DEFAULT_EMBEDDING: 'text-embedding-v4',
-    DEFAULT_EMBEDDING_DIMENSIONS: 1536, // text-embedding-v4 支持64~2048维用户自定义向量维度。
+    DEFAULT_EMBEDDING_DIMENSIONS: 1536, // 1024或1535。text-embedding-v4 支持64~2048维用户自定义向量维度。
     DEFAULT_MAX_BATCH_SIZE: 10, // openai最大限制100, qwen DashScope最大限制10, 这里设置为10以兼容qwen
     DEFAULT_CONCURRENCY: 3, // DashScope 默认并发较敏感，建议从 5 降到 3
     DEFAULT_MAX_RETRIES: 3,

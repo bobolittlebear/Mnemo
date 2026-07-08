@@ -41,16 +41,13 @@ async function withRetry<T>(
     throw new Error('Unreachable');
 }
 
-/** 向量化封装 */
-// TODO 先分块，再向量化
 /**
- * ✅ P0-2.2 核心修复：批量生成 Embeddings
- * - 修复了原 for 循环未收集结果的 Bug
+ * 文本向量化
+ * - 批量生成 Embeddings
  * - 支持自动分批 + 并发控制
  * - 内置指数退避重试
  */
-export async function generateEmbeddings(props: { input: string | string[] }) {
-    const { input } = props || {};
+export async function generateEmbeddings(input: string | string[]) {
     if (!input) return [];
     const formatInput = (Array.isArray(input) ? input : [input])
         .map((item) => item.trim())
@@ -74,7 +71,7 @@ export async function generateEmbeddings(props: { input: string | string[] }) {
     }
 
     const ai = getAIApi();
-    // 使用 p-limit 并发执行并收集所有批次结果
+    // 并发执行并收集所有批次结果
     const limit = pLimit(EMBEDDING_CONFIG.DEFAULT_CONCURRENCY);
     const batchResults = await Promise.all(
         batches.map((batch) =>
@@ -86,24 +83,102 @@ export async function generateEmbeddings(props: { input: string | string[] }) {
                         dimensions: EMBEDDING_DIMENSIONS,
                     }),
                 );
-                // 之前这里没有 return/push，现在正确返回
+
+                const normalization = false;
+
                 return response.data
                     .sort((a, b) => a.index - b.index) // 确保顺序与输入一致
-                    .map((d) => d.embedding);
+                    .map((d) => {
+                        return formatVectors(
+                            decodeEmbedding(d.embedding),
+                            normalization,
+                        );
+                    });
             }),
         ),
     );
 
     // 展平所有批次结果为单一向量数组
     const allEmbeddings: number[][] = batchResults.flat();
-
-    logger.info(
-        `Generated ${allEmbeddings.length} embeddings in ${batches.length} batch(es)`,
-        {
-            inputLength: formatInput.length,
-            batchCount: batches.length,
-            model: EMBEDDING_MODEL,
-        },
-    );
     return allEmbeddings;
+}
+
+/**
+ * 单条快捷方法（内部复用批量管道）
+ */
+export async function generateEmbedding(text: string): Promise<number[]> {
+    const [embedding] = await generateEmbeddings([text]);
+    if (!embedding) throw new Error(`Failed to generate embedding`);
+    return embedding;
+}
+// 放在worker中计算token，不阻塞主线程
+export const countPromptTokens = (prompt?: string) => {
+    // TODO token计算逻辑
+    return prompt?.length ?? 0;
+};
+
+/**
+ * 将向量嵌入（Embedding）统一转换为 JavaScript 原生的数字数组格式。
+ * 解决 AI/LLM 应用中常见的“向量数据传输与内存表示不一致”
+ * @param embedding
+ * @returns
+ */
+export function decodeEmbedding(embedding: number[] | string): number[] {
+    // 防御性编程, 防止api返回base64编码
+    if (typeof embedding === 'string') {
+        // base64-encoded IEEE 754 little-endian float32 array
+        const buf = Buffer.from(embedding, 'base64');
+        const floats = new Float32Array(
+            buf.buffer,
+            buf.byteOffset,
+            buf.byteLength / 4,
+        );
+        return Array.from(floats);
+    }
+    return embedding;
+}
+
+/**
+ * 向量化数据处理：降维截断、零填充补全、按需归一化、
+ * @param vector
+ * @param normalization
+ * @returns
+ */
+export function formatVectors(vector: number[], normalization = false) {
+    // 已归一化的 OpenAI 数据，设为 false;
+    // 未归一化的本地模型数据，或需要优化数据库检索性能时，设为 true 以保证数据规范和计算效率
+    function normalizationVector(vector: number[]) {
+        // Calculate the Euclidean norm (L2 norm)
+        const norm = Math.sqrt(vector.reduce((sum, val) => sum + val * val, 0));
+        if (norm === 0) {
+            return vector;
+        }
+        // Normalize the vector by dividing each component by the norm
+        return vector.map((val) => val / norm);
+    }
+
+    const dimension = EMBEDDING_CONFIG.DEFAULT_EMBEDDING_DIMENSIONS;
+    // 超过上限，截断，并强制归一化
+    if (vector.length > dimension) {
+        logger.warn(
+            `Embedding vector dimension exceeded, truncating to ${dimension}`,
+            {
+                vectorLength: vector.length,
+                limit: dimension,
+            },
+        );
+        return normalizationVector(vector.slice(0, dimension));
+    } else if (vector.length < dimension) {
+        const vectorLen = vector.length;
+
+        const zeroVector = new Array(dimension - vectorLen).fill(0);
+
+        vector = vector.concat(zeroVector);
+    }
+
+    if (normalization) {
+        return normalizationVector(vector);
+    }
+
+    return vector;
 }

@@ -65,7 +65,9 @@ const MemoryFactSchema = new Schema<IMemoryFact>(
 );
 
 // 消息去重复合唯一性所以
-MemoryFactSchema.index({ memoryKey: 1, sourceMessageIds: 1 }, { unique: true });
+// MemoryFactSchema.index({ memoryKey: 1, sourceMessageIds: 1 }, { unique: true });
+MemoryFactSchema.index({ memoryKey: 1, sourceMessageIds: 1 });
+
 // 按用户最近时间查询的性能优化索引
 MemoryFactSchema.index({ memoryKey: 1, createdAt: -1 });
 // 全文检索索引（用于 BM25 关键词匹配，支撑混合检索）

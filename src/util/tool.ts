@@ -1,4 +1,4 @@
-import { SESSION_KEY_PREFIX } from './constant';
+import { LAST_EXTRACTED_MSG_KEY_PREFIX, SESSION_KEY_PREFIX } from './constant';
 import { randomUUID } from 'crypto';
 
 export function generateMemoryKey(userId: string) {
@@ -13,4 +13,17 @@ export function safeStringify(obj: unknown): string {
     } catch {
         return '[Unserializable]';
     }
+}
+
+export function getExtractionKey(userId: string) {
+    return `${LAST_EXTRACTED_MSG_KEY_PREFIX}${userId}`;
+}
+
+export function getNormalizationProps(model: string) {
+    // 这些模型在输出向量时，默认已经进行了 L2 归一化处理
+    return ![
+        'text-embedding-3-small',
+        'text-embedding-3-large',
+        'text-embedding-v4',
+    ].includes(model);
 }

@@ -1,9 +1,10 @@
-// src/services/MemoryExtractionService.ts
+// src/services/memoryExtraction.service.ts
 import { MemoryFact, IMemoryFact } from '@/models/MemoryFact';
 import STM from '@/util/shortTermMemory';
-import { generateEmbedding } from '@/lib/embedding'; // 假设你的向量化封装
+import { generateEmbeddings } from '@/lib/embedding';
 import { createLogger } from '@/lib/logger';
 import { createChat } from './ai.service';
+import { getExtractionKey } from '@/util/tool';
 
 interface RawMessage {
     id: string;
@@ -16,33 +17,48 @@ interface ExtractedFact {
     confidence: number;
 }
 
+// 增强版 Prompt：加入清洗规则
 const EXTRACTION_PROMPT = `你是一个记忆提取专家。请从以下对话中提取值得长期记住的事实（如偏好、个人信息、重要决定等）。
+
 要求：
 1. 仅返回 JSON 格式：{"facts": [{"content": "事实内容", "confidence": 0.0-1.0}]}
 2. 如果没有值得记住的事实，返回 {"facts": []}
 3. confidence 表示该事实的确定性，闲聊/猜测应低于 0.6
 4. 不要提取临时性信息（如"今天好累"）
+5. 【清洗规则】每条事实必须：
+   - 使用陈述句，包含完整上下文（谁/什么/何时）
+   - 去除口语化表达、语气词、冗余修饰
+   - 合并空白字符，去除特殊符号
+   - 保留中文和基本标点
 
 对话内容：
 {{CONVERSATION}}`;
 
 const logger = createLogger('ltm');
 
-export class MemoryExtractionService {
+class MemoryExtractionService {
+    /**
+     * 文本清洗管线
+     */
+    private cleanText(text: string): string {
+        return text
+            .replace(/\s+/g, ' ') // 合并空白
+            .replace(/[^\w\s\u4e00-\u9fff.,!?;:()\-]/g, '') // 保留中英文+基本标点
+            .trim();
+    }
+
     /**
      * 核心提取方法
-     * @param memoryKey 用户会话标识
+     * @param sessionId 用户会话标识
      * @param messages 待提取的消息列表（已过滤系统消息）
      */
-    static async extract(
-        memoryKey: string,
-        messages: RawMessage[],
-    ): Promise<number> {
+    async extract(sessionId: string, messages: RawMessage[]): Promise<number> {
         if (!messages.length) return 0;
 
+        const memoryKey = getExtractionKey(sessionId);
         const sourceIds = messages.map((m) => m.id);
 
-        // ⭐️ 1. 幂等前置检查：避免重复提取
+        // 1. 幂等前置检查：避免重复提取
         const existing = await MemoryFact.findOne({
             memoryKey,
             sourceMessageIds: { $in: sourceIds },
@@ -51,13 +67,13 @@ export class MemoryExtractionService {
         if (existing) {
             logger.debug('Skip duplicate extraction', { memoryKey });
             await STM.setLastExtractedMsgId(
-                memoryKey,
+                sessionId,
                 sourceIds[sourceIds.length - 1]!,
             );
             return 0;
         }
 
-        // ⭐️ 2. 构建 Prompt 并调用 LLM
+        // 2. 构建 Prompt 并调用 LLM
         const conversationText = messages
             .map((m) => `${m.role}: ${m.content}`)
             .join('\n');
@@ -76,17 +92,28 @@ export class MemoryExtractionService {
             facts = this.parseFacts(llmResponse?.content);
         } catch (error) {
             logger.error(`LLM extraction failed`, { memoryKey, error });
-            // LLM 失败不更新标记，等待下次重试
             throw error;
         }
 
-        // ⭐️ 3. 过滤低置信度事实
-        const validFacts = facts.filter((f) => f.confidence >= 0.6);
+        // // 3. 过滤低置信度事实
+        // const validFacts = facts.filter((f) => f.confidence >= 0.6);
 
-        // ⭐️ 4. 即使无有效事实，也要更新标记（避免重复处理闲聊）
+        // 3. 清洗 + 过滤（替换原简单置信度过滤）
+        const validFacts: ExtractedFact[] = [];
+        for (const fact of facts) {
+            if (fact.confidence < 0.6) continue;
+
+            const cleaned = this.cleanText(fact.content);
+            // 过滤：清洗后为空 / 过短（<5字符无意义）
+            if (!cleaned || cleaned.length < 5) continue;
+
+            validFacts.push({ content: cleaned, confidence: fact.confidence });
+        }
+
+        // 4. 即使无有效事实，也要更新标记（避免重复处理闲聊）
         if (validFacts.length === 0) {
             await STM.setLastExtractedMsgId(
-                memoryKey,
+                sessionId,
                 sourceIds[sourceIds.length - 1]!,
             );
             logger.info(`No valid facts extracted, marker updated`, {
@@ -95,37 +122,38 @@ export class MemoryExtractionService {
             return 0;
         }
 
-        // ⭐️ 5. 批量写入 DB + 向量化
-        const docsToSave: Partial<IMemoryFact>[] = [];
-        for (const fact of validFacts) {
-            try {
-                const embedding = await generateEmbedding({
-                    input: fact.content,
-                });
-                docsToSave.push({
-                    memoryKey,
-                    content: fact.content,
-                    sourceMessageIds: sourceIds,
-                    embedding,
-                    confidence: fact.confidence,
-                });
-            } catch (embError) {
-                logger.warn(
-                    `Embedding failed for fact: ${fact.content}`,
-                    embError,
-                );
-                // 单条向量化失败不影响其他事实
-            }
+        // 5. 批量写入 DB + 向量化
+        let embeddings: number[][] = [];
+        try {
+            // 2.2 修复后的 generateEmbeddings 接受 string[]，返回 number[][]
+            embeddings = await generateEmbeddings(
+                validFacts.map((f) => f.content),
+            );
+        } catch (embError) {
+            logger.error(`Batch embedding failed`, { memoryKey, embError });
+            // 向量化整体失败则不写入，等待下次重试
+            throw embError;
         }
+
+        // 6. 组装文档并写入
+        const docsToSave: Partial<IMemoryFact>[] = validFacts.map(
+            (fact, i) => ({
+                memoryKey,
+                content: fact.content, // 使用清洗后的内容
+                sourceMessageIds: sourceIds,
+                embedding: embeddings[i], // 直接取 number[]，无需额外处理
+                confidence: fact.confidence,
+            }),
+        );
 
         if (docsToSave.length > 0) {
             // 使用 ordered: false 忽略部分重复键错误
             await MemoryFact.insertMany(docsToSave, { ordered: false });
         }
 
-        // ⭐️ 6. 仅在全部成功后更新 Redis 标记
+        // 7. 仅在全部成功后更新 Redis 标记
         await STM.setLastExtractedMsgId(
-            memoryKey,
+            sessionId,
             sourceIds[sourceIds.length - 1]!,
         );
         logger.info(`Extracted ${docsToSave.length} facts`, { memoryKey });
@@ -136,7 +164,7 @@ export class MemoryExtractionService {
     /**
      * 鲁棒 JSON 解析器
      */
-    private static parseFacts(raw: string): ExtractedFact[] {
+    private parseFacts(raw: string): ExtractedFact[] {
         try {
             // 去除 markdown 代码块包裹
             const cleaned = raw.replace(/```json\s*|\s*```/g, '').trim();
@@ -158,3 +186,6 @@ export class MemoryExtractionService {
         }
     }
 }
+
+const defaultMES = new MemoryExtractionService();
+export default defaultMES;

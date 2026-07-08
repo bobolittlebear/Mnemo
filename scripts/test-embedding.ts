@@ -1,7 +1,6 @@
 /**
  * P0-2.2 Embedding 批量管道验收测试
  * 运行: npx ts-node -r tsconfig-paths/register scripts/test-embedding.ts
-
  */
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
@@ -36,9 +35,11 @@ async function runTests() {
 
         // ========== Test 1: 基本功能 ==========
         console.log('📝 Test 1: 基本批量生成');
-        const vecs = await generateEmbeddings({
-            input: ['hello world', '向量搜索测试', 'third text'],
-        });
+        const vecs = await generateEmbeddings([
+            'hello world',
+            '向量搜索测试',
+            'third text',
+        ]);
         assert(vecs.length === 3, `返回数量正确 (${vecs.length}/3)`);
         assert(
             vecs?.[0]?.length === EMBEDDING_DIMENSIONS,
@@ -51,24 +52,22 @@ async function runTests() {
 
         // ========== Test 2: 空输入安全 ==========
         console.log('\n📝 Test 2: 空输入安全');
-        const empty = await generateEmbeddings({ input: ['', '  ', ''] });
+        const empty = await generateEmbeddings(['', '  ', '']);
         assert(empty.length === 0, `全空输入返回空数组 (${empty.length}/0)`);
 
-        const mixed = await generateEmbeddings({
-            input: ['valid', '', 'also valid'],
-        });
+        const mixed = await generateEmbeddings(['valid', '', 'also valid']);
         assert(mixed.length === 2, `混合空字符串自动过滤 (${mixed.length}/2)`);
 
         // ========== Test 3: 大批量自动分批 ==========
         console.log('\n📝 Test 3: 大批量自动分批 (250条)');
         const startTime = Date.now();
-        const many = await generateEmbeddings({
-            input: Array.from(
+        const many = await generateEmbeddings(
+            Array.from(
                 { length: 250 },
                 (_, i) =>
                     `This is test sentence number ${i} for batch embedding validation.`,
             ),
-        });
+        );
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
         assert(many.length === 250, `250条全部返回 (${many.length}/250)`);
         console.log(`  ⏱️ 耗时: ${elapsed}s`);
