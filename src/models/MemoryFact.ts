@@ -60,7 +60,7 @@ const MemoryFactSchema = new Schema<IMemoryFact>(
             enum: ['fact', 'note_chunk', 'media'],
             default: 'fact',
         },
-        contentHash: { type: String, sparse: true },
+        contentHash: { type: String, required: true },
         metadata: { type: Schema.Types.Mixed, default: {} },
 
         mediaUrl: { type: String, default: null },
@@ -99,7 +99,11 @@ MemoryFactSchema.index(
     { memoryKey: 1, contentHash: 1 },
     {
         unique: true, // 约束(memoryKey, contentHash)不能出现重复值
-        sparse: true, // 稀疏索引
+        /** sparse 稀疏索引, 仅对包含索引字段的文档建立索引条目,
+         * 允许集合中存在没有 contentHash 的文档
+         * 多个缺失字段的文档不会因 null == null 而触发唯一冲突
+         */
+        sparse: true,
         name: 'memkey_contentHash_unique',
     },
 );
