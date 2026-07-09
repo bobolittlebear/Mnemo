@@ -5,6 +5,7 @@ import { generateEmbeddings } from '@/lib/embedding';
 import { createLogger } from '@/lib/logger';
 import { createChat } from './ai.service';
 import { getExtractionKey } from '@/util/tool';
+import { EXTRACTION_PROMPT } from '@/util/constant';
 
 interface RawMessage {
     id: string;
@@ -16,23 +17,6 @@ interface ExtractedFact {
     content: string;
     confidence: number;
 }
-
-// 增强版 Prompt：加入清洗规则
-const EXTRACTION_PROMPT = `你是一个记忆提取专家。请从以下对话中提取值得长期记住的事实（如偏好、个人信息、重要决定等）。
-
-要求：
-1. 仅返回 JSON 格式：{"facts": [{"content": "事实内容", "confidence": 0.0-1.0}]}
-2. 如果没有值得记住的事实，返回 {"facts": []}
-3. confidence 表示该事实的确定性，闲聊/猜测应低于 0.6
-4. 不要提取临时性信息（如"今天好累"）
-5. 【清洗规则】每条事实必须：
-   - 使用陈述句，包含完整上下文（谁/什么/何时）
-   - 去除口语化表达、语气词、冗余修饰
-   - 合并空白字符，去除特殊符号
-   - 保留中文和基本标点
-
-对话内容：
-{{CONVERSATION}}`;
 
 const logger = createLogger('ltm');
 
@@ -132,6 +116,7 @@ class MemoryExtractionService {
         } catch (embError) {
             logger.error(`Batch embedding failed`, { memoryKey, embError });
             // 向量化整体失败则不写入，等待下次重试
+            // TODO: 下次重试未实现，且上方已更新setLastExtractedMsgId, 发生错误时可能会漏存部分msg的事实
             throw embError;
         }
 

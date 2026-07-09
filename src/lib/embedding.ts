@@ -58,6 +58,7 @@ export async function generateEmbeddings(input: string | string[]) {
         return [];
     }
 
+    // TODO：RAG阶段需要实现按层级分隔符尝试切分，最大程度保持语义完整
     // 按 MAX_BATCH_SIZE 分批
     const batches: string[][] = [];
     for (

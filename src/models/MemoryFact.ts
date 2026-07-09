@@ -1,6 +1,17 @@
 // src/models/MemoryFact.ts
 import mongoose, { Schema, Document, Model } from 'mongoose';
 
+// 语义分类枚举 (对应 Prompt 的扩展)
+// 建议用 String 存储而不是严格的 Enum，方便未来随时让 Prompt 增加新分类
+export type MemoryCategory =
+    | 'preference'
+    | 'personal_info'
+    | 'decision'
+    | 'behavior_pattern'
+    | 'skill'
+    | 'goal'
+    | 'event'
+    | string;
 export interface IMemoryFact extends Document {
     memoryKey: string;
     content: string;
@@ -17,6 +28,9 @@ export interface IMemoryFact extends Document {
     // 预留字段
     mediaUrl?: string; // 预留媒体资源地址
     mediaType?: 'image' | 'audio' | 'video'; // 预留媒体类型
+
+    // 语义类型
+    category?: MemoryCategory;
 }
 
 const MemoryFactSchema = new Schema<IMemoryFact>(
@@ -39,15 +53,14 @@ const MemoryFactSchema = new Schema<IMemoryFact>(
 
         confidence: { type: Number, required: true, min: 0, max: 1 },
 
-        // ⭐️ 新增字段定义
-        notebookId: { type: String, default: null, index: true },
+        // 新增字段定义
+        notebookId: { type: String, default: null },
         type: {
             type: String,
             enum: ['fact', 'note_chunk', 'media'],
             default: 'fact',
-            index: true,
         },
-        contentHash: { type: String, sparse: true, index: true },
+        contentHash: { type: String, sparse: true },
         metadata: { type: Schema.Types.Mixed, default: {} },
 
         mediaUrl: { type: String, default: null },
@@ -64,12 +77,9 @@ const MemoryFactSchema = new Schema<IMemoryFact>(
     },
 );
 
-// 消息去重复合唯一性所以
-// MemoryFactSchema.index({ memoryKey: 1, sourceMessageIds: 1 }, { unique: true });
-MemoryFactSchema.index({ memoryKey: 1, sourceMessageIds: 1 });
-
-// 按用户最近时间查询的性能优化索引
+// 时间线检索，支撑“获取某用户/会话最近 N 条记忆”的场景。
 MemoryFactSchema.index({ memoryKey: 1, createdAt: -1 });
+
 // 全文检索索引（用于 BM25 关键词匹配，支撑混合检索）
 MemoryFactSchema.index(
     { content: 'text' },
@@ -80,8 +90,19 @@ MemoryFactSchema.index(
         default_language: 'none',
     },
 );
-// 业务过滤复合索引（加速 hybrid search 的 pre-filter）
+
+// 混合检索的前置过滤器
 MemoryFactSchema.index({ memoryKey: 1, notebookId: 1, type: 1, createdAt: -1 });
+
+// 精确去重唯一索引（替代原来的 contentHash sparse 单字段索引）
+MemoryFactSchema.index(
+    { memoryKey: 1, contentHash: 1 },
+    {
+        unique: true, // 约束(memoryKey, contentHash)不能出现重复值
+        sparse: true, // 稀疏索引
+        name: 'memkey_contentHash_unique',
+    },
+);
 
 export const MemoryFact: Model<IMemoryFact> =
     mongoose.models.MemoryFact ||
