@@ -7,39 +7,9 @@ import {
     EMBEDDING_DIMENSIONS,
 } from '@/util/config';
 import pLimit from 'p-limit';
+import { withRetry } from './retry';
 
 const logger = createLogger('rag');
-
-/**
- * 带指数退避的重试包装器
- */
-async function withRetry<T>(
-    fn: () => Promise<T>,
-    retries = EMBEDDING_CONFIG.DEFAULT_MAX_RETRIES,
-): Promise<T> {
-    for (let i = 0; i < retries; i++) {
-        try {
-            return await fn();
-        } catch (error: any) {
-            const isRateLimit = error?.status === 429;
-            const isTimeout =
-                error?.code === 'ETIMEDOUT' || error?.status >= 500;
-            const isRetryable = isRateLimit || isTimeout;
-
-            if (!isRetryable || i === retries - 1) throw error;
-
-            const delay = Math.min(1000 * Math.pow(2, i), 10000); // 1s → 2s → 4s, max 10s
-            logger.warn('Embedding API retrying due to error', {
-                error,
-                retryAttempt: i + 1,
-                maxRetries: retries,
-                delay,
-            });
-            await new Promise((r) => setTimeout(r, delay));
-        }
-    }
-    throw new Error('Unreachable');
-}
 
 /**
  * 文本向量化
@@ -77,12 +47,17 @@ export async function generateEmbeddings(input: string | string[]) {
     const batchResults = await Promise.all(
         batches.map((batch) =>
             limit(async () => {
-                const response = await withRetry(() =>
-                    ai.embeddings.create({
-                        model: EMBEDDING_MODEL,
-                        input: batch,
-                        dimensions: EMBEDDING_DIMENSIONS,
-                    }),
+                const response = await withRetry(
+                    () =>
+                        ai.embeddings.create({
+                            model: EMBEDDING_MODEL,
+                            input: batch,
+                            dimensions: EMBEDDING_DIMENSIONS,
+                        }),
+                    {
+                        attempts: EMBEDDING_CONFIG.DEFAULT_MAX_RETRIES,
+                        logger,
+                    },
                 );
 
                 const normalization = false;

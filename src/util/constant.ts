@@ -2,6 +2,12 @@ export const UNKNOWN_ERROR = '未知错误';
 export const RENEW_THRESHOLD = 7 * 24 * 60 * 60 * 1000; // 7*24小时，单位为毫秒
 export const MAX_CHECK_LENGTH = 50;
 
+export const DEFAULT_API_CONFIG = {
+    MAX_RETRIES: 3,
+    BASE_DELAY: 1000,
+    MAX_DELAY: 10000,
+};
+
 export const SESSION_KEY_PREFIX = 'quick_note:session:'; // 记忆管理memory key的前缀
 export const LAST_EXTRACTED_MSG_KEY_PREFIX = 'quick_note:extract:';
 export const MAX_MESSAGE_PER_SESSION = 100;
