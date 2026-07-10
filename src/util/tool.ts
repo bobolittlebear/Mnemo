@@ -1,5 +1,5 @@
 import { LAST_EXTRACTED_MSG_KEY_PREFIX, SESSION_KEY_PREFIX } from './constant';
-import { randomUUID } from 'crypto';
+import { randomUUID, createHash } from 'crypto';
 
 export function generateMemoryKey(userId: string) {
     return `${SESSION_KEY_PREFIX}${userId}`;
@@ -26,4 +26,11 @@ export function getNormalizationProps(model: string) {
         'text-embedding-3-large',
         'text-embedding-v4',
     ].includes(model);
+}
+
+/**
+ * 生成文本的 SHA-256 哈希值，用于精确去重
+ */
+export function generateContentHash(content: string): string {
+    return createHash('sha256').update(content, 'utf8').digest('hex');
 }
