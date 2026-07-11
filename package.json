@@ -4,7 +4,7 @@
     "private": true,
     "scripts": {
         "start": "cross-env NODE_ENV=production node -r tsconfig-paths/register dist/app.js",
-        "build": "tsc && tsc-alias",
+        "build": "tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json",
         "dev": "cross-env NODE_ENV=development nodemon",
         "test": "vitest run",
         "test:watch": "vitest",

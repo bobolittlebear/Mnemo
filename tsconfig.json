@@ -4,8 +4,8 @@
         "ignoreDeprecations": "6.0",
         // 基础路径，paths 映射会相对于此解析
         "baseUrl": ".",
-        // File Layout
-        "rootDir": "./src",
+        // rootDir 不在此设置，由 tsconfig.build.json 控制
+        // 生产构建用 tsconfig.build.json（仅含 src/）
         "outDir": "./dist",
         "paths": {
             "@/*": ["src/*"] // 这里的路径是相对于 baseUrl 的
@@ -52,5 +52,5 @@
         "forceConsistentCasingInFileNames": true,
         "esModuleInterop": true
     },
-    "include": ["src/**/*", "script"]
+    "include": ["src/**/*", "tests/**/*", "script"]
 }
