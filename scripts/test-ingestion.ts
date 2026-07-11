@@ -4,11 +4,8 @@
  */
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
-import {
-    ingestMemoryFacts,
-    ExtractedFact,
-    IngestionContext,
-} from '../src/service/memoryIngestion.service';
+import type { EmbeddedFact, IngestionContext } from '../src/types/memory';
+import { ingestMemoryFacts } from '../src/services/memory/memoryIngestion.service';
 import { MemoryFact } from '../src/models/MemoryFact';
 dotenv.config({
     path: `.env.${process.env.NODE_ENV || 'development'}`,
@@ -40,7 +37,7 @@ async function runTests() {
             sourceMessageIds: [`msg_${date}_001`],
             notebookId: 'nb_001',
         };
-        const facts1: ExtractedFact[] = [
+        const facts1: EmbeddedFact[] = [
             {
                 content: '用户喜欢使用 TypeScript 开发后端服务',
                 embedding: mockEmbedding,
@@ -110,7 +107,7 @@ async function runTests() {
             memoryKey: 'test_user_001',
             sourceMessageIds: ['msg_batch_001'],
         };
-        const facts4: ExtractedFact[] = [
+        const facts4: EmbeddedFact[] = [
             {
                 content: '用户喜欢使用 TypeScript 开发后端服务',
                 embedding: mockEmbedding,

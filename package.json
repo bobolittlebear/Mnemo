@@ -5,7 +5,12 @@
     "scripts": {
         "start": "cross-env NODE_ENV=production node -r tsconfig-paths/register dist/app.js",
         "build": "tsc && tsc-alias",
-        "dev": "cross-env NODE_ENV=development nodemon"
+        "dev": "cross-env NODE_ENV=development nodemon",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "test:unit": "vitest run --exclude tests/integration/**",
+        "test:integration": "vitest run --dir tests/integration",
+        "test:coverage": "vitest run --coverage"
     },
     "dependencies": {
         "@types/dotenv": "^6.1.1",
@@ -36,6 +41,7 @@
         "@types/node": "^25.7.0",
         "@typescript-eslint/eslint-plugin": "^8.59.3",
         "@typescript-eslint/parser": "^8.59.3",
+        "@vitest/coverage-v8": "4.1.10",
         "cross-env": "^7.0.3",
         "eslint": "^9.39.4",
         "eslint-config-prettier": "^10.1.8",
@@ -47,6 +53,7 @@
         "tsc-alias": "^1.8.17",
         "tsconfig-paths": "^4.2.0",
         "tsx": "^4.22.4",
-        "typescript": "^6.0.3"
+        "typescript": "^6.0.3",
+        "vitest": "^4.1.10"
     }
 }

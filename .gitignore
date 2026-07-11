@@ -3,3 +3,4 @@ dist
 run_logs
 .env.development
 .env.production
+coverage
