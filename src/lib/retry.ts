@@ -1,6 +1,6 @@
 // src/lib/retry.ts
 
-import { DEFAULT_API_CONFIG } from '@/util/constant';
+import { DEFAULT_API_CONFIG } from '@/utils/constant';
 import type { Logger as WinstonLogger } from 'winston';
 
 /**

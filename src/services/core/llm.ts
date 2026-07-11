@@ -1,5 +1,4 @@
-// src/service/core/config.ts
-import { AI_CONFIG } from '@/util/config';
+import { AI_CONFIG } from '@/utils/config';
 import OpenAI from 'openai';
 
 export interface AIApiOptions {

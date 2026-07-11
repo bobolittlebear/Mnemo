@@ -3,7 +3,7 @@
  * AI对话消息模型 - 支持按用户查询、按时间倒序分页
  */
 import { createLogger } from '@/lib/logger';
-import { MAX_MESSAGE_PER_SESSION } from '@/util/constant';
+import { MAX_MESSAGE_PER_SESSION } from '@/utils/constant';
 import mongoose, { Schema, Document, Model } from 'mongoose';
 
 export interface IChatMessage extends Document {

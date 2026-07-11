@@ -53,6 +53,9 @@ importers:
       redis:
         specifier: ^6.0.0
         version: 6.0.0
+      tiktoken:
+        specifier: ^1.0.22
+        version: 1.0.22
       winston:
         specifier: ^3.19.0
         version: 3.19.0
@@ -1700,6 +1703,9 @@ packages:
 
   text-hex@1.0.0:
     resolution: {integrity: sha512-uuVGNWzgJ4yhRaNSiubPY7OjISw4sw4E5Uv0wbjp+OzcbmVU/rsT8ujgcXJhn9ypzsgr5vlzpPqP+MBBKcGvbg==}
+
+  tiktoken@1.0.22:
+    resolution: {integrity: sha512-PKvy1rVF1RibfF3JlXBSP0Jrcw2uq3yXdgcEXtKTYn3QJ/cBRBHDnrJ5jHky+MENZ6DIPwNUGWpkVx+7joCpNA==}
 
   tinyglobby@0.2.17:
     resolution: {integrity: sha512-wXR/dYpcqKmfWpEdZjiKJOwCNFndD0DMnrW/cYjVGttEkBfVgcLFHoNrlj47mjOVic9yyNu65alsgF4NQyTa2g==}
@@ -3404,6 +3410,8 @@ snapshots:
       '@pkgr/core': 0.3.6
 
   text-hex@1.0.0: {}
+
+  tiktoken@1.0.22: {}
 
   tinyglobby@0.2.17:
     dependencies:

@@ -10,30 +10,30 @@
 
 共 **10 个** logger 子模块，按层级分组：
 
-| 层级 | 模块 tag | 职责 | 对应代码 |
-|------|----------|------|----------|
-| 接入 | `api` | HTTP 请求/响应、SSE 流式 | controllers, middleware |
-| 接入 | `auth` | JWT 签发/校验、登录注册 | auth.service.ts, auth.middleware.ts |
-| AI 核心 | `ai` | LLM 调用、Token 用量、流式输出 | ai.service.ts |
-| AI 核心 | `agent` | Tool 调用执行、任务状态管理 | util/tool.ts, agent 相关 |
-| AI 核心 | `stm` | 短期记忆读写、LRU 截断、会话清理 | util/shortTermMemory.ts |
-| AI 核心 | `ltm` | 长期记忆提取、三层触发、Cron 调度 | memoryExtraction.service.ts |
-| AI 核心 | `rag` | 笔记向量化、混合检索 | lib/embedding.ts, rag 相关 |
-| 基础设施 | `redis` | 连接池、读写、超时 | lib/redis.ts |
-| 基础设施 | `mongodb` | 连接、查询、写入、索引 | db/index.ts, models |
-| 正交 | `code` | 未捕获异常、Promise rejection | 全局 process 事件 |
+| 层级     | 模块 tag  | 职责                              | 对应代码                            |
+| -------- | --------- | --------------------------------- | ----------------------------------- |
+| 接入     | `api`     | HTTP 请求/响应、SSE 流式          | controllers, middleware             |
+| 接入     | `auth`    | JWT 签发/校验、登录注册           | auth.service.ts, auth.middleware.ts |
+| AI 核心  | `ai`      | LLM 调用、Token 用量、流式输出    | ai.service.ts                       |
+| AI 核心  | `agent`   | Tool 调用执行、任务状态管理       | utils/tool.ts, agent 相关            |
+| AI 核心  | `stm`     | 短期记忆读写、LRU 截断、会话清理  | utils/shortTermMemory.ts             |
+| AI 核心  | `ltm`     | 长期记忆提取、三层触发、Cron 调度 | memoryPipeline.service.ts           |
+| AI 核心  | `rag`     | 笔记向量化、混合检索              | lib/embedding.ts, rag 相关          |
+| 基础设施 | `redis`   | 连接池、读写、超时                | lib/redis.ts                        |
+| 基础设施 | `mongodb` | 连接、查询、写入、索引            | db/index.ts, models                 |
+| 正交     | `code`    | 未捕获异常、Promise rejection     | 全局 process 事件                   |
 
 ---
 
 ## 2. 日志等级定义
 
-| 等级 | 值 | 语义 | 生产环境 |
-|------|-----|------|----------|
-| `error` | 0 | 功能不可用，需要立即关注 | 开启 |
-| `warn` | 1 | 异常但系统能扛，需要留意 | 开启 |
-| `info` | 2 | 关键业务节点，正常流量记录 | 开启 |
-| `debug` | 4 | 开发调试，含敏感/详细数据 | 关闭 |
-| `verbose` | 5 | 极细粒度，几乎不用 | 关闭 |
+| 等级      | 值  | 语义                       | 生产环境 |
+| --------- | --- | -------------------------- | -------- |
+| `error`   | 0   | 功能不可用，需要立即关注   | 开启     |
+| `warn`    | 1   | 异常但系统能扛，需要留意   | 开启     |
+| `info`    | 2   | 关键业务节点，正常流量记录 | 开启     |
+| `debug`   | 4   | 开发调试，含敏感/详细数据  | 关闭     |
+| `verbose` | 5   | 极细粒度，几乎不用         | 关闭     |
 
 > 跳过 `3`（Winston 原生 `http` 级别），本项目不使用。
 
@@ -163,17 +163,17 @@ debug:  函数入口/出口追踪（仅开发用）
 
 ### 4.2 字段规范
 
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `timestamp` | string | 是 | ISO 8601，精确到毫秒。Winston 的 `timestamp` format 自动生成 |
-| `level` | string | 是 | `error` / `warn` / `info` / `debug` / `verbose` |
-| `module` | string | 是 | 10 个 tag 之一：`api` `auth` `ai` `agent` `stm` `ltm` `rag` `redis` `mongodb` `code` |
-| `requestId` | string | 推荐 | 请求追踪 ID，贯穿一次请求的所有日志。从 `req.id` 或 `traceId` 获取 |
-| `message` | string | 是 | 人类可读摘要。一句话说清发生了什么 |
-| `error` | string | error 时必填 | `err.message` |
-| `stack` | string | error 时推荐 | `err.stack`，Winston 的 `errors` format 自动处理 |
-| `component` | string | 可选 | 业务模块标注底层依赖。如 `ltm` 模块打日志时 `component: "redis"` 或 `component: "ai"` |
-| `duration_ms` | number | 可选 | 耗时（毫秒），API/AI/DB 操作建议带上 |
+| 字段          | 类型   | 必填         | 说明                                                                                  |
+| ------------- | ------ | ------------ | ------------------------------------------------------------------------------------- |
+| `timestamp`   | string | 是           | ISO 8601，精确到毫秒。Winston 的 `timestamp` format 自动生成                          |
+| `level`       | string | 是           | `error` / `warn` / `info` / `debug` / `verbose`                                       |
+| `module`      | string | 是           | 10 个 tag 之一：`api` `auth` `ai` `agent` `stm` `ltm` `rag` `redis` `mongodb` `code`  |
+| `requestId`   | string | 推荐         | 请求追踪 ID，贯穿一次请求的所有日志。从 `req.id` 或 `traceId` 获取                    |
+| `message`     | string | 是           | 人类可读摘要。一句话说清发生了什么                                                    |
+| `error`       | string | error 时必填 | `err.message`                                                                         |
+| `stack`       | string | error 时推荐 | `err.stack`，Winston 的 `errors` format 自动处理                                      |
+| `component`   | string | 可选         | 业务模块标注底层依赖。如 `ltm` 模块打日志时 `component: "redis"` 或 `component: "ai"` |
+| `duration_ms` | number | 可选         | 耗时（毫秒），API/AI/DB 操作建议带上                                                  |
 
 ### 4.3 错误对象处理
 
@@ -181,7 +181,12 @@ debug:  函数入口/出口追踪（仅开发用）
 
 ```ts
 // 调用方
-logger.error("Redis connection failed", { module: "redis", host, port, error: err });
+logger.error('Redis connection failed', {
+    module: 'redis',
+    host,
+    port,
+    error: err,
+});
 
 // 期望输出（Winston 自动处理）
 // [ERROR] [redis] Redis connection failed {..., "stack": "Error: connect ECONNREFUSED\n    at ..."}
@@ -195,38 +200,48 @@ Logger 实例通过工厂函数创建，每个模块获取独立的 child logger
 
 ```ts
 // 推荐调用方式
-import { createLogger } from "@/lib/logger";
+import { createLogger } from '@/lib/logger';
 
-const log = createLogger("stm");
+const log = createLogger('stm');
 
-log.info("Message appended", { sessionId, rounds, total: messages.length });
-log.error("Session creation failed", { sessionId, error: err });  // err 是 Error 对象
-log.warn("Memory approaching limit", { currentSize, maxSize });
+log.info('Message appended', { sessionId, rounds, total: messages.length });
+log.error('Session creation failed', { sessionId, error: err }); // err 是 Error 对象
+log.warn('Memory approaching limit', { currentSize, maxSize });
 ```
 
 ### 5.1 API 概览
 
 ```ts
 // 工厂函数
-function createLogger(module: ModuleTag): Logger
+function createLogger(module: ModuleTag): Logger;
 
 // 类型
-type ModuleTag = "api" | "auth" | "ai" | "agent" | "stm" | "ltm" | "rag" | "redis" | "mongodb" | "code";
+type ModuleTag =
+    | 'api'
+    | 'auth'
+    | 'ai'
+    | 'agent'
+    | 'stm'
+    | 'ltm'
+    | 'rag'
+    | 'redis'
+    | 'mongodb'
+    | 'code';
 
 interface Logger {
-  error(message: string, context?: LogContext): void;
-  warn(message: string, context?: LogContext): void;
-  info(message: string, context?: LogContext): void;
-  debug(message: string, context?: LogContext): void;
-  verbose(message: string, context?: LogContext): void;
+    error(message: string, context?: LogContext): void;
+    warn(message: string, context?: LogContext): void;
+    info(message: string, context?: LogContext): void;
+    debug(message: string, context?: LogContext): void;
+    verbose(message: string, context?: LogContext): void;
 }
 
 interface LogContext {
-  requestId?: string;
-  component?: string;
-  duration_ms?: number;
-  error?: Error;          // Error 对象，Winston 自动展开 stack
-  [key: string]: unknown; // 模块特定的附加字段
+    requestId?: string;
+    component?: string;
+    duration_ms?: number;
+    error?: Error; // Error 对象，Winston 自动展开 stack
+    [key: string]: unknown; // 模块特定的附加字段
 }
 ```
 
@@ -261,10 +276,10 @@ LOG_LEVEL_REDIS=error   # redis 模块只显示 error
 
 ## 7. 日志输出目标
 
-| 目标 | 级别 | 用途 |
-|------|------|------|
+| 目标              | 级别        | 用途                                             |
+| ----------------- | ----------- | ------------------------------------------------ |
 | Console（stdout） | info 及以上 | 开发时直接看，生产用 docker logs / pm2 logs 采集 |
-| 文件（可选） | 全部 | 按天轮转，保留 30 天。排查历史问题用 |
+| 文件（可选）      | 全部        | 按天轮转，保留 30 天。排查历史问题用             |
 
 生产环境建议直接用 stdout 输出，由容器/平台采集。本地开发可加文件输出方便回看。
 
@@ -287,12 +302,12 @@ LOG_LEVEL_REDIS=error   # redis 模块只显示 error
 
 ```ts
 // middleware/trace.middleware.ts
-import { v4 as uuid } from "uuid";
+import { v4 as uuid } from 'uuid';
 
 export function traceMiddleware(req, res, next) {
-  req.id = uuid();
-  // 通过 AsyncLocalStorage 存储，供 Winston format 读取
-  next();
+    req.id = uuid();
+    // 通过 AsyncLocalStorage 存储，供 Winston format 读取
+    next();
 }
 ```
 
@@ -300,41 +315,50 @@ export function traceMiddleware(req, res, next) {
 
 ```ts
 // service/ai.service.ts
-const log = createLogger("ai");
+const log = createLogger('ai');
 
 async function chatCompletion(messages: Message[]) {
-  const start = Date.now();
-  try {
-    const response = await openai.chat.completions.create({ model, messages });
-    log.info("Chat completion", {
-      model,
-      tokens_in: response.usage?.prompt_tokens,
-      tokens_out: response.usage?.completion_tokens,
-      duration_ms: Date.now() - start,
-    });
-    return response;
-  } catch (err) {
-    log.error("LLM call failed", { model, error: err });
-    throw err;
-  }
+    const start = Date.now();
+    try {
+        const response = await openai.chat.completions.create({
+            model,
+            messages,
+        });
+        log.info('Chat completion', {
+            model,
+            tokens_in: response.usage?.prompt_tokens,
+            tokens_out: response.usage?.completion_tokens,
+            duration_ms: Date.now() - start,
+        });
+        return response;
+    } catch (err) {
+        log.error('LLM call failed', { model, error: err });
+        throw err;
+    }
 }
 ```
 
 **STM 调用 Redis 时的双重打点：**
 
 ```ts
-// util/shortTermMemory.ts
-const stmLog = createLogger("stm");
+// utils/shortTermMemory.ts
+const stmLog = createLogger('stm');
 
 async function appendMessage(sessionId: string, message: Message) {
-  try {
-    await redis.lpush(`stm:${sessionId}`, JSON.stringify(message));  // Redis 模块会打 redis 级别的日志
-    stmLog.info("Message appended", { sessionId, rounds: getRoundCount(sessionId) });
-  } catch (err) {
-    // 此时 redis 模块已经打了一条 error，stm 再打一条说明业务影响
-    stmLog.error("Message append failed — session memory unavailable", { sessionId, error: err });
-    throw err;
-  }
+    try {
+        await redis.lpush(`stm:${sessionId}`, JSON.stringify(message)); // Redis 模块会打 redis 级别的日志
+        stmLog.info('Message appended', {
+            sessionId,
+            rounds: getRoundCount(sessionId),
+        });
+    } catch (err) {
+        // 此时 redis 模块已经打了一条 error，stm 再打一条说明业务影响
+        stmLog.error('Message append failed — session memory unavailable', {
+            sessionId,
+            error: err,
+        });
+        throw err;
+    }
 }
 ```
 

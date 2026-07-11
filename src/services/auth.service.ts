@@ -1,5 +1,5 @@
 import UserModel from '../models/User';
-import { generateToken } from '../util/jwt';
+import { generateToken } from '../utils/jwt';
 
 export const register = async (
     username: string,

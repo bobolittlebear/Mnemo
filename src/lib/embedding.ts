@@ -1,13 +1,14 @@
 // src/lib/embedding.ts
-import { getAIApi } from '@/service/core/llm';
+import { getAIApi } from '@/services/core/llm';
 import { createLogger } from './logger';
 import {
     EMBEDDING_MODEL,
     EMBEDDING_CONFIG,
     EMBEDDING_DIMENSIONS,
-} from '@/util/config';
+} from '@/utils/config';
 import pLimit from 'p-limit';
 import { withRetry } from './retry';
+import { truncateByTokens, countTokens } from '@/utils/tokenizer';
 
 const logger = createLogger('rag');
 
@@ -17,15 +18,19 @@ const logger = createLogger('rag');
  * - 支持自动分批 + 并发控制
  * - 内置指数退避重试
  */
-export async function generateEmbeddings(input: string | string[]) {
-    if (!input) return [];
+export async function generateEmbeddings(
+    input: string | string[],
+): Promise<{ totalTokens: number; embeddings: number[][] }> {
+    if (!input) return { totalTokens: 0, embeddings: [] };
     const formatInput = (Array.isArray(input) ? input : [input])
         .map((item) => item.trim())
-        .filter(Boolean);
+        .filter(Boolean)
+        .map((text) => truncateByTokens(text, EMBEDDING_CONFIG.MAX_TOKENS));
+
     // openai 的 embedding api 对于空字符串会返回 400 错误，所以这里直接过滤掉
     if (!formatInput.length) {
         console.warn('generateEmbeddings: 所有输入均为空字符串');
-        return [];
+        return { totalTokens: 0, embeddings: [] };
     }
 
     // TODO：RAG阶段需要实现按层级分隔符尝试切分，最大程度保持语义完整
@@ -44,6 +49,7 @@ export async function generateEmbeddings(input: string | string[]) {
     const ai = getAIApi();
     // 并发执行并收集所有批次结果
     const limit = pLimit(EMBEDDING_CONFIG.DEFAULT_CONCURRENCY);
+    let totalTokens = 0;
     const batchResults = await Promise.all(
         batches.map((batch) =>
             limit(async () => {
@@ -62,6 +68,15 @@ export async function generateEmbeddings(input: string | string[]) {
 
                 const normalization = false;
 
+                if (response.usage?.total_tokens) {
+                    totalTokens += response.usage?.total_tokens;
+                } else {
+                    const tokens = await Promise.all(
+                        batch.map((item) => countPromptTokens(item)),
+                    );
+                    totalTokens += tokens.reduce((sum, item) => sum + item, 0);
+                }
+
                 return response.data
                     .sort((a, b) => a.index - b.index) // 确保顺序与输入一致
                     .map((d) => {
@@ -76,23 +91,26 @@ export async function generateEmbeddings(input: string | string[]) {
 
     // 展平所有批次结果为单一向量数组
     const allEmbeddings: number[][] = batchResults.flat();
-    return allEmbeddings;
+    return { totalTokens, embeddings: allEmbeddings };
 }
 
 /**
  * 单条快捷方法（内部复用批量管道）
  */
-export async function generateEmbedding(text: string): Promise<number[]> {
-    const [embedding] = await generateEmbeddings([text]);
-    if (!embedding) throw new Error(`Failed to generate embedding`);
-    return embedding;
+export async function generateEmbedding(
+    text: string,
+): Promise<{ totalTokens: number; embeddings: number[][] }> {
+    const { totalTokens, embeddings } = await generateEmbeddings([text]);
+    if (!embeddings) throw new Error(`Failed to generate embedding`);
+    return { totalTokens, embeddings };
 }
-// 放在worker中计算token，不阻塞主线程
-export const countPromptTokens = (prompt?: string) => {
-    // TODO token计算逻辑
-    return prompt?.length ?? 0;
-};
 
+// 对于会话级记忆，同步调用 countTokens
+// TODO: RAG文档Token计算放在worker中计算token，不阻塞主线程
+export const countPromptTokens = (prompt?: string) => {
+    if (!prompt) return 0;
+    return countTokens(prompt);
+};
 /**
  * 将向量嵌入（Embedding）统一转换为 JavaScript 原生的数字数组格式。
  * 解决 AI/LLM 应用中常见的“向量数据传输与内存表示不一致”

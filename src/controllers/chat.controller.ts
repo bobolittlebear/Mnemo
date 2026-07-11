@@ -1,11 +1,11 @@
 // src/controllers/chat.controller.ts
 import { Request, Response } from 'express';
-import { createStreamChat } from '../service/ai.service';
+import { createStreamChat } from '../services/ai.service';
 import { createLogger } from '@/lib/logger';
-import { StreamCleaner } from '@/util/streamCleaner';
-import STM, { STMMessage } from '@/util/shortTermMemory';
-import ApiResponse from '@/util/apiResponse';
-import { TIMEOUT_MS, UNKNOWN_ERROR } from '@/util/constant';
+import { StreamCleaner } from '@/utils/streamCleaner';
+import STM, { STMMessage } from '@/utils/shortTermMemory';
+import ApiResponse from '@/utils/apiResponse';
+import { TIMEOUT_MS, UNKNOWN_ERROR } from '@/utils/constant';
 import ChatMessage from '@/models/ChatMessage';
 import mongoose from 'mongoose';
 import type {

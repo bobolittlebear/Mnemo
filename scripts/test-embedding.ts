@@ -35,7 +35,7 @@ async function runTests() {
 
         // ========== Test 1: 基本功能 ==========
         console.log('📝 Test 1: 基本批量生成');
-        const vecs = await generateEmbeddings([
+        const { embeddings: vecs } = await generateEmbeddings([
             'hello world',
             '向量搜索测试',
             'third text',
@@ -52,16 +52,20 @@ async function runTests() {
 
         // ========== Test 2: 空输入安全 ==========
         console.log('\n📝 Test 2: 空输入安全');
-        const empty = await generateEmbeddings(['', '  ', '']);
+        const { embeddings: empty } = await generateEmbeddings(['', '  ', '']);
         assert(empty.length === 0, `全空输入返回空数组 (${empty.length}/0)`);
 
-        const mixed = await generateEmbeddings(['valid', '', 'also valid']);
+        const { embeddings: mixed } = await generateEmbeddings([
+            'valid',
+            '',
+            'also valid',
+        ]);
         assert(mixed.length === 2, `混合空字符串自动过滤 (${mixed.length}/2)`);
 
         // ========== Test 3: 大批量自动分批 ==========
         console.log('\n📝 Test 3: 大批量自动分批 (250条)');
         const startTime = Date.now();
-        const many = await generateEmbeddings(
+        const { embeddings: many } = await generateEmbeddings(
             Array.from(
                 { length: 250 },
                 (_, i) =>

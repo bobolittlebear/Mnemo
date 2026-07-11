@@ -14,6 +14,7 @@ export const EMBEDDING_CONFIG = {
     DEFAULT_MAX_BATCH_SIZE: 10, // openai最大限制100, qwen DashScope最大限制10, 这里设置为10以兼容qwen
     DEFAULT_CONCURRENCY: 3, // DashScope 默认并发较敏感，建议从 5 降到 3
     DEFAULT_MAX_RETRIES: 3,
+    MAX_TOKENS: 8191,
 };
 /** 文本向量化模型名称 */
 export const EMBEDDING_MODEL: string =

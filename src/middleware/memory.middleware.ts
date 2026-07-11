@@ -4,8 +4,8 @@
  */
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
-import { generateMemoryKey } from '@/util/tool';
-import { COOKIE_MEMORY_KEY_MAX_AGE, SESSION_KEY_PREFIX } from '@/util/constant';
+import { generateMemoryKey } from '@/utils/tool';
+import { COOKIE_MEMORY_KEY_MAX_AGE, SESSION_KEY_PREFIX } from '@/utils/constant';
 
 // 扩展Express的Request类型，添加userId属性
 declare global {

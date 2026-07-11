@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import ApiResponse from '../util/apiResponse';
-import { generateToken, isTokenExpiringSoon, verifyToken } from '../util/jwt';
+import ApiResponse from '@/utils/apiResponse';
+import { generateToken, isTokenExpiringSoon, verifyToken } from '@/utils/jwt';
 
 // 扩展Express的Request类型，添加userId属性
 declare global {

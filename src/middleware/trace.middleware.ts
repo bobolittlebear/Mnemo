@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { randomUUID } from 'crypto';
-import { generateTraceId } from '@/util/tool';
+import { generateTraceId } from '@/utils/tool';
 
 // 扩展 Express 的 Request 类型
 declare global {

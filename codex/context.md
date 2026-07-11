@@ -17,7 +17,7 @@ AIQuickNote is a TypeScript Express application for note-taking and AI-assisted 
 - src/routes/api.route.ts
 - src/controllers/chat.controller.ts
 - src/service/ai.service.ts
-- src/util/shortTermMemory.ts
+- src/utils/shortTermMemory.ts
 - src/middleware/memory.middleware.ts
 - src/models/Note.ts
 - src/models/Notebook.ts

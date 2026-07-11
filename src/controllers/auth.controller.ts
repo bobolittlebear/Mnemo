@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
-import ApiResponse from '@/util/apiResponse';
-import { COOKIE_TOKEN_MAX_AGE, UNKNOWN_ERROR } from '@/util/constant';
+import ApiResponse from '@/utils/apiResponse';
+import { COOKIE_TOKEN_MAX_AGE, UNKNOWN_ERROR } from '@/utils/constant';
 import Joi from 'joi';
-import authService from '../service/auth.service';
+import authService from '../services/auth.service';
 
 const registerSchema = Joi.object({
     username: Joi.string().min(3).max(30).required(),

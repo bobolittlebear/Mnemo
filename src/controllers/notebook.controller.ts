@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
-import notebookService from '../service/notebook.service';
-import ApiResponse from '@/util/apiResponse';
-import { UNKNOWN_ERROR } from '@/util/constant';
+import notebookService from '../services/notebook.service';
+import ApiResponse from '@/utils/apiResponse';
+import { UNKNOWN_ERROR } from '@/utils/constant';
 
 export const createNotebook = async (
     req: Request,

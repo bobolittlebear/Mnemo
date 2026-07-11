@@ -1,4 +1,4 @@
-// src/util/shortTermMemory.ts
+// src/utils/shortTermMemory.ts
 /**
  * 简单的短期内存管理器（内存中 LRU 样式，带 TTL 与大小上限）
  * 目的：在 Express 请求生命周期中保存最近若干轮对话，按时间正序组装进 System Prompt

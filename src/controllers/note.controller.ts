@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
-import noteService from '../service/note.service';
-import ApiResponse from '@/util/apiResponse';
-import { UNKNOWN_ERROR } from '@/util/constant';
+import noteService from '../services/note.service';
+import ApiResponse from '@/utils/apiResponse';
+import { UNKNOWN_ERROR } from '@/utils/constant';
 
 const createNote = async (req: Request, res: Response, next: NextFunction) => {
     try {
