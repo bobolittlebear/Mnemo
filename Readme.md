@@ -66,7 +66,9 @@ Mnemo 不只是一个笔记应用，而是一个具备**完整上下文管理能
 
 - `MemoryFact` 数据模型：存储从对话中提取的事实性记忆
 - `ChatMessage` 历史会话记录模型
-- `MemoryExtractionService`：大模型提取服务，从对话中提炼长期记忆
+- `MemoryExtractionService` 大模型提取服务，从对话中提炼长期记忆
+- `ingestMemoryFacts` 会话记忆去重入库
+- `MemoryPipelineService` 长期记忆提取完整管道
 
 **三层触发机制**（开发中）：
 
