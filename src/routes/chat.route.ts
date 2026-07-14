@@ -4,11 +4,11 @@ import {
     endSession,
     getChatHistory,
     clearChatHistory,
-    createVector,
 } from '@/controllers/chat.controller';
 // import { authMiddleware } from '../middleware/auth.middleware'; // 如果需要鉴权
 import { memoryMiddleware } from '@/middleware/memory.middleware';
 import { traceMiddleware } from '@/middleware/trace.middleware';
+import { createVector } from '@/controllers/embedding.controller';
 const router: Router = Router();
 // 建议加上鉴权中间件，防止接口被盗刷
 // router.use(authMiddleware); // 保护所有后续路由，必须先通过认证

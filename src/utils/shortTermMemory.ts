@@ -8,6 +8,7 @@ import { createLogger } from '@/lib/logger';
 import { MAX_MESSAGE_PER_SESSION, SESSION_TTL_SECONDS } from './constant';
 import { randomUUID } from 'crypto';
 import { getExtractionKey } from './tool';
+import { TIMEOUT_MS } from './constant';
 
 type Role = 'system' | 'user' | 'assistant' | string;
 
@@ -129,6 +130,23 @@ class ShortTermMemory {
         } catch (error) {
             logger.warn('STM setLastExtractedMsgId error', { error });
         }
+    }
+
+    /**
+     * 带超时的安全读取最近 N 轮对话
+     * 防止 Redis 阻塞导致请求挂起
+     */
+    async safeGetRecentRounds(
+        id: string,
+        rounds: number,
+        timeoutMs = TIMEOUT_MS,
+    ): Promise<STMMessage[]> {
+        return Promise.race([
+            this.getRecentRounds(id, rounds),
+            new Promise<STMMessage[]>((resolve) =>
+                setTimeout(() => resolve([]), timeoutMs),
+            ),
+        ]);
     }
 
     /**
