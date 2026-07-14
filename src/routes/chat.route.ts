@@ -4,6 +4,7 @@ import {
     endSession,
     getChatHistory,
     clearChatHistory,
+    createVector,
 } from '@/controllers/chat.controller';
 // import { authMiddleware } from '../middleware/auth.middleware'; // 如果需要鉴权
 import { memoryMiddleware } from '@/middleware/memory.middleware';
@@ -21,5 +22,6 @@ router.post('/chat', traceMiddleware, chat);
 router.post('/session/end', endSession);
 router.get('/chat/history', getChatHistory);
 router.delete('/chat/history', clearChatHistory);
+router.put('/embedding', createVector);
 
 export default router;

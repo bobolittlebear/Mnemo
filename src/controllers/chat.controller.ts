@@ -12,6 +12,7 @@ import type {
     ChatCompletionMessageParam,
     ChatCompletionChunk,
 } from 'openai/resources/chat/completions';
+import { generateEmbeddings } from '@/lib/embedding';
 
 // 配置：短期记忆要注入的最近轮数
 const SHORT_TERM_ROUNDS = Number(process.env.STM_ROUNDS || 10);
@@ -304,4 +305,29 @@ const clearChatHistory = async (req: Request, res: Response) => {
     }
 };
 
-export { chat, endSession, getChatHistory, clearChatHistory };
+/**
+ * 生成向量化数据
+ * PUT /stream/embedding
+ */
+const createVector = async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    try {
+        const text = req.body?.text || [];
+
+        const vectors = await generateEmbeddings(text);
+        res.json(ApiResponse.success({ vectors }));
+    } catch (error) {
+        logger.error('Get stream chat history failed', {
+            traceId: res.locals.traceId,
+            duration_ms: Date.now() - startTime,
+            error,
+        });
+        res.status(500).json(
+            ApiResponse.error(
+                error instanceof Error ? error.message : UNKNOWN_ERROR,
+            ),
+        );
+    }
+};
+
+export { chat, endSession, getChatHistory, clearChatHistory, createVector };
