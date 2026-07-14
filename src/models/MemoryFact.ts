@@ -1,37 +1,6 @@
 // src/models/MemoryFact.ts
-import mongoose, { Schema, Document, Model } from 'mongoose';
-
-// 语义分类枚举 (对应 Prompt 的扩展)
-// 建议用 String 存储而不是严格的 Enum，方便未来随时让 Prompt 增加新分类
-export type MemoryCategory =
-    | 'preference'
-    | 'personal_info'
-    | 'decision'
-    | 'behavior_pattern'
-    | 'skill'
-    | 'goal'
-    | 'event'
-    | string;
-export interface IMemoryFact extends Document {
-    memoryKey: string;
-    content: string;
-    sourceMessageIds: string[];
-    embedding?: number[];
-    confidence: number;
-    createdAt: Date;
-    updatedAt: Date;
-    notebookId?: string; // 笔记本隔离（可选，兼容全局记忆null）
-    // 区分对话事实与笔记分块，便于差异化检索；预留 media 类型，未来支持图文检索
-    type: 'fact' | 'note_chunk' | 'media';
-    contentHash?: string; // 内容指纹，用于语义去重（防止相似事实重复入库）
-    metadata?: Record<string, any>; // 预留扩展字段（如 tags, sourceUrl 等）
-    // 预留字段
-    mediaUrl?: string; // 预留媒体资源地址
-    mediaType?: 'image' | 'audio' | 'video'; // 预留媒体类型
-
-    // 语义类型
-    category?: MemoryCategory;
-}
+import type { IMemoryFact } from '@/types/models';
+import mongoose, { Schema, Model } from 'mongoose';
 
 const MemoryFactSchema = new Schema<IMemoryFact>(
     {

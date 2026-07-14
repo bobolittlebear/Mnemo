@@ -11,6 +11,12 @@ declare global {
     }
 }
 
+/**
+ * 为每次 LLM API 调用的请求生成追踪标识 Trace-ID （运维视角）
+ * @param req
+ * @param res
+ * @param next
+ */
 export const traceMiddleware = (
     req: Request,
     res: Response,

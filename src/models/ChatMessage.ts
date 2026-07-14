@@ -3,17 +3,12 @@
  * AI对话消息模型 - 支持按用户查询、按时间倒序分页
  */
 import { createLogger } from '@/lib/logger';
+import type { IChatMessage } from '@/types/models';
 import { MAX_MESSAGE_PER_SESSION } from '@/utils/constant';
 import mongoose, { Schema, Document, Model } from 'mongoose';
 
-export interface IChatMessage extends Document {
-    memoryKey: string; // 关联用户的唯一标识（与 Redis STM 的 Key 一致）
-    role: string; // 'user' | 'assistant' | 'system'
-    content: string; // 消息内容
-    timestamp: number; // 消息发送的时间戳（毫秒）
-}
 // 定义静态方法
-export interface IChatMessageModel extends Model<IChatMessage> {
+interface IChatMessageModel extends Model<IChatMessage> {
     trimOldMessages(memoryKey: string, maxMessages?: number): Promise<void>;
 }
 

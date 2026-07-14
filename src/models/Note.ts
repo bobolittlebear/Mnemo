@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
+import type { INote } from '@/types/models';
 
-const noteSchema = new mongoose.Schema(
+const noteSchema = new mongoose.Schema<INote>(
     {
         notebookId: {
             type: mongoose.Schema.Types.ObjectId,
