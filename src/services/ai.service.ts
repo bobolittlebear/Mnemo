@@ -1,7 +1,7 @@
 // src/services/ai.service.ts
-import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import { getAIApi } from './core/llm';
 import { AI_MODEL } from '@/utils/config';
+import type { RawMessage } from '@/types/chat';
 
 // ==================== 类型定义 ====================
 
@@ -14,8 +14,13 @@ export interface StreamChatOptions {
     maxTokens?: number;
     /** 系统提示词 */
     systemPrompt?: string;
-    /** 新增追踪ID字段 */
-    traceId?: string;
+    /** 消息元数据 */
+    metadata?: {
+        /** 请求的追踪标识字段 */
+        traceId?: string;
+        /** 消息唯一ID */
+        msgId?: string;
+    };
 }
 export interface UsageInfo {
     promptTokens: number;
@@ -29,8 +34,9 @@ export interface UsageInfo {
  * @param messages - 对话消息列表
  * @param options - 可选配置
  * @returns OpenAI 流式响应对象
- */ export async function createStreamChat(
-    messages: ChatCompletionMessageParam[],
+ */
+export async function createStreamChat(
+    messages: Partial<RawMessage>[],
     options: StreamChatOptions = {},
 ) {
     const {
@@ -38,11 +44,11 @@ export interface UsageInfo {
         temperature,
         maxTokens,
         systemPrompt,
-        traceId,
+        metadata,
     } = options;
 
     // 如果提供了系统提示词，自动前置
-    const finalMessages: ChatCompletionMessageParam[] = systemPrompt
+    const finalMessages: Partial<RawMessage>[] = systemPrompt
         ? [{ role: 'system', content: systemPrompt }, ...messages]
         : messages;
 
@@ -54,9 +60,7 @@ export interface UsageInfo {
         stream: true,
         temperature,
         max_tokens: maxTokens,
-        // 使用 OpenAI SDK 原生 metadata 传递 traceId
-        // 该字段会被包含在 API 请求体中，可在服务商后台/日志中关联追踪
-        ...(traceId && { metadata: { trace_id: traceId } }),
+        metadata,
         // @ts-ignore - enable_thinking 是 Qwen 等非标准扩展字段
         extra_body: {
             enable_thinking: enableThinking,
@@ -74,27 +78,32 @@ export interface UsageInfo {
  * @returns 完整的对话响应内容
  */
 export async function createChat(
-    messages: ChatCompletionMessageParam[],
+    messages: Partial<RawMessage>[],
     options: StreamChatOptions = {},
 ): Promise<{ content: string; usage?: UsageInfo }> {
     const {
-        enableThinking = false,
+        enableThinking = true,
         temperature,
         maxTokens,
         systemPrompt,
+        metadata,
     } = options;
 
-    const finalMessages: ChatCompletionMessageParam[] = systemPrompt
+    const finalMessages: Partial<RawMessage>[] = systemPrompt
         ? [{ role: 'system', content: systemPrompt }, ...messages]
         : messages;
 
-    const ai = getAIApi();
+    const ai = getAIApi({
+        timeout: 120000,
+        maxRetries: 2,
+    });
 
     const response = await ai.chat.completions.create({
         model: AI_MODEL,
         messages: finalMessages,
         temperature,
         max_tokens: maxTokens,
+        metadata,
         // @ts-ignore
         extra_body: {
             enable_thinking: enableThinking,

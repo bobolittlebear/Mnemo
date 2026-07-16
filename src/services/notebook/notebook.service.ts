@@ -1,4 +1,4 @@
-import NotebookModel from '../models/Notebook';
+import NotebookModel from '@/models/Notebook';
 
 const createNotebook = async (user: string, title: string) => {
     // 防止同一用户重复创建同名笔记本

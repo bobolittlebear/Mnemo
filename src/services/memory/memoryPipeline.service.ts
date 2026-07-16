@@ -11,12 +11,7 @@ import type {
     IngestionContext,
     IngestionResult,
 } from '@/types/memory';
-
-interface RawMessage {
-    id: string;
-    role: 'user' | 'assistant' | 'system';
-    content: string;
-}
+import type { RawMessage } from '@/types/chat';
 
 const logger = createLogger('ltm');
 class MemoryPipelineService {
@@ -33,7 +28,7 @@ class MemoryPipelineService {
      * @returns 入库结果统计
      */
     async run(
-        sessionId: string,
+        sessionId: string, // 无前缀Id
         messages: RawMessage[],
     ): Promise<IngestionResult> {
         if (!messages.length) {
@@ -41,23 +36,90 @@ class MemoryPipelineService {
         }
 
         const memoryKey = getExtractionKey(sessionId);
-        const sourceIds = messages.map((m) => m.id);
+        const sourceIds = messages.map((m) => m.msgId);
         const lastMsgId = sourceIds[sourceIds.length - 1]!;
 
-        // ── 1. 幂等检查：这些消息是否已提取过 ──
-        const alreadyExtracted = await MemoryFact.findOne({
-            memoryKey,
-            sourceMessageIds: { $in: sourceIds },
-        }).lean();
+        // ── 1. 一级防御：游标快速过滤（O(1) 开销）──
+        const lastExtractedId = await STM.getLastExtractedMsgId(sessionId);
+        if (lastExtractedId && lastMsgId <= lastExtractedId) {
+            // 整个批次的最大ID都小于等于已提取游标 → 整批已处理，直接返回
+            logger.debug(
+                'Skip extraction: entire batch already processed by cursor',
+                {
+                    memoryKey,
+                    lastMsgId,
+                    lastExtractedId,
+                },
+            );
+            return {
+                totalProcessed: sourceIds.length,
+                inserted: 0,
+                updated: 0,
+                skipped: sourceIds.length,
+            };
+        }
+        // ── 2. 二级防御：DB精确去重（仅对游标之后的消息生效）──
+        // 优化：只查询 > lastExtractedId 的消息，大幅缩小 $in 扫描范围
+        const idsToCheck = lastExtractedId
+            ? sourceIds.filter((id) => id > lastExtractedId)
+            : sourceIds;
 
-        if (alreadyExtracted) {
-            logger.debug('Skip duplicate extraction', { memoryKey });
+        let newSourceIds = idsToCheck;
+
+        if (idsToCheck.length > 0) {
+            const existingDocs = await MemoryFact.find({
+                memoryKey,
+                sourceMessageIds: { $in: sourceIds },
+            })
+                .select('sourceMessageIds')
+                .lean();
+
+            logger.debug('幂等检查1', {
+                memoryKey,
+                existingDocs,
+            });
+
+            // 收集所有已存在于数据库中的消息ID（可能来自多条不同的fact记录）
+            const processedIds = new Set(
+                existingDocs.flatMap((doc) => doc.sourceMessageIds),
+            );
+            logger.debug('幂等检查2', {
+                processedIds: Array.from(processedIds.values()),
+                newSourceIds,
+                sourceIds,
+            });
+            // 过滤出真正未处理过的新消息ID
+            newSourceIds = sourceIds.filter((id) => !processedIds.has(id));
+        }
+        // 合并：游标之前的消息视为已处理，只保留真正需要提取的新消息
+        const skippedCount = sourceIds.length - newSourceIds.length;
+
+        if (newSourceIds.length === 0) {
+            logger.debug('Skip extraction: all messages deduplicated by DB', {
+                memoryKey,
+            });
             await STM.setLastExtractedMsgId(sessionId, lastMsgId);
-            return { totalProcessed: 0, inserted: 0, updated: 0, skipped: 0 };
+            return {
+                totalProcessed: sourceIds.length,
+                inserted: 0,
+                updated: 0,
+                skipped: skippedCount,
+            };
         }
 
+        const newMessages = messages.filter((m) =>
+            newSourceIds.includes(m.msgId),
+        );
+
         // ── 2. LLM 提取 + 清洗 ──
-        const rawFacts = await memoryExtractionService.extractFacts(messages);
+        // TODO: 从数据库中查询existingMemories，用于给llm确定记忆去重/更新
+        const rawFacts = await memoryExtractionService.extractFacts(
+            newMessages,
+            {
+                userId: sessionId, // 后续统一为userId/sessionId
+                existingMemories: [], // TODO
+            },
+        );
 
         if (rawFacts.length === 0) {
             await STM.setLastExtractedMsgId(sessionId, lastMsgId);
@@ -85,7 +147,6 @@ class MemoryPipelineService {
 
         const context: IngestionContext = {
             memoryKey,
-            sourceMessageIds: sourceIds,
         };
 
         const result = await ingestMemoryFacts(embeddedFacts, context);

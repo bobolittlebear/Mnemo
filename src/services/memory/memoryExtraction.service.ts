@@ -3,12 +3,15 @@ import { createChat } from '../ai.service';
 import { createLogger } from '@/lib/logger';
 import { EXTRACTION_PROMPT } from '@/utils/constant';
 import type { RawFact } from '@/types/memory';
-
-interface RawMessage {
-    id: string;
-    role: 'user' | 'assistant' | 'system';
-    content: string;
-}
+import type { RawMessage } from '@/types/chat';
+import { countTokens } from '@/utils/tokenizer';
+import { MemoryFact } from '@/models/MemoryFact';
+import {
+    formatConversationText,
+    formatExistingMemoriesText,
+    getMessagesTimeRangeText,
+    replaceExtractionPromptVariables,
+} from './utils';
 
 const logger = createLogger('ltm');
 
@@ -32,26 +35,35 @@ class MemoryExtractionService {
      * @param messages 待提取的消息列表
      * @returns 清洗后的原始事实（不含 embedding）
      */
-    async extractFacts(messages: RawMessage[]): Promise<RawFact[]> {
+    async extractFacts(
+        messages: RawMessage[],
+        context?: {
+            userId?: string;
+            existingMemories?: RawFact[];
+        },
+    ): Promise<RawFact[]> {
         if (!messages.length) return [];
 
         // 1. 构建 Prompt
-        const conversationText = messages
-            .map((m) => `${m.role}: ${m.content}`)
-            .join('\n');
-
-        const prompt = EXTRACTION_PROMPT.replace(
-            '{{CONVERSATION}}',
-            conversationText,
+        const conversationText = formatConversationText(messages);
+        const existingMemoriesText = formatExistingMemoriesText(
+            context?.existingMemories ?? [],
         );
+        const prompt = replaceExtractionPromptVariables({
+            USER_ID: context?.userId || '',
+            CONVERSATION: conversationText,
+            CONVERSATION_TIME_RANGE: getMessagesTimeRangeText(messages),
+            EXISTING_MEMORIES: existingMemoriesText,
+        });
+
+        const tokens = countTokens(prompt);
 
         // 2. 调用 LLM 提取
         let rawFacts: RawFact[] = [];
         try {
-            const llmResponse = await createChat(
-                [{ content: prompt, role: 'system' }],
-                { temperature: 0.1 },
-            );
+            const llmResponse = await createChat([
+                { content: prompt, role: 'system' },
+            ]);
             rawFacts = this.parseFacts(llmResponse?.content);
         } catch (error) {
             logger.error('LLM extraction failed', { error });

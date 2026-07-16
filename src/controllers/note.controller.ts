@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import noteService from '../services/note.service';
+import noteService from '@/services/notebook/note.service';
 import ApiResponse from '@/utils/apiResponse';
 import { UNKNOWN_ERROR } from '@/utils/constant';
 

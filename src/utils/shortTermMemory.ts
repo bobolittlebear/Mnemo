@@ -1,24 +1,14 @@
 // src/utils/shortTermMemory.ts
 /**
- * 简单的短期内存管理器（内存中 LRU 样式，带 TTL 与大小上限）
+ * Short Term Memory 短期内存管理器（内存中 LRU 样式，带 TTL 与大小上限）
  * 目的：在 Express 请求生命周期中保存最近若干轮对话，按时间正序组装进 System Prompt
  */
 import redisClient from '@/lib/redis';
 import { createLogger } from '@/lib/logger';
 import { MAX_MESSAGE_PER_SESSION, SESSION_TTL_SECONDS } from './constant';
-import { randomUUID } from 'crypto';
-import { getExtractionKey } from './tool';
+import { generateMessageId, getExtractionKey } from './tool';
 import { TIMEOUT_MS } from './constant';
-
-type Role = 'system' | 'user' | 'assistant' | string;
-
-export type STMMessage = {
-    id: string; // 全局唯一消息ID
-    role: Role;
-    content: string;
-    timestamp: number;
-    traceId?: string;
-};
+import { RawMessage } from '@/types/chat';
 
 const logger = createLogger('stm');
 
@@ -39,7 +29,7 @@ class ShortTermMemory {
      */
     async addMessages(
         id: string,
-        messages: Array<Partial<STMMessage>>,
+        messages: Array<Partial<RawMessage>>,
         traceId?: string,
     ) {
         try {
@@ -54,8 +44,9 @@ class ShortTermMemory {
             const pipeline = redisClient.multi(); // 使用 Pipeline 减少网络 RTT
             for (const m of messages) {
                 if (!m || !m.role || m.content == null) continue;
-                const payload: STMMessage = {
-                    id: m.id || randomUUID(), // 优先使用传入的ID，否则自动生成UUID
+                const payload: RawMessage = {
+                    id: m.id || generateMessageId(),
+                    msgId: m.msgId || generateMessageId(),
                     role: m.role,
                     content: String(m.content),
                     timestamp: m.timestamp || Date.now(),
@@ -77,7 +68,7 @@ class ShortTermMemory {
     /**
      * 获取最近 N 轮对话（以 user 消息为计数基准）
      */
-    async getRecentRounds(id: string, rounds = 10): Promise<STMMessage[]> {
+    async getRecentRounds(id: string, rounds = 10): Promise<RawMessage[]> {
         try {
             if (!id) return [];
 
@@ -86,12 +77,12 @@ class ShortTermMemory {
             if (!rawMessages || rawMessages.length === 0) return [];
 
             // 2. 解析 JSON
-            const parsedMessages: STMMessage[] = rawMessages.map((msg) =>
+            const parsedMessages: RawMessage[] = rawMessages.map((msg) =>
                 JSON.parse(msg),
             );
 
             // 3. 从后向前遍历，收集 rounds 个 user 消息
-            const res: STMMessage[] = [];
+            const res: RawMessage[] = [];
             let userCount = 0;
             for (let i = parsedMessages.length - 1; i >= 0; i--) {
                 const m = parsedMessages[i]!;
@@ -140,10 +131,10 @@ class ShortTermMemory {
         id: string,
         rounds: number,
         timeoutMs = TIMEOUT_MS,
-    ): Promise<STMMessage[]> {
+    ): Promise<RawMessage[]> {
         return Promise.race([
             this.getRecentRounds(id, rounds),
-            new Promise<STMMessage[]>((resolve) =>
+            new Promise<RawMessage[]>((resolve) =>
                 setTimeout(() => resolve([]), timeoutMs),
             ),
         ]);

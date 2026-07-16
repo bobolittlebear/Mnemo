@@ -25,7 +25,7 @@ export interface IChatMessage extends Document {
     role: 'system' | 'user' | 'assistant' | 'tool' | string;
     content: string; // 消息内容
     timestamp: number; // 消息发送的时间戳（毫秒）
-    id: string; // UUID v7，消息级唯一标识 ← sourceMessageIds 引用这个
+    msgId: string; // UUID v7，消息级唯一标识 ← sourceMessageIds 引用这个
     traceId: string; // 请求级追踪标识 ← 保留，继续用于全链路追踪
 }
 
@@ -41,8 +41,23 @@ type MemoryCategory =
     | string;
 
 type MetaData = {
+    // 可观测性追踪
     tracing?: {
-        traceIds?: string[];
+        traceIds: string[]; // 生成该记忆涉及的 LLM 调用 traceId
+        // spanIds?: string[]; // 未来可能需要更细粒度的 span
+    };
+
+    // 记忆质量标注（未来扩展）
+    quality?: {
+        confidenceScore?: number; // RRF 融合分数 or rerank 分数
+        compressionRatio?: number; // 原始消息数 / 记忆条数
+        feedbackLabel?: 'good' | 'bad' | 'irrelevant'; // 用户反馈
+    };
+
+    // 来源上下文（未来扩展）
+    source?: {
+        modelId?: string; // 生成摘要的模型
+        embeddingModelVersion?: string; // 向量化所用模型版本
     };
 } & Record<string, any>;
 

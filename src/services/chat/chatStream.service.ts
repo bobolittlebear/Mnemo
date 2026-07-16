@@ -2,9 +2,11 @@
 import { createStreamChat } from '@/services/ai.service';
 import { createLogger } from '@/lib/logger';
 import { StreamCleaner } from '@/utils/streamCleaner';
-import STM, { type STMMessage } from '@/utils/shortTermMemory';
+import STM from '@/utils/shortTermMemory';
 import ChatMessage from '@/models/ChatMessage';
-import type { ChatCompletionMessageParam, ChatCompletionChunk } from 'openai/resources/chat/completions';
+import type { ChatCompletionChunk } from 'openai/resources/chat/completions';
+import type { RawMessage } from '@/types/chat';
+import { generateMessageId } from '@/utils/tool';
 
 /** 短期记忆注入的最近轮数 */
 const SHORT_TERM_ROUNDS = Number(process.env.STM_ROUNDS || 10);
@@ -24,7 +26,7 @@ class ChatStreamService {
      */
     async streamChat(
         memoryKey: string,
-        messages: ChatCompletionMessageParam[],
+        messages: RawMessage[],
         traceId: string,
         onChunk: (content: string) => void,
     ): Promise<void> {
@@ -32,19 +34,27 @@ class ChatStreamService {
         const latestUserMsg = messages[messages.length - 1]!;
 
         // 1. 从短期记忆检索最近对话并组装上下文
-        const recent = await STM.safeGetRecentRounds(memoryKey, SHORT_TERM_ROUNDS);
-        const systemInjected = recent.map((m) => ({
+        const recent = await STM.safeGetRecentRounds(
+            memoryKey,
+            SHORT_TERM_ROUNDS,
+        );
+        const systemInjected: Partial<RawMessage>[] = recent.map((m) => ({
             role: m.role,
             content: m.content,
-        })) as ChatCompletionMessageParam[];
-        const finalMessages: ChatCompletionMessageParam[] = [
-            ...systemInjected,
-            latestUserMsg,
-        ].filter(Boolean) as ChatCompletionMessageParam[];
+            id: m.id,
+            msgId: m.msgId,
+        }));
+        const finalMessages = [...systemInjected, latestUserMsg].filter(
+            Boolean,
+        );
 
+        const assistantMsgId = generateMessageId();
         // 2. 发起 AI 流并逐块消费
         const stream = (await createStreamChat(finalMessages, {
-            traceId,
+            metadata: {
+                traceId,
+                msgId: assistantMsgId,
+            },
         })) as unknown as AsyncIterable<ChatCompletionChunk>;
 
         let fullAssistantResponse = '';
@@ -68,7 +78,10 @@ class ChatStreamService {
             await this.persistConversation(
                 memoryKey,
                 latestUserMsg,
-                fullAssistantResponse,
+                {
+                    content: fullAssistantResponse,
+                    msgId: assistantMsgId,
+                },
                 traceId,
             );
         }
@@ -79,25 +92,30 @@ class ChatStreamService {
      */
     private async persistConversation(
         memoryKey: string,
-        latestUserMsg: ChatCompletionMessageParam,
-        fullAssistantResponse: string,
+        latestUserMsg: RawMessage,
+        assistantMsg: {
+            content: string;
+            msgId: string;
+        },
         traceId: string,
     ): Promise<void> {
         const now = Date.now();
 
         // STM 必须同步写入，确保下一轮请求能读到完整上下文
         try {
-            const docsToSave: Array<Partial<STMMessage>> = [
+            const docsToSave: Array<Omit<RawMessage, 'id'>> = [
                 {
                     role: 'user',
                     content: latestUserMsg.content as string,
-                    timestamp: now,
+                    timestamp: latestUserMsg.timestamp || now,
+                    msgId: latestUserMsg.msgId,
                     traceId,
                 },
                 {
                     role: 'assistant',
-                    content: fullAssistantResponse,
+                    content: assistantMsg.content,
                     timestamp: now,
+                    msgId: assistantMsg.msgId,
                     traceId,
                 },
             ];
@@ -117,17 +135,19 @@ class ChatStreamService {
                 [
                     {
                         role: 'user',
-                        content: latestUserMsg.content as string,
+                        content: latestUserMsg.content,
                         timestamp: Date.now(),
                         traceId,
                         memoryKey,
+                        msgId: latestUserMsg.msgId,
                     },
                     {
                         role: 'assistant',
-                        content: fullAssistantResponse,
+                        content: assistantMsg.content,
                         timestamp: Date.now(),
                         traceId,
                         memoryKey,
+                        msgId: assistantMsg.msgId,
                     },
                 ],
                 { ordered: true },

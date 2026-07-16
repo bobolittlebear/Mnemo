@@ -1,4 +1,4 @@
-import NoteModel from '../models/Note';
+import NoteModel from '@/models/Note';
 
 const createNote = async (
     notebookId: string,

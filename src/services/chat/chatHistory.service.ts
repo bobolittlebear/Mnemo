@@ -10,11 +10,7 @@ export default {
     /**
      * 获取历史消息（按 _id 游标分页，返回正序列表）
      */
-    async getHistory(
-        memoryKey: string,
-        limit: number,
-        beforeId?: string,
-    ) {
+    async getHistory(memoryKey: string, limit: number, beforeId?: string) {
         const query: Record<string, unknown> = { memoryKey };
 
         if (beforeId && mongoose.Types.ObjectId.isValid(beforeId)) {
@@ -22,7 +18,7 @@ export default {
         }
 
         const messages = await ChatMessage.find(query)
-            .sort({ _id: -1 })  // 先倒序取最新的 limit 条
+            .sort({ _id: -1 }) // 先倒序取最新的 limit 条
             .limit(limit)
             .select('role content timestamp')
             .lean();
@@ -35,6 +31,7 @@ export default {
             role: msg.role,
             content: msg.content,
             timestamp: new Date(msg.timestamp).toISOString(),
+            msgId: msg.msgId,
         }));
     },
 

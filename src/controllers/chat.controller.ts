@@ -5,8 +5,8 @@ import ApiResponse from '@/utils/apiResponse';
 import { UNKNOWN_ERROR } from '@/utils/constant';
 import chatStreamService from '@/services/chat/chatStream.service';
 import chatHistoryService from '@/services/chat/chatHistory.service';
-import { generateEmbeddings } from '@/lib/embedding';
-import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
+import { generateMessageId } from '@/utils/tool';
+import type { RawMessage } from '@/types/chat';
 
 const logger = createLogger('api');
 
@@ -19,15 +19,27 @@ function setSSEHeaders(res: Response): void {
 }
 
 /** 从请求体解析消息列表 */
-function parseMessages(
-    body: Record<string, unknown>,
-): ChatCompletionMessageParam[] {
+function parseMessages(body: Record<string, unknown>): RawMessage[] {
     const raw = Object.values(
         (body?.messages as Record<string, unknown>) || {},
-    ) as ChatCompletionMessageParam[];
+    ) as RawMessage[];
     return Array.isArray(raw) ? raw : [];
 }
 
+/** 最新一条 user 消息增加 messageId */
+function attachMessageId(messages: RawMessage[]): void {
+    const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user');
+    if (lastUserMsg && !lastUserMsg.msgId) {
+        lastUserMsg.msgId = generateMessageId();
+    }
+}
+/** 最新一条 user 消息增加 timestamp */
+function attachTimestamp(messages: RawMessage[]): void {
+    const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user');
+    if (lastUserMsg && !lastUserMsg.timestamp) {
+        lastUserMsg.timestamp = Date.now();
+    }
+}
 /**
  * POST /stream/chat
  * 流式 AI 对话 — Controller 只做 HTTP 适配，业务逻辑归属 ChatStreamService
@@ -38,6 +50,9 @@ const chat = async (req: Request, res: Response) => {
 
     try {
         const messages = parseMessages(req.body);
+        attachMessageId(messages);
+        attachTimestamp(messages);
+
         if (!messages.length) {
             logger.warn('无效的消息格式', { traceId, body: req.body });
             res.status(400).json({ error: 'Invalid messages format' });

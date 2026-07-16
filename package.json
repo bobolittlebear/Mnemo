@@ -29,6 +29,7 @@
         "pug": "2.0.0-beta11",
         "redis": "^6.0.0",
         "tiktoken": "^1.0.22",
+        "uuid": "^14.0.1",
         "winston": "^3.19.0"
     },
     "devDependencies": {

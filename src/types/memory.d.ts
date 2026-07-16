@@ -5,6 +5,7 @@ export interface RawFact {
     content: string;
     confidence: number;
     category?: string;
+    sourceMessageIds: string[];
 }
 
 /**
@@ -20,7 +21,6 @@ export interface EmbeddedFact extends RawFact {
  */
 export interface IngestionContext {
     memoryKey: string;
-    sourceMessageIds: string[];
     notebookId?: string;
     type?: 'fact' | 'note_chunk' | 'media';
 }

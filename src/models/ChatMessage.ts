@@ -19,6 +19,10 @@ const chatMessageSchema = new Schema<IChatMessage>(
             required: true,
             index: true, // 核心索引：支持按用户快速查询
         },
+        msgId: {
+            type: String,
+            required: true,
+        },
         role: {
             type: String,
             required: true,

@@ -53,6 +53,7 @@ export async function ingestMemoryFacts(
                             category: fact.category,
                             metadata: fact.metadata || {},
                             updatedAt: new Date(),
+                            sourceMessageIds: fact.sourceMessageIds,
                         },
                         $setOnInsert: {
                             memoryKey: context.memoryKey,
@@ -61,11 +62,11 @@ export async function ingestMemoryFacts(
                             contentHash,
                             createdAt: new Date(),
                         },
-                        $addToSet: {
-                            sourceMessageIds: {
-                                $each: context.sourceMessageIds,
-                            },
-                        },
+                        // $addToSet: {
+                        //     sourceMessageIds: {
+                        //         $each: context.sourceMessageIds,
+                        //     },
+                        // },
                     },
                     upsert: true,
                 },

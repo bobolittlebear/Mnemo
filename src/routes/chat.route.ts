@@ -9,6 +9,7 @@ import {
 import { memoryMiddleware } from '@/middleware/memory.middleware';
 import { traceMiddleware } from '@/middleware/trace.middleware';
 import { createVector } from '@/controllers/embedding.controller';
+import { extractFacts, ingestFacts } from '@/controllers/memory.controller';
 const router: Router = Router();
 // 建议加上鉴权中间件，防止接口被盗刷
 // router.use(authMiddleware); // 保护所有后续路由，必须先通过认证
@@ -23,5 +24,7 @@ router.post('/session/end', endSession);
 router.get('/chat/history', getChatHistory);
 router.delete('/chat/history', clearChatHistory);
 router.put('/embedding', createVector);
+router.put('/fact/extract', extractFacts);
+router.put('/fact/pipeline', ingestFacts);
 
 export default router;
