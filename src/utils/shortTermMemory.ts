@@ -28,13 +28,13 @@ class ShortTermMemory {
      * 添加消息数组到 Redis List
      */
     async addMessages(
-        id: string,
+        seesionId: string,
         messages: Array<Partial<RawMessage>>,
         traceId?: string,
     ) {
         try {
             if (
-                !id ||
+                !seesionId ||
                 !messages ||
                 !Array.isArray(messages) ||
                 messages.length === 0
@@ -45,19 +45,18 @@ class ShortTermMemory {
             for (const m of messages) {
                 if (!m || !m.role || m.content == null) continue;
                 const payload: RawMessage = {
-                    id: m.id || generateMessageId(),
                     msgId: m.msgId || generateMessageId(),
                     role: m.role,
                     content: String(m.content),
                     timestamp: m.timestamp || Date.now(),
                     traceId: m.traceId || traceId, // ✅ 优先使用消息自身的，其次使用批量注入的
                 };
-                pipeline.rPush(id, JSON.stringify(payload)); // 尾部追加，插入顺序 = 时间顺序
+                pipeline.rPush(seesionId, JSON.stringify(payload)); // 尾部追加，插入顺序 = 时间顺序
             }
             // 仅保留最近的 N 条消息（实现 LRU 截断）
-            pipeline.lTrim(id, -this.maxMessagesPerSession, -1);
+            pipeline.lTrim(seesionId, -this.maxMessagesPerSession, -1);
             // 刷新/设置 TTL
-            pipeline.expire(id, this.sessionTTLSeconds);
+            pipeline.expire(seesionId, this.sessionTTLSeconds);
 
             await pipeline.exec();
         } catch (error) {
@@ -68,12 +67,15 @@ class ShortTermMemory {
     /**
      * 获取最近 N 轮对话（以 user 消息为计数基准）
      */
-    async getRecentRounds(id: string, rounds = 10): Promise<RawMessage[]> {
+    async getRecentRounds(
+        seesionId: string,
+        rounds = 10,
+    ): Promise<RawMessage[]> {
         try {
-            if (!id) return [];
+            if (!seesionId) return [];
 
             // 1. 获取该会话的所有消息（由于有 lTrim 限制，数据量可控）
-            const rawMessages = await redisClient.lRange(id, 0, -1);
+            const rawMessages = await redisClient.lRange(seesionId, 0, -1);
             if (!rawMessages || rawMessages.length === 0) return [];
 
             // 2. 解析 JSON
@@ -101,9 +103,9 @@ class ShortTermMemory {
     }
 
     // 手动清理会话
-    async clearSession(id: string) {
-        logger.info('Clearing STM key', { id });
-        await redisClient.del(id);
+    async clearSession(seesionId: string) {
+        logger.info('Clearing STM key', { seesionId });
+        await redisClient.del(seesionId);
     }
 
     /**
@@ -128,12 +130,12 @@ class ShortTermMemory {
      * 防止 Redis 阻塞导致请求挂起
      */
     async safeGetRecentRounds(
-        id: string,
+        seesionId: string,
         rounds: number,
         timeoutMs = TIMEOUT_MS,
     ): Promise<RawMessage[]> {
         return Promise.race([
-            this.getRecentRounds(id, rounds),
+            this.getRecentRounds(seesionId, rounds),
             new Promise<RawMessage[]>((resolve) =>
                 setTimeout(() => resolve([]), timeoutMs),
             ),

@@ -41,7 +41,6 @@ class ChatStreamService {
         const systemInjected: Partial<RawMessage>[] = recent.map((m) => ({
             role: m.role,
             content: m.content,
-            id: m.id,
             msgId: m.msgId,
         }));
         const finalMessages = [...systemInjected, latestUserMsg].filter(

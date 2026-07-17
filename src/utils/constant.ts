@@ -13,7 +13,7 @@ export const MESSAGE_ID_PREFIX = 'msg-';
 export const SESSION_KEY_PREFIX = 'quick_note:session:'; // 记忆管理memory key的前缀
 export const LAST_EXTRACTED_MSG_KEY_PREFIX = 'quick_note:extract:';
 export const MAX_MESSAGE_PER_SESSION = 100;
-export const SESSION_TTL_SECONDS = 60 * 60; // Redis TTL 以秒为单位，60分钟
+export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30; // Redis TTL 以秒为单位，60分钟/先改为30天用于测试呢
 
 export const TIMEOUT_MS = 100;
 

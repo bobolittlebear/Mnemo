@@ -1,6 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 /** 笔记本 */
-export interface INotebook extends Document {
+export interface Notebook extends Document {
     title: string;
     createUser: string;
     updateUser: string;
@@ -9,7 +9,7 @@ export interface INotebook extends Document {
     isDeleted: boolean; // 软删除标识位
 }
 /** 笔记 */
-export type INote = {
+export type Note = {
     notebookId: mongoose.Types.ObjectId;
     title: string;
     content: string;
@@ -19,7 +19,8 @@ export type INote = {
 };
 
 /** 会话消息 */
-export interface IChatMessage extends Document {
+export interface ChatMessage extends Document {
+    id: string; // mongodb ObjectId 自动生成
     memoryKey: string; // 关联用户的唯一标识（与 Redis STM 的 Key 一致）
     // conversationId: string; // 以后也许支持扩展一个用户多个会话窗口
     role: 'system' | 'user' | 'assistant' | 'tool' | string;
@@ -62,7 +63,7 @@ type MetaData = {
 } & Record<string, any>;
 
 /** 长期记忆 */
-export interface IMemoryFact extends Document {
+export interface MemoryFact extends Document {
     memoryKey: string;
     content: string;
     sourceMessageIds: string[]; // 对应的源消息ID

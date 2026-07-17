@@ -1,8 +1,8 @@
 // src/models/MemoryFact.ts
-import type { IMemoryFact } from '@/types/models';
+import type { MemoryFact as RawMemoryFact } from '@/types/models';
 import mongoose, { Schema, Model } from 'mongoose';
 
-const MemoryFactSchema = new Schema<IMemoryFact>(
+const MemoryFactSchema = new Schema<RawMemoryFact>(
     {
         memoryKey: { type: String, required: true },
 
@@ -77,6 +77,6 @@ MemoryFactSchema.index(
     },
 );
 
-export const MemoryFact: Model<IMemoryFact> =
+export const MemoryFact: Model<RawMemoryFact> =
     mongoose.models.MemoryFact ||
-    mongoose.model<IMemoryFact>('MemoryFact', MemoryFactSchema);
+    mongoose.model<RawMemoryFact>('MemoryFact', MemoryFactSchema);

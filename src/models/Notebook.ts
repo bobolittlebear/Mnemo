@@ -1,7 +1,7 @@
-import type { INotebook } from '@/types/models';
+import type { Notebook } from '@/types/models';
 import mongoose from 'mongoose';
 
-const notebookSchema = new mongoose.Schema<INotebook>(
+const notebookSchema = new mongoose.Schema<Notebook>(
     {
         title: {
             type: String,

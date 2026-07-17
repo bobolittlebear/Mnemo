@@ -3,16 +3,16 @@
  * AI对话消息模型 - 支持按用户查询、按时间倒序分页
  */
 import { createLogger } from '@/lib/logger';
-import type { IChatMessage } from '@/types/models';
+import type { ChatMessage } from '@/types/models';
 import { MAX_MESSAGE_PER_SESSION } from '@/utils/constant';
 import mongoose, { Schema, Document, Model } from 'mongoose';
 
 // 定义静态方法
-interface IChatMessageModel extends Model<IChatMessage> {
+interface ChatMessageModel extends Model<ChatMessage> {
     trimOldMessages(memoryKey: string, maxMessages?: number): Promise<void>;
 }
 
-const chatMessageSchema = new Schema<IChatMessage>(
+const chatMessageSchema = new Schema<ChatMessage>(
     {
         memoryKey: {
             type: String,
@@ -29,6 +29,10 @@ const chatMessageSchema = new Schema<IChatMessage>(
             enum: ['user', 'assistant', 'system'],
         },
         content: {
+            type: String,
+            required: true,
+        },
+        traceId: {
             type: String,
             required: true,
         },
@@ -58,7 +62,7 @@ chatMessageSchema.statics.trimOldMessages = async function (
     try {
         // 1. 找出需要被删除的消息的 _id
         // 逻辑：按时间正序排列，跳过最新的 maxMessages 条，剩下的就是要删除的
-        const messagesToDelete: IChatMessage[] = await this.find({ memoryKey })
+        const messagesToDelete: ChatMessage[] = await this.find({ memoryKey })
             .sort({ _id: 1 }) // 按 ObjectId 正序（等同于插入时间正序）
             .skip(maxMessages)
             .select('_id')
@@ -76,7 +80,7 @@ chatMessageSchema.statics.trimOldMessages = async function (
     }
 };
 
-export default mongoose.model<IChatMessage, IChatMessageModel>(
+export default mongoose.model<ChatMessage, ChatMessageModel>(
     'ChatMessage',
     chatMessageSchema,
 );
