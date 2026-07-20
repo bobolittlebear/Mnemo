@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { RedisClientType } from 'redis';
-import { TerminalStateManager } from '@/services/memory/trigger/TerminalStateManager';
+import { TerminalStateManager } from '@/services/memory/trigger/terminalStateManager';
 
 interface MockRedis {
     store: Map<string, { value: string; ex: number }>;
@@ -69,12 +69,16 @@ describe('TerminalStateManager', () => {
 
         it('默认 TTL 为 86400', async () => {
             await manager.markExtracted(sessionId);
-            expect(redis.set).toHaveBeenCalledWith(expectedKey, '1', { EX: 86400 });
+            expect(redis.set).toHaveBeenCalledWith(expectedKey, '1', {
+                EX: 86400,
+            });
         });
 
         it('自定义 TTL 正确传递', async () => {
             await manager.markExtracted(sessionId, 3600);
-            expect(redis.set).toHaveBeenCalledWith(expectedKey, '1', { EX: 3600 });
+            expect(redis.set).toHaveBeenCalledWith(expectedKey, '1', {
+                EX: 3600,
+            });
         });
 
         it('多次 markExtracted 不报错，值仍为 "1"', async () => {
@@ -88,7 +92,9 @@ describe('TerminalStateManager', () => {
         it('多次 markExtracted 最后一次 TTL 覆盖前值', async () => {
             await manager.markExtracted(sessionId, 3600);
             await manager.markExtracted(sessionId, 7200);
-            expect(redis.set).toHaveBeenLastCalledWith(expectedKey, '1', { EX: 7200 });
+            expect(redis.set).toHaveBeenLastCalledWith(expectedKey, '1', {
+                EX: 7200,
+            });
         });
     });
 });

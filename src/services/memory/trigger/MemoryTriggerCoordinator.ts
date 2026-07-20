@@ -1,6 +1,6 @@
-import type { DistributedLock } from './DistributedLock';
-import type { TerminalStateManager } from './TerminalStateManager';
-import type { ProcessingGuard, TriggerLayer } from './ProcessingGuard';
+import type { DistributedLock } from './distributedLock';
+import type { TerminalStateManager } from './terminalStateManager';
+import type { ProcessingGuard, TriggerLayer } from './processingGuard';
 
 export interface CoordinatorMetrics {
     count: (name: string, tags?: Record<string, string>) => void;

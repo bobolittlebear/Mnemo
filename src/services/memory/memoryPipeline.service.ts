@@ -1,4 +1,12 @@
 // src/services/memory/memoryPipeline.service.ts
+/**
+ * 记忆提取服务
+ * 触发方式：
+ * 1. 明确的会话终止信号: endSession
+ * 2. STM超时静默触发
+ * 3. 每日凌晨兜底扫描
+ */
+
 import memoryExtractionService from './memoryExtraction.service';
 import { ingestMemoryFacts } from './memoryIngestion.service';
 import STM from '@/utils/shortTermMemory';

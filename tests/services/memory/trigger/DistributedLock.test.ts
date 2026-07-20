@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { RedisClientType } from 'redis';
-import { DistributedLock, LOCK_TTL_MS } from '@/services/memory/trigger/DistributedLock';
+import {
+    DistributedLock,
+    LOCK_TTL_MS,
+} from '@/services/memory/trigger/distributedLock';
 
 interface MockRedis {
     store: Map<string, { value: string; px: number }>;
@@ -12,19 +15,26 @@ function createMockRedis(): MockRedis {
     const store = new Map<string, { value: string; px: number }>();
     return {
         store,
-        set: vi.fn((_key: string, value: string, opts: { NX: true; PX: number }) => {
-            if (store.has(_key)) return null;
-            store.set(_key, { value, px: opts.PX });
-            return 'OK';
-        }),
-        eval: vi.fn((_script: string, opts: { keys: string[]; arguments: string[] }) => {
-            const key = opts.keys[0]!;
-            const token = opts.arguments[0];
-            const entry = store.get(key);
-            if (!entry || entry.value !== token) return 0;
-            store.delete(key);
-            return 1;
-        }),
+        set: vi.fn(
+            (_key: string, value: string, opts: { NX: true; PX: number }) => {
+                if (store.has(_key)) return null;
+                store.set(_key, { value, px: opts.PX });
+                return 'OK';
+            },
+        ),
+        eval: vi.fn(
+            (
+                _script: string,
+                opts: { keys: string[]; arguments: string[] },
+            ) => {
+                const key = opts.keys[0]!;
+                const token = opts.arguments[0];
+                const entry = store.get(key);
+                if (!entry || entry.value !== token) return 0;
+                store.delete(key);
+                return 1;
+            },
+        ),
     };
 }
 
@@ -55,7 +65,9 @@ describe('DistributedLock', () => {
 
         it('redis.set 异常时向上抛出', async () => {
             redis.set.mockRejectedValueOnce(new Error('connection refused'));
-            await expect(lock.acquire('test:lock')).rejects.toThrow('connection refused');
+            await expect(lock.acquire('test:lock')).rejects.toThrow(
+                'connection refused',
+            );
         });
     });
 
@@ -88,7 +100,9 @@ describe('DistributedLock', () => {
 
         it('redis.eval 异常时向上抛出', async () => {
             redis.eval.mockRejectedValueOnce(new Error('connection refused'));
-            await expect(lock.release('test:lock', 'some-token')).rejects.toThrow('connection refused');
+            await expect(
+                lock.release('test:lock', 'some-token'),
+            ).rejects.toThrow('connection refused');
         });
 
         // P0: TTL 过期后，旧 token 不能释放新持有者的锁

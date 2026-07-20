@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { RedisClientType } from 'redis';
-import { ProcessingGuard, PROCESSING_TTL_MS } from '@/services/memory/trigger/ProcessingGuard';
-import type { TriggerLayer } from '@/services/memory/trigger/ProcessingGuard';
+import {
+    ProcessingGuard,
+    PROCESSING_TTL_MS,
+} from '@/services/memory/trigger/processingGuard';
 
 interface MockRedis {
     store: Map<string, { value: string; px: number }>;
@@ -14,11 +16,13 @@ function createMockRedis(): MockRedis {
     const store = new Map<string, { value: string; px: number }>();
     return {
         store,
-        set: vi.fn((key: string, value: string, opts: { NX: true; PX: number }) => {
-            if (store.has(key)) return null;
-            store.set(key, { value, px: opts.PX });
-            return 'OK';
-        }),
+        set: vi.fn(
+            (key: string, value: string, opts: { NX: true; PX: number }) => {
+                if (store.has(key)) return null;
+                store.set(key, { value, px: opts.PX });
+                return 'OK';
+            },
+        ),
         get: vi.fn((key: string) => {
             const entry = store.get(key);
             return entry ? entry.value : null;
@@ -60,16 +64,22 @@ describe('ProcessingGuard', () => {
 
         it('TTL 参数正确传递为 PROCESSING_TTL_MS', async () => {
             await guard.trySet('session-1', 'threshold');
-            expect(redis.set).toHaveBeenCalledWith('memory:session:session-1:processing', 'threshold', {
-                NX: true,
-                PX: PROCESSING_TTL_MS,
-            });
+            expect(redis.set).toHaveBeenCalledWith(
+                'memory:session:session-1:processing',
+                'threshold',
+                {
+                    NX: true,
+                    PX: PROCESSING_TTL_MS,
+                },
+            );
             expect(PROCESSING_TTL_MS).toBe(300_000);
         });
 
         it('redis.set 异常时向上抛出', async () => {
             redis.set.mockRejectedValueOnce(new Error('连接失败'));
-            await expect(guard.trySet('session-1', 'explicit')).rejects.toThrow('连接失败');
+            await expect(guard.trySet('session-1', 'explicit')).rejects.toThrow(
+                '连接失败',
+            );
         });
     });
 
@@ -117,7 +127,9 @@ describe('ProcessingGuard', () => {
 
         it('redis.get 异常时向上抛出', async () => {
             redis.get.mockRejectedValueOnce(new Error('连接失败'));
-            await expect(guard.current('session-1')).rejects.toThrow('连接失败');
+            await expect(guard.current('session-1')).rejects.toThrow(
+                '连接失败',
+            );
         });
     });
 
