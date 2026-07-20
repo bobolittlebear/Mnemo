@@ -9,5 +9,8 @@
     },
     "[typescriptreact]": {
         "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[markdown]": {
+        "editor.defaultFormatter": "rvest.vs-code-prettier-eslint"
     }
 }
