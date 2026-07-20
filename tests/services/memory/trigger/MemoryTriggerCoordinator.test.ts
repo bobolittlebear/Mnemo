@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { MemoryTriggerCoordinator } from '@/services/memory/trigger/MemoryTriggerCoordinator';
-import type { CoordinatorDeps } from '@/services/memory/trigger/MemoryTriggerCoordinator';
+import { MemoryTriggerCoordinator } from '@/services/memory/trigger/memoryTriggerCoordinator';
+import type { CoordinatorDeps } from '@/services/memory/trigger/memoryTriggerCoordinator';
 
 function makeMocks() {
     const lock = {
@@ -45,7 +45,10 @@ describe('MemoryTriggerCoordinator', () => {
         it('正常完成：不写终态，清 processing，返回 COMPLETED terminalWritten=false', async () => {
             const result = await coordinator.triggerThreshold('s1');
 
-            expect(result).toEqual({ status: 'COMPLETED', terminalWritten: false });
+            expect(result).toEqual({
+                status: 'COMPLETED',
+                terminalWritten: false,
+            });
             expect(mocks.terminal.markExtracted).not.toHaveBeenCalled();
             expect(mocks.pipeline.run).toHaveBeenCalledWith('s1');
             expect(mocks.processing.clear).toHaveBeenCalled();
@@ -57,9 +60,15 @@ describe('MemoryTriggerCoordinator', () => {
 
     describe('executeTerminalTrigger (L1)', () => {
         it('正常完成：写终态 1 次，返回 COMPLETED terminalWritten=true', async () => {
-            const result = await coordinator.executeTerminalTrigger('s1', 'explicit');
+            const result = await coordinator.executeTerminalTrigger(
+                's1',
+                'explicit',
+            );
 
-            expect(result).toEqual({ status: 'COMPLETED', terminalWritten: true });
+            expect(result).toEqual({
+                status: 'COMPLETED',
+                terminalWritten: true,
+            });
             expect(mocks.terminal.markExtracted).toHaveBeenCalledTimes(1);
             expect(mocks.terminal.markExtracted).toHaveBeenCalledWith('s1');
             expect(mocks.pipeline.run).toHaveBeenCalledWith('s1');
@@ -67,8 +76,14 @@ describe('MemoryTriggerCoordinator', () => {
         });
 
         it('L2 timeout 同样写终态', async () => {
-            const result = await coordinator.executeTerminalTrigger('s1', 'timeout');
-            expect(result).toEqual({ status: 'COMPLETED', terminalWritten: true });
+            const result = await coordinator.executeTerminalTrigger(
+                's1',
+                'timeout',
+            );
+            expect(result).toEqual({
+                status: 'COMPLETED',
+                terminalWritten: true,
+            });
             expect(mocks.terminal.markExtracted).toHaveBeenCalledTimes(1);
         });
     });
@@ -81,13 +96,18 @@ describe('MemoryTriggerCoordinator', () => {
 
             expect(result).toEqual({ status: 'SKIPPED', reason: 'TERMINAL' });
             expect(mocks.pipeline.run).not.toHaveBeenCalled();
-            expect(mocks.metrics.count).toHaveBeenCalledWith('ltm.skip', { reason: 'TERMINAL' });
+            expect(mocks.metrics.count).toHaveBeenCalledWith('ltm.skip', {
+                reason: 'TERMINAL',
+            });
         });
 
         it('L1：返回 SKIPPED TERMINAL，markExtracted 不被调用', async () => {
             mocks.terminal.isExtracted.mockResolvedValue(true);
 
-            const result = await coordinator.executeTerminalTrigger('s1', 'explicit');
+            const result = await coordinator.executeTerminalTrigger(
+                's1',
+                'explicit',
+            );
 
             expect(result).toEqual({ status: 'SKIPPED', reason: 'TERMINAL' });
             expect(mocks.terminal.markExtracted).not.toHaveBeenCalled();
@@ -103,7 +123,9 @@ describe('MemoryTriggerCoordinator', () => {
 
             expect(result).toEqual({ status: 'SKIPPED', reason: 'PROCESSING' });
             expect(mocks.pipeline.run).not.toHaveBeenCalled();
-            expect(mocks.metrics.count).toHaveBeenCalledWith('ltm.skip', { reason: 'PROCESSING' });
+            expect(mocks.metrics.count).toHaveBeenCalledWith('ltm.skip', {
+                reason: 'PROCESSING',
+            });
         });
     });
 
@@ -116,7 +138,9 @@ describe('MemoryTriggerCoordinator', () => {
             expect(result).toEqual({ status: 'SKIPPED', reason: 'LOCK' });
             expect(mocks.pipeline.run).not.toHaveBeenCalled();
             expect(mocks.terminal.isExtracted).not.toHaveBeenCalled();
-            expect(mocks.metrics.count).toHaveBeenCalledWith('ltm.skip', { reason: 'LOCK' });
+            expect(mocks.metrics.count).toHaveBeenCalledWith('ltm.skip', {
+                reason: 'LOCK',
+            });
         });
     });
 
@@ -129,9 +153,15 @@ describe('MemoryTriggerCoordinator', () => {
                 .mockResolvedValueOnce(null)
                 .mockResolvedValueOnce('token-3');
 
-            const result = await coordinator.executeTerminalTrigger('s1', 'explicit');
+            const result = await coordinator.executeTerminalTrigger(
+                's1',
+                'explicit',
+            );
 
-            expect(result).toEqual({ status: 'COMPLETED', terminalWritten: true });
+            expect(result).toEqual({
+                status: 'COMPLETED',
+                terminalWritten: true,
+            });
             const retryCalls = mocks.metrics.count.mock.calls.filter(
                 ([name]) => name === 'ltm.p3.retry',
             );
@@ -148,7 +178,10 @@ describe('MemoryTriggerCoordinator', () => {
 
             const result = await coordinator.triggerThreshold('s1');
 
-            expect(result).toEqual({ status: 'COMPLETED', terminalWritten: false });
+            expect(result).toEqual({
+                status: 'COMPLETED',
+                terminalWritten: false,
+            });
             const retryCalls = mocks.metrics.count.mock.calls.filter(
                 ([name]) => name === 'ltm.p3.retry',
             );
@@ -161,7 +194,9 @@ describe('MemoryTriggerCoordinator', () => {
             const boom = new Error('pipeline boom');
             mocks.pipeline.run.mockRejectedValue(boom);
 
-            await expect(coordinator.triggerThreshold('s1')).rejects.toThrow('pipeline boom');
+            await expect(coordinator.triggerThreshold('s1')).rejects.toThrow(
+                'pipeline boom',
+            );
 
             // catch 块清 1 次 + finally 块清 1 次
             expect(mocks.processing.clear).toHaveBeenCalledTimes(2);
@@ -176,7 +211,10 @@ describe('MemoryTriggerCoordinator', () => {
                 .mockResolvedValueOnce(false)
                 .mockResolvedValueOnce(true);
 
-            const result = await coordinator.executeTerminalTrigger('s1', 'explicit');
+            const result = await coordinator.executeTerminalTrigger(
+                's1',
+                'explicit',
+            );
 
             expect(result).toEqual({ status: 'SKIPPED', reason: 'TERMINAL' });
             expect(mocks.terminal.markExtracted).not.toHaveBeenCalled();
@@ -195,7 +233,10 @@ describe('MemoryTriggerCoordinator', () => {
 
             const result = await c.triggerThreshold('s1');
 
-            expect(result).toEqual({ status: 'COMPLETED', terminalWritten: false });
+            expect(result).toEqual({
+                status: 'COMPLETED',
+                terminalWritten: false,
+            });
             // 不抛错即说明 metrics?. 短路正常
         });
     });
