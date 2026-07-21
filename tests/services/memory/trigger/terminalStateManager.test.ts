@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { RedisClientType } from 'redis';
 import { TerminalStateManager } from '@/services/memory/trigger/terminalStateManager';
+import { sessionTriggerKeys } from '@/services/memory/trigger/triggerKeys';
 
 interface MockRedis {
     store: Map<string, { value: string; ex: number }>;
@@ -27,7 +28,7 @@ describe('TerminalStateManager', () => {
     let manager: TerminalStateManager;
     let redis: MockRedis;
     const sessionId = 'test-session-id';
-    const expectedKey = `memory:session:${sessionId}:extracted`;
+    const expectedKey = sessionTriggerKeys(sessionId).extracted;
 
     beforeEach(() => {
         redis = createMockRedis();

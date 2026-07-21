@@ -1,7 +1,8 @@
 import crypto from 'crypto';
 import type { RedisClientType } from 'redis';
+import { memoryTriggerConfig } from './memoryTriggerConfig';
 
-export const LOCK_TTL_MS = 10_000;
+export const LOCK_TTL_MS = memoryTriggerConfig.lockTtlMs;
 
 // 防止竞态条件
 // 由于 Redis 是单线程处理请求的，在执行 Lua 脚本时，其他请求必须等待脚本完成。

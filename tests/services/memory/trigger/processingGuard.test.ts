@@ -4,6 +4,7 @@ import {
     ProcessingGuard,
     PROCESSING_TTL_MS,
 } from '@/services/memory/trigger/processingGuard';
+import { sessionTriggerKeys } from '@/services/memory/trigger/triggerKeys';
 
 interface MockRedis {
     store: Map<string, { value: string; px: number }>;
@@ -46,7 +47,7 @@ describe('ProcessingGuard', () => {
     describe('getKey', () => {
         it('返回正确的 key 格式', () => {
             const key = ProcessingGuard.getKey('session-123');
-            expect(key).toBe('memory:session:session-123:processing');
+            expect(key).toBe(sessionTriggerKeys('session-123').processing);
         });
     });
 
@@ -65,7 +66,7 @@ describe('ProcessingGuard', () => {
         it('TTL 参数正确传递为 PROCESSING_TTL_MS', async () => {
             await guard.trySet('session-1', 'threshold');
             expect(redis.set).toHaveBeenCalledWith(
-                'memory:session:session-1:processing',
+                sessionTriggerKeys('session-1').processing,
                 'threshold',
                 {
                     NX: true,

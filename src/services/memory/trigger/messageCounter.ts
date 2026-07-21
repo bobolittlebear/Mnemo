@@ -1,9 +1,11 @@
 import { createLogger } from '@/lib/logger';
+import { memoryTriggerConfig } from './memoryTriggerConfig';
+import { sessionTriggerKeys } from './triggerKeys';
 
 const log = createLogger('ltm');
 
-const MSG_COUNT_TTL_SECONDS = 60 * 60 * 24; //  24 小时
-const DEFAULT_THRESHOLD = 20;
+const MSG_COUNT_TTL_SECONDS = memoryTriggerConfig.msgCountTtlSec;
+const DEFAULT_THRESHOLD = memoryTriggerConfig.messageThreshold;
 
 export type TriggerResult =
     | { status: 'COMPLETED'; terminalWritten: boolean }
@@ -26,7 +28,7 @@ interface MessageCounterDeps {
 }
 
 const msgCountKey = (sessionId: string): string =>
-    `memory:session:${sessionId}:msg_count`;
+    sessionTriggerKeys(sessionId).msgCount;
 
 export class MessageCounter {
     private readonly coordinator: TriggerCoordinator;

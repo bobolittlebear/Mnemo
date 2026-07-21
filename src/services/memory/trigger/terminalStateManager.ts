@@ -1,6 +1,8 @@
 import type { RedisClientType } from 'redis';
+import { memoryTriggerConfig } from './memoryTriggerConfig';
+import { sessionTriggerKeys } from './triggerKeys';
 
-const DEFAULT_SESSION_TTL_SEC = 86_400;
+const DEFAULT_SESSION_TTL_SEC = memoryTriggerConfig.extractedTtlSec;
 
 /**
  * TSM 终态标记管理器
@@ -12,7 +14,7 @@ export class TerminalStateManager {
     }
 
     getKey(sessionId: string): string {
-        return `memory:session:${sessionId}:extracted`;
+        return sessionTriggerKeys(sessionId).extracted;
     }
 
     async isExtracted(sessionId: string): Promise<boolean> {

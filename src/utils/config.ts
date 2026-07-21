@@ -1,7 +1,8 @@
 /** AI 服务配置常量，集中管理避免魔法字符串 */
 export const AI_CONFIG = {
     DEFAULT_MODEL: 'qwen3.7-plus',
-    DEFAULT_TIMEOUT: 30_000, // 30s 超时
+    DEFAULT_STREAM_TIMEOUT: 60_000, // 默认超时和流式响应相同
+    DEFAULT_REQUEST_TIMEOUT: 120_000, // 非流式响应超时
     DEFAULT_MAX_RETRIES: 2, // 重试次数
 } as const;
 

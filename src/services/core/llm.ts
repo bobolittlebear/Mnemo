@@ -24,7 +24,7 @@ export const getAIApi = (options?: AIApiOptions): OpenAI => {
     return new OpenAI({
         baseURL: baseUrl,
         apiKey,
-        timeout: options?.timeout ?? AI_CONFIG.DEFAULT_TIMEOUT,
+        timeout: options?.timeout ?? AI_CONFIG.DEFAULT_STREAM_TIMEOUT,
         maxRetries: options?.maxRetries ?? AI_CONFIG.DEFAULT_MAX_RETRIES,
     });
 };

@@ -1,6 +1,7 @@
 import type { DistributedLock } from './distributedLock';
 import type { TerminalStateManager } from './terminalStateManager';
 import type { ProcessingGuard, TriggerLayer } from './processingGuard';
+import { sessionTriggerKeys } from './triggerKeys';
 
 export interface CoordinatorMetrics {
     count: (name: string, tags?: Record<string, string>) => void;
@@ -28,7 +29,6 @@ export type TriggerResult =
     | { status: 'COMPLETED'; terminalWritten: boolean }
     | { status: 'SKIPPED'; reason: SkipReason };
 
-const LOCK_PREFIX = 'memory:lock:';
 const P3_RETRIES = 3;
 const P3_RETRY_DELAY_MS = 1000;
 const METRIC_LABEL_LTM_SKIP = 'ltm.skip';
@@ -59,7 +59,7 @@ export class MemoryTriggerCoordinator {
         layer: TriggerLayer,
     ): Promise<TriggerResult> {
         const { lock, terminal, processing, pipeline, metrics } = this.deps;
-        const lockKey = `${LOCK_PREFIX}${sessionId}`;
+        const lockKey = sessionTriggerKeys(sessionId).lock;
         const count = (name: string, tags?: Record<string, string>) =>
             metrics?.count(name, tags);
 

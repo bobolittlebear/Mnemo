@@ -1,6 +1,6 @@
 // src/services/ai.service.ts
 import { getAIApi } from './core/llm';
-import { AI_MODEL } from '@/utils/config';
+import { AI_CONFIG, AI_MODEL } from '@/utils/config';
 import type { RawMessage } from '@/types/chat';
 
 // ==================== 类型定义 ====================
@@ -94,8 +94,7 @@ export async function createChat(
         : messages;
 
     const ai = getAIApi({
-        timeout: 120000,
-        maxRetries: 2,
+        timeout: AI_CONFIG.DEFAULT_REQUEST_TIMEOUT,
     });
 
     const response = await ai.chat.completions.create({

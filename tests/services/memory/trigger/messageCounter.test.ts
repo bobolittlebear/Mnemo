@@ -15,6 +15,7 @@ import {
     type TriggerCoordinator,
     type TriggerResult,
 } from '@/services/memory/trigger/messageCounter';
+import { sessionTriggerKeys } from '@/services/memory/trigger/triggerKeys';
 
 const completed = (): TriggerResult => ({
     status: 'COMPLETED',
@@ -52,7 +53,7 @@ function createCoordinator(
     return { triggerThreshold: vi.fn(fn) };
 }
 
-const KEY = 'memory:session:s1:msg_count';
+const KEY = sessionTriggerKeys('s1').msgCount;
 
 describe('MessageCounter', () => {
     let redis: RedisClient;

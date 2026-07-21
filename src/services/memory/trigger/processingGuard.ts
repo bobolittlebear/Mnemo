@@ -1,4 +1,6 @@
 import type { RedisClientType } from 'redis';
+import { memoryTriggerConfig } from './memoryTriggerConfig';
+import { sessionTriggerKeys } from './triggerKeys';
 
 /**
  * TriggerLayer 触发层标识
@@ -8,13 +10,13 @@ import type { RedisClientType } from 'redis';
  */
 export type TriggerLayer = 'explicit' | 'timeout' | 'threshold';
 
-export const PROCESSING_TTL_MS = 300_000;
+export const PROCESSING_TTL_MS = memoryTriggerConfig.processingTtlMs;
 
 export class ProcessingGuard {
     constructor(private redis: RedisClientType) {}
 
     static getKey(sessionId: string): string {
-        return `memory:session:${sessionId}:processing`;
+        return sessionTriggerKeys(sessionId).processing;
     }
 
     async trySet(sessionId: string, layer: TriggerLayer): Promise<boolean> {

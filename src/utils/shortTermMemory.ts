@@ -7,7 +7,7 @@ import redisClient from '@/lib/redis';
 import { createLogger } from '@/lib/logger';
 import { MAX_MESSAGE_PER_SESSION, SESSION_TTL_SECONDS } from './constant';
 import { generateMessageId, getExtractionKey } from './tool';
-import { TIMEOUT_MS } from './constant';
+import { REDIS_READ_TIMEOUT_MS } from './constant';
 import { RawMessage } from '@/types/chat';
 
 const logger = createLogger('stm');
@@ -132,7 +132,7 @@ class ShortTermMemory {
     async safeGetRecentRounds(
         seesionId: string,
         rounds: number,
-        timeoutMs = TIMEOUT_MS,
+        timeoutMs = REDIS_READ_TIMEOUT_MS,
     ): Promise<RawMessage[]> {
         return Promise.race([
             this.getRecentRounds(seesionId, rounds),

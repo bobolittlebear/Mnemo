@@ -5,7 +5,7 @@ export const MAX_CHECK_LENGTH = 50;
 export const DEFAULT_API_CONFIG = {
     MAX_RETRIES: 3,
     BASE_DELAY: 1000,
-    MAX_DELAY: 10000,
+    MAX_DELAY: 10_000,
 };
 
 export const TRACE_ID_PREFIX = 'trace-';
@@ -15,7 +15,7 @@ export const LAST_EXTRACTED_MSG_KEY_PREFIX = 'quick_note:extract:';
 export const MAX_MESSAGE_PER_SESSION = 100;
 export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30; // Redis TTL 以秒为单位，60分钟/先改为30天用于测试呢
 
-export const TIMEOUT_MS = 100;
+export const REDIS_READ_TIMEOUT_MS = 300;
 
 export const COOKIE_TOKEN_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 1 week
 export const COOKIE_MEMORY_KEY_MAX_AGE = 24 * 60 * 60 * 1000; // 24 小时
