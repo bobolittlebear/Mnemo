@@ -23,7 +23,7 @@ class SessionMemoryLifecycle {
 
     async destroy(sessionId: string): Promise<void> {
         const k = sessionTriggerKeys(sessionId);
-        const keys = [k.lock, k.extracted, k.processing, k.cursor, k.msgCount];
+        const keys = [k.lock, k.extracted, k.processing, k.msgCount];
         await this.unlink(keys);
         log.info('session memory destroyed', {
             sessionId,
@@ -36,7 +36,7 @@ class SessionMemoryLifecycle {
         const extracted = await this.deps.redis.get(k.extracted);
         if (!extracted) return false;
 
-        const keys = [k.extracted, k.processing, k.cursor, k.msgCount];
+        const keys = [k.extracted, k.processing, k.msgCount];
         await this.unlink(keys);
         log.info('session memory reset for continuation', { sessionId });
         return true;

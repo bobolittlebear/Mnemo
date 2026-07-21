@@ -1,5 +1,4 @@
 import {
-    LAST_EXTRACTED_MSG_KEY_PREFIX,
     MESSAGE_ID_PREFIX,
     SESSION_KEY_PREFIX,
     TRACE_ID_PREFIX,
@@ -14,8 +13,6 @@ export function generateMemoryKey(userId: string) {
 export function getUserIdFromMemoryKey(memoryKey: string) {
     if (memoryKey.startsWith(SESSION_KEY_PREFIX))
         return memoryKey.slice(SESSION_KEY_PREFIX.length);
-    if (memoryKey.startsWith(LAST_EXTRACTED_MSG_KEY_PREFIX))
-        return memoryKey.slice(LAST_EXTRACTED_MSG_KEY_PREFIX.length);
     return memoryKey;
 }
 export function generateTraceId(): string {
@@ -34,8 +31,8 @@ export function safeStringify(obj: unknown): string {
     }
 }
 
-export function getExtractionKey(userId: string) {
-    return `${LAST_EXTRACTED_MSG_KEY_PREFIX}${userId}`;
+export function getExtractionKey(sessionId: string) {
+    return `memory:session:${sessionId}:cursor`;
 }
 
 export function getNormalizationProps(model: string) {

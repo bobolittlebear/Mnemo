@@ -7,7 +7,6 @@ export interface SessionTriggerKeys {
     lock: string;
     extracted: string;
     processing: string;
-    cursor: string;
     msgCount: string;
 }
 
@@ -16,7 +15,6 @@ export function sessionTriggerKeys(sessionId: string): SessionTriggerKeys {
         lock: `memory:lock:${sessionId}`,
         extracted: `memory:session:${sessionId}:extracted`,
         processing: `memory:session:${sessionId}:processing`,
-        cursor: `memory:session:${sessionId}:cursor`,
         msgCount: `memory:session:${sessionId}:msg_count`,
     };
 }
