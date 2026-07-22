@@ -6,15 +6,10 @@ import {
 import { randomUUID, createHash } from 'crypto';
 import { v7 as uuidv7 } from 'uuid';
 
-export function generateMemoryKey(userId: string) {
-    return `${SESSION_KEY_PREFIX}${userId}`;
+export function generateSessionKey(sessionId: string) {
+    return `${SESSION_KEY_PREFIX}${sessionId}`;
 }
 
-export function getUserIdFromMemoryKey(memoryKey: string) {
-    if (memoryKey.startsWith(SESSION_KEY_PREFIX))
-        return memoryKey.slice(SESSION_KEY_PREFIX.length);
-    return memoryKey;
-}
 export function generateTraceId(): string {
     return `${TRACE_ID_PREFIX}${randomUUID()}`; // 例如: "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d"
 }
@@ -31,7 +26,7 @@ export function safeStringify(obj: unknown): string {
     }
 }
 
-export function getExtractionKey(sessionId: string) {
+export function getCursorKey(sessionId: string) {
     return `memory:session:${sessionId}:cursor`;
 }
 

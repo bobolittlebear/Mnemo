@@ -11,7 +11,6 @@ import memoryExtractionService from './memoryExtraction.service';
 import { ingestMemoryFacts } from './memoryIngestion.service';
 import STM from '@/utils/shortTermMemory';
 import { generateEmbeddings } from '@/lib/embedding';
-import { getExtractionKey } from '@/utils/tool';
 import { createLogger } from '@/lib/logger';
 import { MemoryFact } from '@/models/MemoryFact';
 import type {
@@ -43,7 +42,6 @@ class MemoryPipelineService {
             return { totalProcessed: 0, inserted: 0, updated: 0, skipped: 0 };
         }
 
-        const memoryKey = getExtractionKey(sessionId);
         const sourceIds = messages.map((m) => m.msgId);
         const lastMsgId = sourceIds[sourceIds.length - 1]!;
 
@@ -51,14 +49,11 @@ class MemoryPipelineService {
         const lastExtractedId = await STM.getLastExtractedMsgId(sessionId);
         if (lastExtractedId && lastMsgId <= lastExtractedId) {
             // 整个批次的最大ID都小于等于已提取游标 → 整批已处理，直接返回
-            logger.debug(
-                'Skip extraction: entire batch already processed by cursor',
-                {
-                    memoryKey,
-                    lastMsgId,
-                    lastExtractedId,
-                },
-            );
+            logger.debug('Skip extraction: entire batch already processed', {
+                sessionId,
+                lastMsgId,
+                lastExtractedId,
+            });
             return {
                 totalProcessed: sourceIds.length,
                 inserted: 0,
@@ -76,14 +71,14 @@ class MemoryPipelineService {
 
         if (idsToCheck.length > 0) {
             const existingDocs = await MemoryFact.find({
-                memoryKey,
+                memoryKey: sessionId, // 改为userId
                 sourceMessageIds: { $in: sourceIds },
             })
                 .select('sourceMessageIds')
                 .lean();
 
             logger.debug('幂等检查1', {
-                memoryKey,
+                sessionId,
                 existingDocs,
             });
 
@@ -104,7 +99,7 @@ class MemoryPipelineService {
 
         if (newSourceIds.length === 0) {
             logger.debug('Skip extraction: all messages deduplicated by DB', {
-                memoryKey,
+                sessionId,
             });
             await STM.setLastExtractedMsgId(sessionId, lastMsgId);
             return {
@@ -131,7 +126,7 @@ class MemoryPipelineService {
 
         if (rawFacts.length === 0) {
             await STM.setLastExtractedMsgId(sessionId, lastMsgId);
-            logger.info('No valid facts, marker updated', { memoryKey });
+            logger.info('No valid facts, marker updated', { sessionId });
             return { totalProcessed: 0, inserted: 0, updated: 0, skipped: 0 };
         }
 
@@ -143,7 +138,7 @@ class MemoryPipelineService {
             );
             embeddings = res.embeddings;
         } catch (error) {
-            logger.error('Embedding failed', { memoryKey, error });
+            logger.error('Embedding failed', { sessionId, error });
             throw error;
         }
 
@@ -154,7 +149,7 @@ class MemoryPipelineService {
         }));
 
         const context: IngestionContext = {
-            memoryKey,
+            sessionId,
         };
 
         const result = await ingestMemoryFacts(embeddedFacts, context);
@@ -163,7 +158,7 @@ class MemoryPipelineService {
         await STM.setLastExtractedMsgId(sessionId, lastMsgId);
         logger.info(
             `Pipeline done | inserted: ${result.inserted}, updated: ${result.updated}`,
-            { memoryKey },
+            { sessionId },
         );
 
         return result;

@@ -4,7 +4,7 @@ import { createLogger } from '@/lib/logger';
 import { StreamCleaner } from '@/utils/streamCleaner';
 import STM from '@/utils/shortTermMemory';
 import ChatMessage from '@/models/ChatMessage';
-import sessionMemoryLifecycle from '@/services/memory/trigger/sessionMemoryLifecycle';
+import { messageCounter, sessionMemoryLifecycle } from '@/services/memory';
 import type { ChatCompletionChunk } from 'openai/resources/chat/completions';
 import type { RawMessage } from '@/types/chat';
 import { generateMessageId } from '@/utils/tool';
@@ -20,23 +20,32 @@ class ChatStreamService {
      * 2. 创建并消费 AI 流
      * 3. 持久化对话记录（STM 同步 + MongoDB 后台）
      *
-     * @param memoryKey  用户会话标识
+     * @param sessionId  用户会话标识(无前缀)
      * @param messages   请求中的消息列表
      * @param traceId    请求追踪 ID
      * @param onChunk    清洗后的内容回调（由 Controller 写入 SSE）
      */
-    async streamChat(
-        memoryKey: string,
-        messages: RawMessage[],
-        traceId: string,
-        onChunk: (content: string) => void,
-    ): Promise<void> {
+    async streamChat(props: {
+        sessionId: string;
+        messages: RawMessage[];
+        traceId: string;
+        onChunk: (content: string) => void;
+    }): Promise<void> {
+        const { messages, traceId, sessionId, onChunk } = props || {};
         const cleaner = new StreamCleaner();
         const latestUserMsg = messages[messages.length - 1]!;
 
+        // 续聊 O10：若上一轮已落终态标记，清终态+计数，并清 STM 消息列表，
+        // 使本轮按新会话上下文进行。resetForContinuation 内部已 try/catch。
+        const continued =
+            await sessionMemoryLifecycle.resetForContinuation(sessionId);
+        if (continued) {
+            await STM.clearSession(sessionId);
+        }
+
         // 1. 从短期记忆检索最近对话并组装上下文
         const recent = await STM.safeGetRecentRounds(
-            memoryKey,
+            sessionId,
             SHORT_TERM_ROUNDS,
         );
         const systemInjected: Partial<RawMessage>[] = recent.map((m) => ({
@@ -67,7 +76,7 @@ class ChatStreamService {
             if (content) {
                 const { cleaned, isDuplicate } = cleaner.clean(content);
                 if (cleaned && !isDuplicate) {
-                    onChunk(cleaned);
+                    onChunk?.(cleaned);
                     fullAssistantResponse += cleaned;
                 }
             }
@@ -75,30 +84,31 @@ class ChatStreamService {
 
         // 3. 持久化（仅在流正常消费完毕后执行）
         if (fullAssistantResponse.trim()) {
-            await this.persistConversation(
-                memoryKey,
+            await this.persistConversation({
+                sessionId,
                 latestUserMsg,
-                {
+                assistantMsg: {
                     content: fullAssistantResponse,
                     msgId: assistantMsgId,
                 },
                 traceId,
-            );
+            });
         }
     }
 
     /**
      * 持久化本轮对话：STM 同步写入 + MongoDB 后台写入
      */
-    private async persistConversation(
-        memoryKey: string,
-        latestUserMsg: RawMessage,
+    private async persistConversation(props: {
+        sessionId: string;
+        latestUserMsg: RawMessage;
         assistantMsg: {
             content: string;
             msgId: string;
-        },
-        traceId: string,
-    ): Promise<void> {
+        };
+        traceId: string;
+    }): Promise<void> {
+        const { sessionId, traceId, latestUserMsg, assistantMsg } = props || {};
         const now = Date.now();
 
         // STM 必须同步写入，确保下一轮请求能读到完整上下文
@@ -119,19 +129,19 @@ class ChatStreamService {
                     traceId,
                 },
             ];
-            await STM.addMessages(memoryKey, docsToSave);
+            await STM.addMessages(sessionId, docsToSave);
         } catch (error) {
             logger.warn('STM save failed', {
                 traceId,
                 component: 'redis',
-                memoryKey,
+                sessionId,
                 error,
             });
         }
 
         // 更新会话最后活跃时间（毫秒时间戳），为 L2 超时静默触发器提供数据源。
         // 不阻塞主流程，失败不影响落库（touch 内部已吞异常）。
-        void sessionMemoryLifecycle.touch(memoryKey);
+        void sessionMemoryLifecycle.touch(sessionId);
 
         // MongoDB 写入放入下一个事件循环，不阻塞 SSE 响应结束
         setImmediate(() => {
@@ -142,7 +152,7 @@ class ChatStreamService {
                         content: latestUserMsg.content,
                         timestamp: Date.now(),
                         traceId,
-                        memoryKey,
+                        sessionId,
                         msgId: latestUserMsg.msgId,
                     },
                     {
@@ -150,22 +160,26 @@ class ChatStreamService {
                         content: assistantMsg.content,
                         timestamp: Date.now(),
                         traceId,
-                        memoryKey,
+                        sessionId,
                         msgId: assistantMsg.msgId,
                     },
                 ],
                 { ordered: true },
             )
-                .then(() => ChatMessage.trimOldMessages(memoryKey, 100))
+                .then(() => ChatMessage.trimOldMessages(sessionId, 100))
                 .catch((error) =>
                     logger.warn('ChatMessage save/trim failed', {
                         traceId,
                         component: 'mongodb',
-                        memoryKey,
+                        sessionId,
                         error,
                     }),
                 );
         });
+
+        // L3 兜底触发：消息落库后计数，达到阈值由 coordinator 触发增量提取。
+        // 不阻塞主流程，失败不影响落库（record 内部已吞异常）。
+        void messageCounter.record(sessionId);
     }
 }
 

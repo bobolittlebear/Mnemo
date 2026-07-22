@@ -1,6 +1,7 @@
 import { createLogger } from '@/lib/logger';
 import { memoryTriggerConfig } from './memoryTriggerConfig';
 import { sessionTriggerKeys } from './triggerKeys';
+import { RedisClientType } from 'redis';
 
 const log = createLogger('ltm');
 
@@ -15,15 +16,9 @@ export interface TriggerCoordinator {
     triggerThreshold(sessionId: string): Promise<TriggerResult>;
 }
 
-export interface RedisClient {
-    incr(key: string): Promise<number>;
-    expire(key: string, seconds: number): Promise<number>;
-    del(...keys: string[]): Promise<number>;
-}
-
 interface MessageCounterDeps {
     coordinator: TriggerCoordinator;
-    redis: RedisClient;
+    redis: RedisClientType;
     threshold?: number;
 }
 
@@ -32,7 +27,7 @@ const msgCountKey = (sessionId: string): string =>
 
 export class MessageCounter {
     private readonly coordinator: TriggerCoordinator;
-    private readonly redis: RedisClient;
+    private readonly redis: RedisClientType;
     private readonly threshold: number;
 
     constructor(deps: MessageCounterDeps) {
@@ -44,7 +39,7 @@ export class MessageCounter {
     async record(sessionId: string): Promise<void> {
         const key = msgCountKey(sessionId);
         try {
-            const count = await this.redis.incr(key);
+            const count = await this.redis.incrBy(key, 2);
             if (count === 1) {
                 await this.redis.expire(key, MSG_COUNT_TTL_SECONDS);
             }

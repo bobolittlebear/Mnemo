@@ -40,9 +40,9 @@ export async function ingestMemoryFacts(
 
             return {
                 updateOne: {
-                    // filter 仅依赖 memoryKey + contentHash，实现租户/会话级精确去重
+                    // filter 仅依赖 userId + contentHash，实现租户/会话级精确去重
                     filter: {
-                        memoryKey: context.memoryKey,
+                        memoryKey: context.sessionId, // 改为userId
                         contentHash,
                     },
                     update: {
@@ -56,7 +56,7 @@ export async function ingestMemoryFacts(
                             sourceMessageIds: fact.sourceMessageIds,
                         },
                         $setOnInsert: {
-                            memoryKey: context.memoryKey,
+                            memoryKey: context.sessionId, // 改为userId
                             type: context.type || 'fact',
                             notebookId: context.notebookId,
                             contentHash,
@@ -88,7 +88,7 @@ export async function ingestMemoryFacts(
         result.updated = bulkWriteResult.modifiedCount || 0;
 
         logger.info(
-            `入库完成 | memoryKey: ${context.memoryKey} | ` +
+            `入库完成 | userId: ${context.sessionId} | ` +
                 `total: ${result.totalProcessed}, inserted: ${result.inserted}, ` +
                 `updated: ${result.updated}, duration: ${Date.now() - startTime}ms`,
         );
@@ -96,7 +96,7 @@ export async function ingestMemoryFacts(
         return result;
     } catch (error: any) {
         logger.error(
-            `入库失败 | memoryKey: ${context.memoryKey} | ${error.message}`,
+            `入库失败 | userId: ${context.sessionId} | ${error.message}`,
         );
         throw new Error(`Memory ingestion failed: ${error.message}`);
     }

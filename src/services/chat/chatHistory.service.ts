@@ -4,6 +4,7 @@ import ChatMessage from '@/models/ChatMessage';
 import { HistoryMessage } from '@/types/chat';
 import STM from '@/utils/shortTermMemory';
 import mongoose from 'mongoose';
+import { sessionEndTrigger, sessionMemoryLifecycle } from '@/services/memory';
 
 const logger = createLogger('ltm');
 
@@ -12,11 +13,11 @@ export default {
      * 获取历史消息（按 _id 游标分页，返回正序列表）
      */
     async getHistory(
-        memoryKey: string,
+        sessionId: string,
         limit: number,
         beforeId?: string,
     ): Promise<HistoryMessage[]> {
-        const query: Record<string, unknown> = { memoryKey };
+        const query: Record<string, unknown> = { sessionId };
 
         if (beforeId && mongoose.Types.ObjectId.isValid(beforeId)) {
             query._id = { $lt: new mongoose.Types.ObjectId(beforeId) };
@@ -43,21 +44,26 @@ export default {
     /**
      * 彻底清空当前用户的会话记录（Redis STM + MongoDB）
      */
-    async clearAll(memoryKey: string) {
-        await STM.clearSession(memoryKey);
+    async clearAll(sessionId: string) {
+        await STM.clearSession(sessionId);
 
-        const result = await ChatMessage.deleteMany({ memoryKey });
+        const result = await ChatMessage.deleteMany({ sessionId });
         logger.info('Chat History cleared', {
             deletedCount: result.deletedCount,
-            memoryKey,
+            sessionId,
         });
+
+        // 销毁会话触发器状态：清除全部 5 个 trigger key（lock/extracted/processing/msgCount/lastActiveAt）
+        await sessionMemoryLifecycle.destroy(sessionId);
         return { deletedCount: result.deletedCount };
     },
 
     /**
      * 结束会话（仅清除 Redis STM，保留 MongoDB 历史）
      */
-    async endSession(memoryKey: string) {
-        await STM.clearSession(memoryKey);
+    async endSession(sessionId: string) {
+        await STM.clearSession(sessionId);
+        // L1 显性触发：STM 清除后立即触发终态提取，写入 extracted 标记。
+        await sessionEndTrigger.end(sessionId);
     },
 };

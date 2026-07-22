@@ -6,7 +6,7 @@
 import redisClient from '@/lib/redis';
 import { createLogger } from '@/lib/logger';
 import { MAX_MESSAGE_PER_SESSION, SESSION_TTL_SECONDS } from './constant';
-import { generateMessageId, getExtractionKey } from './tool';
+import { generateSessionKey, generateMessageId, getCursorKey } from './tool';
 import { REDIS_READ_TIMEOUT_MS } from './constant';
 import { RawMessage } from '@/types/chat';
 
@@ -22,6 +22,10 @@ class ShortTermMemory {
     } = {}) {
         this.maxMessagesPerSession = maxMessagesPerSession;
         this.sessionTTLSeconds = sessionTTLSeconds;
+    }
+
+    private getKey(sessionId: string) {
+        return generateSessionKey(sessionId);
     }
 
     /**
@@ -41,6 +45,7 @@ class ShortTermMemory {
             )
                 return;
 
+            const key = this.getKey(seesionId);
             const pipeline = redisClient.multi(); // 使用 Pipeline 减少网络 RTT
             for (const m of messages) {
                 if (!m || !m.role || m.content == null) continue;
@@ -51,12 +56,12 @@ class ShortTermMemory {
                     timestamp: m.timestamp || Date.now(),
                     traceId: m.traceId || traceId, // ✅ 优先使用消息自身的，其次使用批量注入的
                 };
-                pipeline.rPush(seesionId, JSON.stringify(payload)); // 尾部追加，插入顺序 = 时间顺序
+                pipeline.rPush(key, JSON.stringify(payload)); // 尾部追加，插入顺序 = 时间顺序
             }
             // 仅保留最近的 N 条消息（实现 LRU 截断）
-            pipeline.lTrim(seesionId, -this.maxMessagesPerSession, -1);
+            pipeline.lTrim(key, -this.maxMessagesPerSession, -1);
             // 刷新/设置 TTL
-            pipeline.expire(seesionId, this.sessionTTLSeconds);
+            pipeline.expire(key, this.sessionTTLSeconds);
 
             await pipeline.exec();
         } catch (error) {
@@ -73,9 +78,10 @@ class ShortTermMemory {
     ): Promise<RawMessage[]> {
         try {
             if (!seesionId) return [];
+            const key = this.getKey(seesionId);
 
             // 1. 获取该会话的所有消息（由于有 lTrim 限制，数据量可控）
-            const rawMessages = await redisClient.lRange(seesionId, 0, -1);
+            const rawMessages = await redisClient.lRange(key, 0, -1);
             if (!rawMessages || rawMessages.length === 0) return [];
 
             // 2. 解析 JSON
@@ -105,7 +111,8 @@ class ShortTermMemory {
     // 手动清理会话
     async clearSession(seesionId: string) {
         logger.info('Clearing STM key', { seesionId });
-        await redisClient.del(seesionId);
+        const key = this.getKey(seesionId);
+        await redisClient.del(key);
     }
 
     /**
@@ -115,10 +122,10 @@ class ShortTermMemory {
     async setLastExtractedMsgId(sessionId: string, msgId: string) {
         try {
             if (!sessionId || !msgId) return;
-            const lastExtractedKey = getExtractionKey(sessionId);
+            const cursorKey = getCursorKey(sessionId);
             const pipeline = redisClient.multi();
-            pipeline.set(lastExtractedKey, msgId);
-            pipeline.expire(lastExtractedKey, this.sessionTTLSeconds); // 游标TTL与会话保持一致
+            pipeline.set(cursorKey, msgId);
+            pipeline.expire(cursorKey, this.sessionTTLSeconds); // 游标TTL与会话保持一致
             await pipeline.exec();
         } catch (error) {
             logger.warn('STM setLastExtractedMsgId error', { error });
@@ -135,7 +142,7 @@ class ShortTermMemory {
         timeoutMs = REDIS_READ_TIMEOUT_MS,
     ): Promise<RawMessage[]> {
         return Promise.race([
-            this.getRecentRounds(seesionId, rounds),
+            this.getRecentRounds(seesionId, rounds), // 传入sessionId， 内部处理key
             new Promise<RawMessage[]>((resolve) =>
                 setTimeout(() => resolve([]), timeoutMs),
             ),
@@ -148,7 +155,7 @@ class ShortTermMemory {
     async getLastExtractedMsgId(sessionId: string): Promise<string | null> {
         try {
             if (!sessionId) return null;
-            return await redisClient.get(getExtractionKey(sessionId));
+            return await redisClient.get(getCursorKey(sessionId));
         } catch (error) {
             logger.warn('STM getLastExtractedMsgId error', { error });
             return null;

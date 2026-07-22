@@ -9,7 +9,7 @@ export const memoryTriggerConfig = {
     processingTtlMs: 300000, // 防并发标记 TTL（300s）
     extractedTtlSec: 86400, // 终态标记 TTL（24h，跟随 Session）
     msgCountTtlSec: 86400, // L3 消息计数 TTL（24h）
-    messageThreshold: 20, // L3 触发阈值（条消息，v3 口径）
+    messageThreshold: 20, // L3 触发阈值（20条消息，v3 口径）
     llmTimeoutMaxMs: AI_CONFIG.DEFAULT_REQUEST_TIMEOUT, // 非流式 LLM 超时上限（用于不变式校验，非实际超时配置）
     l2TimeoutSec: 1800, // L2 超时阈值（30 分钟）
     l2ScanIntervalSec: 300, // L2 扫描周期（5 分钟）

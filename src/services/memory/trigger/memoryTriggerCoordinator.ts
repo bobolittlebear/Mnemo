@@ -1,6 +1,7 @@
 import type { DistributedLock } from './distributedLock';
 import type { TerminalStateManager } from './terminalStateManager';
 import type { ProcessingGuard, TriggerLayer } from './processingGuard';
+import type { PipelineService } from './pipelinePort';
 import { sessionTriggerKeys } from './triggerKeys';
 
 export interface CoordinatorMetrics {
@@ -11,7 +12,7 @@ export interface CoordinatorDeps {
     lock: DistributedLock;
     terminal: TerminalStateManager;
     processing: ProcessingGuard;
-    pipeline: { run: (sessionId: string) => Promise<void> };
+    pipeline: PipelineService;
     metrics?: CoordinatorMetrics;
 }
 

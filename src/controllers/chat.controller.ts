@@ -59,18 +59,18 @@ const chat = async (req: Request, res: Response) => {
             return;
         }
 
-        const memoryKey = req.user.memoryKey!;
+        const sessionId = req.user.sessionId!;
         setSSEHeaders(res);
 
         // 委托 Service 执行流式对话，Controller 只负责将清洗后的 chunk 写入 SSE
-        await chatStreamService.streamChat(
-            memoryKey,
+        await chatStreamService.streamChat({
+            sessionId,
             messages,
             traceId,
-            (content) => {
+            onChunk: (content) => {
                 res.write(`data: ${JSON.stringify({ content })}\n\n`);
             },
-        );
+        });
 
         // 流正常结束
         res.write('event: done\ndata: [DONE]\n\n');
@@ -102,9 +102,9 @@ const chat = async (req: Request, res: Response) => {
  */
 const endSession = async (req: Request, res: Response) => {
     try {
-        const memoryKey = req.cookies.memory_key;
-        if (memoryKey) {
-            await chatHistoryService.endSession(memoryKey);
+        const sessionId = req.user.sessionId;
+        if (sessionId) {
+            await chatHistoryService.endSession(sessionId);
         }
         res.json(ApiResponse.success({}));
     } catch (error) {
@@ -123,12 +123,12 @@ const endSession = async (req: Request, res: Response) => {
 const getChatHistory = async (req: Request, res: Response) => {
     const startTime = Date.now();
     try {
-        const memoryKey = req.user?.memoryKey!;
+        const sessionId = req.user.sessionId!;
         const limit = Math.min(Number(req.query?.limit) || 20, 100);
         const beforeId = req.query?.before_id as string | undefined;
 
         const formattedMessages = await chatHistoryService.getHistory(
-            memoryKey,
+            sessionId,
             limit,
             beforeId,
         );
@@ -153,8 +153,8 @@ const getChatHistory = async (req: Request, res: Response) => {
  */
 const clearChatHistory = async (req: Request, res: Response) => {
     try {
-        const memoryKey = req.user.memoryKey!;
-        const result = await chatHistoryService.clearAll(memoryKey);
+        const sessionId = req.user.sessionId!;
+        const result = await chatHistoryService.clearAll(sessionId);
         res.json(ApiResponse.success(result));
     } catch (error) {
         res.json(

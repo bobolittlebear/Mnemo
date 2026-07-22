@@ -20,7 +20,7 @@ export interface EmbeddedFact extends RawFact {
  * 入库上下文元数据
  */
 export interface IngestionContext {
-    memoryKey: string;
+    sessionId: string;
     notebookId?: string;
     type?: 'fact' | 'note_chunk' | 'media';
 }

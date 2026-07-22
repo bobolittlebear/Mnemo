@@ -21,8 +21,7 @@ export type Note = {
 /** 会话消息 */
 export interface ChatMessage extends Document {
     id: string; // mongodb ObjectId 自动生成
-    memoryKey: string; // 关联用户的唯一标识（与 Redis STM 的 Key 一致）
-    // conversationId: string; // 以后也许支持扩展一个用户多个会话窗口
+    sessionId: string; // 关联会话的唯一标识（无前缀 sessionId）
     role: 'system' | 'user' | 'assistant' | 'tool' | string;
     content: string; // 消息内容
     timestamp: number; // 消息发送的时间戳（毫秒）

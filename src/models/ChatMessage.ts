@@ -9,12 +9,12 @@ import mongoose, { Schema, Document, Model } from 'mongoose';
 
 // 定义静态方法
 interface ChatMessageModel extends Model<ChatMessage> {
-    trimOldMessages(memoryKey: string, maxMessages?: number): Promise<void>;
+    trimOldMessages(sessionId: string, maxMessages?: number): Promise<void>;
 }
 
 const chatMessageSchema = new Schema<ChatMessage>(
     {
-        memoryKey: {
+        sessionId: {
             type: String,
             required: true,
             index: true, // 核心索引：支持按用户快速查询
@@ -49,20 +49,20 @@ const chatMessageSchema = new Schema<ChatMessage>(
 );
 
 // 创建复合索引：查询特定用户的消息并按时间倒序
-chatMessageSchema.index({ memoryKey: 1, timestamp: -1 });
+chatMessageSchema.index({ sessionId: 1, timestamp: -1 });
 
 //  使用静态方法而不是post钩子，因为如果一次性插入2条数据，则会执行两次钩子
 // post('save') 是在当前文档保存成功后同步或微任务执行的。
 // 这意味着，如果不做额外处理，它会阻塞当前请求的返回，或者在后台引发难以追踪的异步错误。
 chatMessageSchema.statics.trimOldMessages = async function (
-    memoryKey: string,
+    sessionId: string,
     maxMessages: number = MAX_MESSAGE_PER_SESSION,
 ) {
     const logger = createLogger('mongodb');
     try {
         // 1. 找出需要被删除的消息的 _id
         // 逻辑：按时间正序排列，跳过最新的 maxMessages 条，剩下的就是要删除的
-        const messagesToDelete: ChatMessage[] = await this.find({ memoryKey })
+        const messagesToDelete: ChatMessage[] = await this.find({ sessionId })
             .sort({ _id: 1 }) // 按 ObjectId 正序（等同于插入时间正序）
             .skip(maxMessages)
             .select('_id')
@@ -71,9 +71,10 @@ chatMessageSchema.statics.trimOldMessages = async function (
         if (messagesToDelete.length > 0) {
             const idsToDelete = messagesToDelete.map((m) => m._id);
             await this.deleteMany({ _id: { $in: idsToDelete } });
-            logger.info(
-                `[TrimMessages] Trimmed ${idsToDelete.length} old messages for key: ${memoryKey}`,
-            );
+            logger.info(`Trimmed old messages`, {
+                sessionId,
+                length: idsToDelete.length,
+            });
         }
     } catch (err) {
         logger.warn('Trim old messages error:', err);
