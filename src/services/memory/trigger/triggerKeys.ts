@@ -8,6 +8,7 @@ export interface SessionTriggerKeys {
     extracted: string;
     processing: string;
     msgCount: string;
+    lastActiveAt: string;
 }
 
 export function sessionTriggerKeys(sessionId: string): SessionTriggerKeys {
@@ -16,5 +17,6 @@ export function sessionTriggerKeys(sessionId: string): SessionTriggerKeys {
         extracted: `memory:session:${sessionId}:extracted`,
         processing: `memory:session:${sessionId}:processing`,
         msgCount: `memory:session:${sessionId}:msg_count`,
+        lastActiveAt: `memory:session:${sessionId}:last_active_at`,
     };
 }

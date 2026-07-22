@@ -4,6 +4,7 @@ import { createLogger } from '@/lib/logger';
 import { StreamCleaner } from '@/utils/streamCleaner';
 import STM from '@/utils/shortTermMemory';
 import ChatMessage from '@/models/ChatMessage';
+import sessionMemoryLifecycle from '@/services/memory/trigger/sessionMemoryLifecycle';
 import type { ChatCompletionChunk } from 'openai/resources/chat/completions';
 import type { RawMessage } from '@/types/chat';
 import { generateMessageId } from '@/utils/tool';
@@ -127,6 +128,10 @@ class ChatStreamService {
                 error,
             });
         }
+
+        // 更新会话最后活跃时间（毫秒时间戳），为 L2 超时静默触发器提供数据源。
+        // 不阻塞主流程，失败不影响落库（touch 内部已吞异常）。
+        void sessionMemoryLifecycle.touch(memoryKey);
 
         // MongoDB 写入放入下一个事件循环，不阻塞 SSE 响应结束
         setImmediate(() => {
