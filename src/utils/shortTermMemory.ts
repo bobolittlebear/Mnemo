@@ -138,7 +138,7 @@ class ShortTermMemory {
      */
     async safeGetRecentRounds(
         seesionId: string,
-        rounds: number,
+        rounds: number = MAX_MESSAGE_PER_SESSION,
         timeoutMs = REDIS_READ_TIMEOUT_MS,
     ): Promise<RawMessage[]> {
         return Promise.race([

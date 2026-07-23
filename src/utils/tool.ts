@@ -1,21 +1,17 @@
-import {
-    MESSAGE_ID_PREFIX,
-    SESSION_KEY_PREFIX,
-    TRACE_ID_PREFIX,
-} from './constant';
 import { randomUUID, createHash } from 'crypto';
 import { v7 as uuidv7 } from 'uuid';
 
+// 记忆管理会话标识 session key
 export function generateSessionKey(sessionId: string) {
-    return `${SESSION_KEY_PREFIX}${sessionId}`;
+    return `quick_note:session:${sessionId}`;
 }
 
 export function generateTraceId(): string {
-    return `${TRACE_ID_PREFIX}${randomUUID()}`; // 例如: "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d"
+    return `trace-${randomUUID()}`;
 }
 
 export function generateMessageId(): string {
-    return `${MESSAGE_ID_PREFIX}${uuidv7()}`;
+    return `msg-${uuidv7()}`;
 }
 
 export function safeStringify(obj: unknown): string {

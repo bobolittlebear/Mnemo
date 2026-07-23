@@ -8,9 +8,6 @@ export const DEFAULT_API_CONFIG = {
     MAX_DELAY: 10_000,
 };
 
-export const TRACE_ID_PREFIX = 'trace-';
-export const MESSAGE_ID_PREFIX = 'msg-';
-export const SESSION_KEY_PREFIX = 'quick_note:session:'; // 记忆管理会话标识 session key的前缀
 export const MAX_MESSAGE_PER_SESSION = 100;
 export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30; // Redis TTL 以秒为单位，60分钟/先改为30天用于测试呢
 

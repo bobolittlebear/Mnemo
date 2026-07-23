@@ -43,6 +43,7 @@ export default {
 
     /**
      * 彻底清空当前用户的会话记录（Redis STM + MongoDB）
+     * 触发场景 用户点击“删除对话”、GDPR/个保法请求、账号注销
      */
     async clearAll(sessionId: string) {
         await STM.clearSession(sessionId);
@@ -60,6 +61,7 @@ export default {
 
     /**
      * 结束会话（仅清除 Redis STM，保留 MongoDB 历史）
+     * 触发场景	session超时、任务完成、任务归档
      */
     async endSession(sessionId: string) {
         await STM.clearSession(sessionId);
