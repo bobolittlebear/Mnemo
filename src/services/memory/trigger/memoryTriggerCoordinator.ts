@@ -13,6 +13,7 @@ export interface CoordinatorDeps {
     terminal: TerminalStateManager;
     processing: ProcessingGuard;
     pipeline: PipelineService;
+    cleanup?: (sessionId: string) => Promise<void>;
     metrics?: CoordinatorMetrics;
 }
 
@@ -59,7 +60,8 @@ export class MemoryTriggerCoordinator {
         sessionId: string,
         layer: TriggerLayer,
     ): Promise<TriggerResult> {
-        const { lock, terminal, processing, pipeline, metrics } = this.deps;
+        const { lock, terminal, processing, pipeline, metrics, cleanup } =
+            this.deps;
         const lockKey = sessionTriggerKeys(sessionId).lock;
         const count = (name: string, tags?: Record<string, string>) =>
             metrics?.count(name, tags);
@@ -114,6 +116,11 @@ export class MemoryTriggerCoordinator {
             }
             if (layer !== 'threshold') {
                 await terminal.markExtracted(sessionId);
+                try {
+                    await cleanup?.(sessionId);
+                } catch (error) {
+                    console.error(error);
+                }
             }
             await processing.clear(sessionId);
             return {

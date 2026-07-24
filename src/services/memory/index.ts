@@ -9,15 +9,27 @@
  */
 import redisClient from '@/lib/redis';
 import memoryPipelineService from '@/services/memory/memoryPipeline.service';
+import STM from '@/utils/shortTermMemory';
+import { RedisInactiveSessionStore } from './inactiveSessionStore';
 import { STMChatMessageSource } from './chatMessageSource';
 import { createTriggerSystem } from './trigger';
+import { SessionTimeoutScanner } from './trigger/sessionTimeoutScanner';
 
 const triggerSystem = createTriggerSystem({
     redis: redisClient,
     pipeline: memoryPipelineService,
     messages: new STMChatMessageSource(),
+    cleanup: STM.clearSession,
 });
 
 export const { coordinator, messageCounter, sessionEndTrigger } = triggerSystem;
+
+// L2 超时触发：组合根注入 coordinator + sessionStore，启动后台定时扫描
+const sessionTimeoutScanner = new SessionTimeoutScanner({
+    coordinator,
+    sessionStore: new RedisInactiveSessionStore(),
+});
+sessionTimeoutScanner.start();
+export { sessionTimeoutScanner };
 
 export { sessionMemoryLifecycle } from './trigger';

@@ -5,17 +5,25 @@
 import { AI_CONFIG } from '@/utils/config';
 
 export const memoryTriggerConfig = {
-    lockTtlMs: 10000, // 分布式锁 TTL（10s）
-    processingTtlMs: 300000, // 防并发标记 TTL（300s）
-    extractedTtlSec: 86400, // 终态标记 TTL（24h，跟随 Session）
-    msgCountTtlSec: 86400, // L3 消息计数 TTL（24h）
-    messageThreshold: 20, // L3 触发阈值（20条消息，v3 口径）
-    llmTimeoutMaxMs: AI_CONFIG.DEFAULT_REQUEST_TIMEOUT, // 非流式 LLM 超时上限（用于不变式校验，非实际超时配置）
-    l2TimeoutSec: 1800, // L2 超时阈值（30 分钟）
-    l2ScanIntervalSec: 300, // L2 扫描周期（5 分钟）
+    /** 分布式锁 TTL（10s） */
+    lockTtlMs: 10000,
+    /** 防并发标记 TTL（300s） */
+    processingTtlMs: 300000,
+    /** 终态标记 TTL（24h，跟随 Session） */
+    extractedTtlSec: 86400,
+    /** L3 消息计数 TTL（24h） */
+    msgCountTtlSec: 86400,
+    /** L3 触发阈值（20条消息） */
+    messageThreshold: 20,
+    /** 非流式 LLM 超时上限（用于不变式校验，非实际超时配置） */
+    llmTimeoutMaxMs: AI_CONFIG.DEFAULT_REQUEST_TIMEOUT,
+    /** L2 超时阈值（3 天，个人知识库慢节奏记录：3 天内回来都算续记，L2 仅做极端兜底） */
+    l2TimeoutSec: 60 * 60 * 24 * 3,
+    /** L2 扫描周期（30 分钟，超时阈值已放宽至 3 天故降低扫描频率） */
+    l2ScanIntervalSec: 60,
 };
 
-// LLM 之外的向量化/存储耗时余量（ms）
+/** LLM 之外的向量化/存储耗时余量（ms） */
 const PROCESSING_OVERHEAD_MS = 15000;
 
 export function validateConfigInvariants(

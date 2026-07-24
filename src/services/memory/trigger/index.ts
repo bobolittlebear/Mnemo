@@ -37,6 +37,7 @@ export interface TriggerSystemDeps {
     /** 消息来源 */
     messages: MessageSource;
     metrics?: CoordinatorMetrics;
+    cleanup?: (sessionId: string) => Promise<void>;
 }
 
 export interface TriggerSystem {
@@ -65,6 +66,7 @@ export function createTriggerSystem(deps: TriggerSystemDeps): TriggerSystem {
         processing,
         pipeline,
         metrics: deps.metrics,
+        cleanup: deps.cleanup,
     });
 
     const messageCounter = new MessageCounter({

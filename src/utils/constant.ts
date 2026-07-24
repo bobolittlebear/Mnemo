@@ -9,7 +9,11 @@ export const DEFAULT_API_CONFIG = {
 };
 
 export const MAX_MESSAGE_PER_SESSION = 100;
-export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30; // Redis TTL 以秒为单位，60分钟/先改为30天用于测试呢
+/** Redis TTL 以秒为单位，7天 （先改为30天用于开发测试）
+ * 确保过期时间大于 L2不活跃会话的超时时间, 即 memoryTriggerConfig.l2TimeoutSec,
+ * 确保 L2 兜底扫描正常
+ */
+export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 
 export const REDIS_READ_TIMEOUT_MS = 300;
 

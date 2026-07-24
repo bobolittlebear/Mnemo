@@ -2,7 +2,6 @@
 import { createLogger } from '@/lib/logger';
 import ChatMessage from '@/models/ChatMessage';
 import { HistoryMessage } from '@/types/chat';
-import STM from '@/utils/shortTermMemory';
 import mongoose from 'mongoose';
 import { sessionEndTrigger, sessionMemoryLifecycle } from '@/services/memory';
 
@@ -46,10 +45,8 @@ export default {
      * 触发场景 用户点击“删除对话”、GDPR/个保法请求、账号注销
      */
     async clearAll(sessionId: string) {
-        // L1 显性触发：STM 清除后立即触发终态提取，写入 extracted 标记。
+        // L1 显性触发 立即触发终态提取，写入 extracted 标记后清除STM
         await sessionEndTrigger.end(sessionId);
-        // 先设置终态标记，调用pipeline增量提取记忆，再清除 STM 会话消息
-        await STM.clearSession(sessionId);
 
         //  软删除 mongodb 中持久化的消息
         const result = await ChatMessage.updateMany(
@@ -75,9 +72,7 @@ export default {
      * 触发场景	session超时、任务完成、任务归档
      */
     async endSession(sessionId: string) {
-        // L1 显性触发：STM 清除后立即触发终态提取，写入 extracted 标记。
+        // L1 显性触发 立即触发终态提取，写入 extracted 标记后清除STM
         await sessionEndTrigger.end(sessionId);
-        // 先设置终态标记，调用pipeline增量提取记忆，再清除 STM 会话消息
-        await STM.clearSession(sessionId);
     },
 };
