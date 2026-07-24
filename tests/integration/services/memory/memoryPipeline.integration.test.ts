@@ -128,7 +128,7 @@ import mongoose from 'mongoose';
 import { MemoryFact } from '@/models/MemoryFact';
 import STM from '@/utils/shortTermMemory';
 import redisClient from '@/lib/redis';
-import { getExtractionKey } from '@/utils/tool';
+import { generateSessionKey } from '@/utils/tool';
 import memoryPipeline from '@/services/memory/memoryPipeline.service';
 
 // ── 测试数据库配置 ──
@@ -180,7 +180,7 @@ afterAll(async () => {
     await MemoryFact.deleteMany({});
     for (const sid of allTestSessionIds) {
         await STM.clearSession(sid);
-        await redisClient.del(getExtractionKey(sid));
+        await redisClient.del(generateSessionKey(sid));
     }
     await mongoose.disconnect();
 });
@@ -190,7 +190,7 @@ beforeEach(async () => {
     await MemoryFact.deleteMany({});
     for (const sid of allTestSessionIds) {
         await STM.clearSession(sid);
-        await redisClient.del(getExtractionKey(sid));
+        await redisClient.del(generateSessionKey(sid));
     }
     mockCreateChat.mockClear();
     mockGenerateEmbeddings.mockClear();
@@ -226,7 +226,7 @@ describe('Pipeline 集成测试', () => {
 
         // 验证数据真的写进了 MongoDB
         const factsInDb = await MemoryFact.find({
-            memoryKey: getExtractionKey(testSessionId),
+            memoryKey: generateSessionKey(testSessionId),
         }).lean();
 
         expect(factsInDb.length).toBe(3);
@@ -269,7 +269,7 @@ describe('Pipeline 集成测试', () => {
 
         // 统计 DB 中的 fact 数量
         const countAfterFirst = await MemoryFact.countDocuments({
-            memoryKey: getExtractionKey(testSessionId),
+            memoryKey: generateSessionKey(testSessionId),
         });
 
         // 第二次执行相同消息 — 幂等检查应跳过
@@ -282,7 +282,7 @@ describe('Pipeline 集成测试', () => {
 
         // DB 中 fact 数量不应增加
         const countAfterSecond = await MemoryFact.countDocuments({
-            memoryKey: getExtractionKey(testSessionId),
+            memoryKey: generateSessionKey(testSessionId),
         });
         expect(countAfterSecond).toBe(countAfterFirst);
 
@@ -314,7 +314,7 @@ describe('Pipeline 集成测试', () => {
 
         // 同一 memoryKey 内没有 contentHash 重复
         const facts = await MemoryFact.find({
-            memoryKey: getExtractionKey('dup-session-a'),
+            memoryKey: generateSessionKey('dup-session-a'),
         }).lean();
 
         const hashes = facts.map((f) => f.contentHash);
@@ -357,7 +357,7 @@ describe('Pipeline 集成测试', () => {
 
         // DB 中不应有脏数据
         const facts = await MemoryFact.find({
-            memoryKey: getExtractionKey('nonsense-session'),
+            memoryKey: generateSessionKey('nonsense-session'),
         }).lean();
         expect(facts.length).toBe(0);
 
@@ -382,11 +382,11 @@ describe('Pipeline 集成测试', () => {
 
         // 清除 MongoDB 中的 facts（模拟数据丢失）
         await MemoryFact.deleteMany({
-            memoryKey: getExtractionKey(testSessionId),
+            memoryKey: generateSessionKey(testSessionId),
         });
 
         // 清除 Redis 标记（模拟标记过期或丢失）
-        await redisClient.del(getExtractionKey(testSessionId));
+        await redisClient.del(generateSessionKey(testSessionId));
 
         // 第二次执行 — 幂等检查找不到已提取记录，应重新走全链路
         const result2 = await memoryPipeline.run(testSessionId, testMessages);

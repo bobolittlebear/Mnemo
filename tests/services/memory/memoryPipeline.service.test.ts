@@ -39,7 +39,7 @@ vi.mock('@/lib/logger', () => ({
 }));
 
 vi.mock('@/utils/tool', () => ({
-    getExtractionKey: (sessionId: string) => `mnemo:extraction:${sessionId}`,
+    generateSessionKey: (sessionId: string) => `mnemo:extraction:${sessionId}`,
     generateContentHash: (content: string) => `hash_${content}`,
 }));
 
@@ -197,7 +197,11 @@ describe('PipelineService', () => {
 
         // LLM 仅对 msg-002 + msg-003 提取
         mockedExtractFacts.mockResolvedValue([
-            { content: '事实A', confidence: 0.9, sourceMessageIds: ['msg-002'] },
+            {
+                content: '事实A',
+                confidence: 0.9,
+                sourceMessageIds: ['msg-002'],
+            },
         ]);
         mockedGenerateEmbeddings.mockResolvedValue({
             embeddings: [[0.1, 0.2, 0.3]],
@@ -268,7 +272,11 @@ describe('PipelineService', () => {
         mockedGetLastExtractedMsgId.mockResolvedValue(null);
         mockFindLean([]);
         mockedExtractFacts.mockResolvedValue([
-            { content: '事实1', confidence: 0.9, sourceMessageIds: ['msg-001'] },
+            {
+                content: '事实1',
+                confidence: 0.9,
+                sourceMessageIds: ['msg-001'],
+            },
         ]);
         mockedGenerateEmbeddings.mockRejectedValue(
             new Error('Embedding API error'),
@@ -287,7 +295,11 @@ describe('PipelineService', () => {
         mockedGetLastExtractedMsgId.mockResolvedValue(null);
         mockFindLean([]);
         mockedExtractFacts.mockResolvedValue([
-            { content: '事实1', confidence: 0.9, sourceMessageIds: ['msg-001'] },
+            {
+                content: '事实1',
+                confidence: 0.9,
+                sourceMessageIds: ['msg-001'],
+            },
         ]);
         mockedGenerateEmbeddings.mockResolvedValue({
             embeddings: [[0.1, 0.2, 0.3]],
@@ -342,7 +354,7 @@ describe('PipelineService', () => {
         const facts = ingestCallArgs[0];
         const context = ingestCallArgs[1];
 
-        expect(context.memoryKey).toBe(fixtures.mockMemoryKey);
+        expect(context.sessionId).toBe(fixtures.mockMemoryKey);
         // 每条 fact 的 embedding 来自向量化结果
         expect(facts[0]!.embedding).toEqual([0.1, 0.2, 0.3]);
         expect(facts[1]!.embedding).toEqual([0.4, 0.5, 0.6]);

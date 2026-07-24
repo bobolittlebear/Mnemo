@@ -77,20 +77,10 @@ class MemoryPipelineService {
                 .select('sourceMessageIds')
                 .lean();
 
-            logger.debug('幂等检查1', {
-                sessionId,
-                existingDocs,
-            });
-
             // 收集所有已存在于数据库中的消息ID（可能来自多条不同的fact记录）
             const processedIds = new Set(
                 existingDocs.flatMap((doc) => doc.sourceMessageIds),
             );
-            logger.debug('幂等检查2', {
-                processedIds: Array.from(processedIds.values()),
-                newSourceIds,
-                sourceIds,
-            });
             // 过滤出真正未处理过的新消息ID
             newSourceIds = sourceIds.filter((id) => !processedIds.has(id));
         }
@@ -98,9 +88,6 @@ class MemoryPipelineService {
         const skippedCount = sourceIds.length - newSourceIds.length;
 
         if (newSourceIds.length === 0) {
-            logger.debug('Skip extraction: all messages deduplicated by DB', {
-                sessionId,
-            });
             await STM.setLastExtractedMsgId(sessionId, lastMsgId);
             return {
                 totalProcessed: sourceIds.length,
@@ -126,7 +113,6 @@ class MemoryPipelineService {
 
         if (rawFacts.length === 0) {
             await STM.setLastExtractedMsgId(sessionId, lastMsgId);
-            logger.info('No valid facts, marker updated', { sessionId });
             return { totalProcessed: 0, inserted: 0, updated: 0, skipped: 0 };
         }
 
@@ -156,10 +142,11 @@ class MemoryPipelineService {
 
         // ── 5. 更新标记（仅全链路成功后）──
         await STM.setLastExtractedMsgId(sessionId, lastMsgId);
-        logger.info(
-            `Pipeline done | inserted: ${result.inserted}, updated: ${result.updated}`,
-            { sessionId },
-        );
+        logger.info(`LTM Pipeline done`, {
+            sessionId,
+            inserted: result.inserted,
+            updated: result.updated,
+        });
 
         return result;
     }

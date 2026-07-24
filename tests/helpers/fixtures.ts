@@ -164,5 +164,5 @@ export const mockBulkWriteUpdateResult = {
 // ── 上下文 ──
 
 export const mockSessionId = 'test-session-001';
-export const mockMemoryKey = 'mnemo:extraction:test-session-001';
+export const mockMemoryKey = 'memory:session:test-session-001';
 export const mockNotebookId = 'notebook-001';

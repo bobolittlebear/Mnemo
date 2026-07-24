@@ -4,6 +4,7 @@ import mongoose, { Schema, Model } from 'mongoose';
 
 const MemoryFactSchema = new Schema<RawMemoryFact>(
     {
+        // 应改为userId, 目前先存userId
         memoryKey: { type: String, required: true },
 
         content: { type: String, required: true, trim: true },

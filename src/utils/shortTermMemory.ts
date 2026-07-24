@@ -109,10 +109,11 @@ class ShortTermMemory {
     }
 
     // 手动清理会话
-    async clearSession(seesionId: string) {
-        logger.info('Clearing STM key', { seesionId });
-        const key = this.getKey(seesionId);
-        await redisClient.del(key);
+    async clearSession(sessionId: string) {
+        const key = this.getKey(sessionId);
+        const cursorKey = getCursorKey(sessionId);
+        await redisClient.del([key, cursorKey]);
+        logger.info('Clearing STM key', { sessionId, keys: [key, cursorKey] });
     }
 
     /**

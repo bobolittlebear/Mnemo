@@ -41,6 +41,10 @@ const chatMessageSchema = new Schema<ChatMessage>(
             required: true,
             index: true, // 复合索引的一部分：支持按时间排序和分页
         },
+        isDeleted: {
+            type: Boolean,
+            default: false,
+        },
     },
     {
         timestamps: false, // 我们使用自定义的 timestamp 字段

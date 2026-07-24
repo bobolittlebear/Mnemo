@@ -27,6 +27,7 @@ export interface ChatMessage extends Document {
     timestamp: number; // 消息发送的时间戳（毫秒）
     msgId: string; // UUID v7，消息级唯一标识 ← sourceMessageIds 引用这个
     traceId: string; // 请求级追踪标识 ← 保留，继续用于全链路追踪
+    isDeleted: boolean; // 软删除标识
 }
 
 /** 长期记忆的语义分类枚举 (对应 Prompt 的扩展) */
@@ -63,7 +64,7 @@ type MetaData = {
 
 /** 长期记忆 */
 export interface MemoryFact extends Document {
-    memoryKey: string;
+    memoryKey: string; // 应存用户id
     content: string;
     sourceMessageIds: string[]; // 对应的源消息ID
     embedding?: number[];

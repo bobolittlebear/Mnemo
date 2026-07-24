@@ -46,17 +46,28 @@ export default {
      * 触发场景 用户点击“删除对话”、GDPR/个保法请求、账号注销
      */
     async clearAll(sessionId: string) {
+        // L1 显性触发：STM 清除后立即触发终态提取，写入 extracted 标记。
+        await sessionEndTrigger.end(sessionId);
+        // 先设置终态标记，调用pipeline增量提取记忆，再清除 STM 会话消息
         await STM.clearSession(sessionId);
 
-        const result = await ChatMessage.deleteMany({ sessionId });
+        //  软删除 mongodb 中持久化的消息
+        const result = await ChatMessage.updateMany(
+            { sessionId, isDeleted: { $ne: true } }, // 过滤条件：排除已软删除的记录
+            {
+                $set: {
+                    isDeleted: true,
+                },
+            },
+        );
         logger.info('Chat History cleared', {
-            deletedCount: result.deletedCount,
             sessionId,
+            deletedCount: result.modifiedCount,
         });
 
-        // 销毁会话触发器状态：清除全部 5 个 trigger key（lock/extracted/processing/msgCount/lastActiveAt）
+        // 销毁会话触发器状态：清除全部 5 个 trigger key
         await sessionMemoryLifecycle.destroy(sessionId);
-        return { deletedCount: result.deletedCount };
+        return { deletedCount: result.modifiedCount };
     },
 
     /**
@@ -64,8 +75,9 @@ export default {
      * 触发场景	session超时、任务完成、任务归档
      */
     async endSession(sessionId: string) {
-        await STM.clearSession(sessionId);
         // L1 显性触发：STM 清除后立即触发终态提取，写入 extracted 标记。
         await sessionEndTrigger.end(sessionId);
+        // 先设置终态标记，调用pipeline增量提取记忆，再清除 STM 会话消息
+        await STM.clearSession(sessionId);
     },
 };

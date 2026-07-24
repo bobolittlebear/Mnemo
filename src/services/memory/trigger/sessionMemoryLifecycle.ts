@@ -19,8 +19,9 @@ export interface RedisClient {
         mode?: string,
         ttlSec?: number,
     ): Promise<unknown>;
-    unlink(...keys: string[]): Promise<number>;
-    del(...keys: string[]): Promise<number>;
+    unlink(keys: string[]): Promise<number>;
+    del(keys: string[]): Promise<number>;
+    exists(keys: string[]): Promise<number>;
 }
 
 interface SessionMemoryLifecycleDeps {
@@ -40,10 +41,6 @@ class SessionMemoryLifecycle {
             k.lastActiveAt,
         ];
         await this.unlink(keys);
-        log.info('session memory destroyed', {
-            sessionId,
-            keyCount: keys.length,
-        });
     }
 
     async resetForContinuation(sessionId: string): Promise<boolean> {
@@ -66,12 +63,9 @@ class SessionMemoryLifecycle {
     async touch(sessionId: string): Promise<void> {
         try {
             const k = sessionTriggerKeys(sessionId);
-            await this.deps.redis.set(
-                k.lastActiveAt,
-                String(Date.now()),
-                'EX',
-                memoryTriggerConfig.extractedTtlSec,
-            );
+            await redisClient.set(k.lastActiveAt, String(Date.now()), {
+                EX: memoryTriggerConfig.extractedTtlSec,
+            });
         } catch (err) {
             log.warn('touch last_active_at failed', { sessionId, error: err });
         }
@@ -96,13 +90,13 @@ class SessionMemoryLifecycle {
 
     private async unlink(keys: string[]): Promise<void> {
         try {
-            await this.deps.redis.unlink(...keys);
+            await this.deps.redis.unlink(keys);
         } catch (err) {
             if (
                 err instanceof Error &&
                 /unknown command|ERR unknown/i.test(err.message)
             ) {
-                await this.deps.redis.del(...keys);
+                await this.deps.redis.del(keys);
                 return;
             }
             throw err;

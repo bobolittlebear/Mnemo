@@ -13,7 +13,7 @@ export interface SessionTriggerKeys {
 
 export function sessionTriggerKeys(sessionId: string): SessionTriggerKeys {
     return {
-        lock: `memory:lock:${sessionId}`,
+        lock: `memory:session:${sessionId}:lock`,
         extracted: `memory:session:${sessionId}:extracted`,
         processing: `memory:session:${sessionId}:processing`,
         msgCount: `memory:session:${sessionId}:msg_count`,

@@ -27,7 +27,7 @@ vi.mock('@/lib/logger', () => ({
 // mock 路径必须与源码 import 路径一致才能生效
 vi.mock('@/utils/tool', () => ({
     generateContentHash: (content: string) => `hash_${content}`,
-    getExtractionKey: (sessionId: string) => `mnemo:extraction:${sessionId}`,
+    generateSessionKey: (sessionId: string) => `mnemo:extraction:${sessionId}`,
 }));
 
 // ── 引入被测模块 ──
@@ -49,7 +49,7 @@ function makeFacts(count: number): EmbeddedFact[] {
 }
 
 const ctx: IngestionContext = {
-    memoryKey: fixtures.mockMemoryKey,
+    sessionId: fixtures.mockMemoryKey,
 };
 
 beforeEach(() => {
