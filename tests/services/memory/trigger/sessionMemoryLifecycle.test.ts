@@ -8,12 +8,36 @@ vi.mock('@/lib/logger', () => ({
     }),
 }));
 
+// 在 describe 块顶部或 beforeEach 中
+const store = new Map<string, string>();
+
 vi.mock('@/lib/redis', () => ({
-    default: { get: vi.fn(), set: vi.fn(), unlink: vi.fn(), del: vi.fn() },
+    default: {
+        get: vi.fn(async (key: string) => store.get(key) ?? null),
+        set: vi.fn(
+            async (key: string, value: string, options?: { EX?: number }) => {
+                store.set(key, value);
+                // 如果需要模拟 TTL 过期，可在此处加 setTimeout + store.delete
+                return 'OK';
+            },
+        ),
+        unlink: vi.fn(async (keys: string[]) => {
+            for (const key of keys) store.delete(key);
+            return keys.length;
+        }),
+        del: vi.fn(async (keys: string[]) => {
+            for (const key of keys) store.delete(key);
+            return keys.length;
+        }),
+    },
 }));
 
-import { createSessionMemoryLifecycle, type RedisClient } from '@/services/memory/trigger/sessionMemoryLifecycle';
+import {
+    createSessionMemoryLifecycle,
+    type RedisClient,
+} from '@/services/memory/trigger/sessionMemoryLifecycle';
 import { sessionTriggerKeys } from '@/services/memory/trigger/triggerKeys';
+import { memoryTriggerConfig } from '@/services/memory/trigger/memoryTriggerConfig';
 
 const SID = 'sess-123';
 
@@ -28,11 +52,11 @@ function makeRedis(): RedisClient & { _store: Map<string, string> } {
             store.set(key, value);
             return 'OK';
         }),
-        unlink: vi.fn(async (...keys: string[]) => {
+        unlink: vi.fn(async (keys: string[]) => {
             keys.forEach((k) => store.delete(k));
             return keys.length;
         }),
-        del: vi.fn(async (...keys: string[]) => {
+        del: vi.fn(async (keys: string[]) => {
             keys.forEach((k) => store.delete(k));
             return keys.length;
         }),
@@ -60,7 +84,8 @@ describe('SessionMemoryLifecycle', () => {
             await service.destroy(SID);
 
             expect(redis.unlink).toHaveBeenCalledTimes(1);
-            const args = (redis.unlink as ReturnType<typeof vi.fn>).mock.calls[0];
+            const [args] = (redis.unlink as ReturnType<typeof vi.fn>).mock
+                .calls[0]!;
             expect(args).toEqual([
                 expectedKeys.lock,
                 expectedKeys.extracted,
@@ -79,7 +104,9 @@ describe('SessionMemoryLifecycle', () => {
             );
             await service.destroy(SID);
             expect(redis.del).toHaveBeenCalledTimes(1);
-            expect((redis.del as ReturnType<typeof vi.fn>).mock.calls[0]).toEqual([
+            expect(
+                (redis.del as ReturnType<typeof vi.fn>).mock.calls[0]![0],
+            ).toEqual([
                 expectedKeys.lock,
                 expectedKeys.extracted,
                 expectedKeys.processing,
@@ -112,7 +139,8 @@ describe('SessionMemoryLifecycle', () => {
 
             expect(result).toBe(true);
             expect(redis.unlink).toHaveBeenCalledTimes(1);
-            const args = (redis.unlink as ReturnType<typeof vi.fn>).mock.calls[0];
+            const [args] = (redis.unlink as ReturnType<typeof vi.fn>).mock
+                .calls[0]!;
             expect(args).toEqual([
                 expectedKeys.extracted,
                 expectedKeys.processing,
@@ -152,12 +180,14 @@ describe('SessionMemoryLifecycle', () => {
             await service.touch(SID);
 
             expect(redis.set).toHaveBeenCalledTimes(1);
-            const args = (redis.set as ReturnType<typeof vi.fn>).mock.calls[0] as string[];
+            const args = (redis.set as ReturnType<typeof vi.fn>).mock
+                .calls[0] as string[];
             expect(args[0]).toBe(expectedKeys.lastActiveAt);
-            expect(args[2]).toBe('EX');
-            expect(args[3]).toBe(86400);
             // 值为可解析为数字的毫秒时间戳字符串
             expect(Number.isFinite(Number(args[1]))).toBe(true);
+            expect(args[2]).toEqual({
+                EX: memoryTriggerConfig.extractedTtlSec,
+            });
         });
 
         it('key 不存在时 getLastActiveAt 返回 null', async () => {

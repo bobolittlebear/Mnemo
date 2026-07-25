@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { SessionTimeoutScanner } from '@/services/memory/trigger/sessionTimeoutScanner';
+import { memoryTriggerConfig } from '@/services/memory/trigger/memoryTriggerConfig';
 
 type TriggerResult =
     | { status: 'COMPLETED'; terminalWritten: boolean }
@@ -50,7 +51,9 @@ describe('SessionTimeoutScanner', () => {
         await scanner.scanOnce();
 
         expect(store.findInactiveSessions).toHaveBeenCalledTimes(1);
-        expect(store.findInactiveSessions).toHaveBeenCalledWith(1800);
+        expect(store.findInactiveSessions).toHaveBeenCalledWith(
+            memoryTriggerConfig.l2TimeoutSec,
+        );
         expect(coordinator.executeTerminalTrigger).toHaveBeenCalledTimes(2);
         expect(coordinator.executeTerminalTrigger).toHaveBeenNthCalledWith(
             1,

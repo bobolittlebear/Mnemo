@@ -14,12 +14,16 @@ import { RedisInactiveSessionStore } from './inactiveSessionStore';
 import { STMChatMessageSource } from './chatMessageSource';
 import { createTriggerSystem } from './trigger';
 import { SessionTimeoutScanner } from './trigger/sessionTimeoutScanner';
+import { validateConfigInvariants } from './trigger/memoryTriggerConfig';
+
+// 应用启动期校验触发器配置不变式（§7.2 / O4）：防止 llmTimeoutMaxMs 上调后 processing TTL 不足引发双重提取。
+validateConfigInvariants();
 
 const triggerSystem = createTriggerSystem({
     redis: redisClient,
     pipeline: memoryPipelineService,
     messages: new STMChatMessageSource(),
-    cleanup: STM.clearSession,
+    cleanup: (sid: string) => STM.clearSession(sid),
 });
 
 export const { coordinator, messageCounter, sessionEndTrigger } = triggerSystem;

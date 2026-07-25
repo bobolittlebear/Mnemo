@@ -1,23 +1,16 @@
 import { createLogger } from '@/lib/logger';
 import redisClient from '@/lib/redis';
-import {
-    memoryTriggerConfig,
-    validateConfigInvariants,
-} from './memoryTriggerConfig';
+import { memoryTriggerConfig } from './memoryTriggerConfig';
 import { sessionTriggerKeys } from './triggerKeys';
 
 const log = createLogger('ltm');
-
-// 应用启动期校验触发器配置不变式（§7.2 / O4）：防止 llmTimeoutMaxMs 上调后 processing TTL 不足引发双重提取。
-validateConfigInvariants();
 
 export interface RedisClient {
     get(key: string): Promise<string | null>;
     set(
         key: string,
         value: string,
-        mode?: string,
-        ttlSec?: number,
+        opts?: { EX?: number; PX?: number },
     ): Promise<unknown>;
     unlink(keys: string[]): Promise<number>;
     del(keys: string[]): Promise<number>;
@@ -63,7 +56,7 @@ class SessionMemoryLifecycle {
     async touch(sessionId: string): Promise<void> {
         try {
             const k = sessionTriggerKeys(sessionId);
-            await redisClient.set(k.lastActiveAt, String(Date.now()), {
+            await this.deps.redis.set(k.lastActiveAt, String(Date.now()), {
                 EX: memoryTriggerConfig.extractedTtlSec,
             });
         } catch (err) {

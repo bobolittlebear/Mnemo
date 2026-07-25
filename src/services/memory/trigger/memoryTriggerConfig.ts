@@ -20,11 +20,11 @@ export const memoryTriggerConfig = {
     /** L2 超时阈值（3 天，个人知识库慢节奏记录：3 天内回来都算续记，L2 仅做极端兜底） */
     l2TimeoutSec: 60 * 60 * 24 * 3,
     /** L2 扫描周期（30 分钟，超时阈值已放宽至 3 天故降低扫描频率） */
-    l2ScanIntervalSec: 60,
+    l2ScanIntervalSec: 1800,
 };
 
 /** LLM 之外的向量化/存储耗时余量（ms） */
-const PROCESSING_OVERHEAD_MS = 15000;
+export const PROCESSING_OVERHEAD_MS = 60000;
 
 export function validateConfigInvariants(
     cfg: typeof memoryTriggerConfig = memoryTriggerConfig,
