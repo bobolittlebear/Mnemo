@@ -16,7 +16,7 @@ export default {
         limit: number,
         beforeId?: string,
     ): Promise<HistoryMessage[]> {
-        const query: Record<string, unknown> = { sessionId };
+        const query: Record<string, unknown> = { sessionId, isDeleted: false };
 
         if (beforeId && mongoose.Types.ObjectId.isValid(beforeId)) {
             query._id = { $lt: new mongoose.Types.ObjectId(beforeId) };

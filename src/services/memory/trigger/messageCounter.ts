@@ -54,7 +54,11 @@ export class MessageCounter {
             }
 
             // L3 的 terminalWritten 恒为 false, status === 'COMPLETED'时提取必然执行完成
-            if (result.status === 'COMPLETED' || result.reason === 'TERMINAL') {
+            if (result.status === 'COMPLETED') {
+                // 扣掉本次触发"认领"的 threshold，保留提取期间新增的 overflow，避免计数漂移
+                await this.redis.decrBy(key, this.threshold);
+            } else if (result.reason === 'TERMINAL') {
+                // 终态已被 L1/L2 提取完毕，计数整体清零
                 await this.redis.del(key);
             }
             // SKIPPED + LOCK | PROCESSING：不重置，等下次消息重试

@@ -26,7 +26,7 @@
 3. **锁职责收窄**：锁仅保护「读终态 → 写终态 / 设标记」的临界区原子性，不包裹 LLM 调用
 4. **Processing 标记防重**：短锁内设置 `processing` 标记，横跨无锁的 LLM 提取阶段，防止同会话并发提取
 5. **第三层不写终态**：兜底触发仅做增量持久化，保留会话继续流转的可能性
-6. **L1 单一入口**：显性触发**仅**由前端 `endSession` 按钮经 API 触发，**不做任何语义识别**（见 §十一 D3）
+6. **L1 双触发点**：显性触发**仅**由API `endSession` 和 `clearAll` 触发，**不做任何语义识别**（见 §十一 D3）
 
 ### 1.3 职责划分
 
@@ -550,6 +550,30 @@ Phase 5: 监控后端（暂缓）
   - `claude-code-prompt-composition-root-cleanup.md`
   - `claude-code-prompt-chathistory-route-coordinator.md`
 - **与 A2 关系**：A2（L2 启动）同样改动 `index.ts` 组合根，`scanner.start()` 与 `cleanup` 注入在同一次 `createTriggerSystem` 编辑内完成；**二者均已 ✅ 落地并验证**（L2 超时触发功能正常）。
+
+#### 13.6.1 L1 双触发点：endSession vs clearAll
+
+L1 显性触发实际有**两个入口**，均调用同一 `executeTerminalTrigger('explicit')` 完成终态提取，但**收尾动作不同**——一个是「温和结束、保留数据」，一个是「彻底销毁、软删消息」：
+
+| 维度 | **endSession**（结束对话） | **clearAll**（销毁对话） |
+|---|---|---|
+| 语义 | 关闭当前会话记忆窗口，数据留档 | 删除整个对话，数据清除 |
+| 终态提取 | ✅ `executeTerminalTrigger('explicit')` | ✅ `executeTerminalTrigger('explicit')` |
+| STM(window+cursor) | cleanup **清除** | cleanup **清除** |
+| trigger 层 key（extracted/processing/msg_count/last_active_at/lock） | **保留**（`extracted` TTL 1 天，防误触发） | **全销毁**（B1 销毁 hook 级联删除） |
+| ChatMessage（mongo） | **保留**（历史可回看） | **软删除**（isDeleted/deletedAt） |
+
+**命名空间职责划分（互补不冗余）**：
+- `cleanup`（= `STM.clearSession`）只清 **STM 命名空间**：window `quick_note:session:{sid}` + cursor `memory:session:{sid}:cursor`。
+- `clearAll` 的销毁 hook 额外清 **trigger 命名空间**：`memory:session:{sid}:{extracted,processing,msg_count,last_active_at}` + lock，并软删 ChatMessage。
+
+**clearAll 顺序约束（关键）**：必须**先 `executeTerminalTrigger('explicit')`（读 STM window 提取）→ 再销毁 key + 软删 ChatMessage**。因为 pipeline 经 `STMChatMessageSource` 读的是 STM window（非 mongo），若先销毁 STM/软删消息，pipeline 会读到空窗口、提取不到任何 fact。
+
+**提取期并发新消息的命运差异**：
+- **endSession**：P2 期间挤进来、未被 pipeline 启动快照捕获的新消息，会被 P3 的 cleanup 从 window 抹掉且不再提取（`extracted` 置位后 SKIP_TERMINAL 不补救）；ChatMessage 仍在 mongo（原文不丢），但**这几条不会进 MemoryFact**。→ 属真 concern，缓解方式：**前端 endSession 后禁用输入框**（首选，从源头掐断 race），或后端 cleanup 前补一次增量提取。
+- **clearAll**：晚到消息随 ChatMessage 一并软删除，fact 漏提**是预期**（用户就是要销毁整个对话），无需处理。
+
+> **前端「停止会话」应调 endSession，不是 clearAll**：`endSession` 是「结束但留档」，`clearAll` 是「删除并销毁」——两者绝不能混用。停止会话按钮属于正常收尾（用户还想回看历史、记忆已提取入库），语义正好是 endSession；clearAll 应绑到独立的「删除对话」按钮。因 endSession 存在上述 race，前端在调用 endSession 时应**同步禁用该会话输入框**。
 
 ### 13.7 Phase 4 任务梳理（配置与联调，无需 Pipeline 续期）
 

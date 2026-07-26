@@ -67,7 +67,7 @@ class MemoryPipelineService {
             ? sourceIds.filter((id) => id > lastExtractedId)
             : sourceIds;
 
-        let newSourceIds = idsToCheck;
+        let newMsgIds = idsToCheck;
 
         if (idsToCheck.length > 0) {
             const existingDocs = await MemoryFact.find({
@@ -82,12 +82,12 @@ class MemoryPipelineService {
                 existingDocs.flatMap((doc) => doc.sourceMessageIds),
             );
             // 过滤出真正未处理过的新消息ID
-            newSourceIds = sourceIds.filter((id) => !processedIds.has(id));
+            newMsgIds = sourceIds.filter((id) => !processedIds.has(id));
         }
         // 合并：游标之前的消息视为已处理，只保留真正需要提取的新消息
-        const skippedCount = sourceIds.length - newSourceIds.length;
+        const skippedCount = sourceIds.length - newMsgIds.length;
 
-        if (newSourceIds.length === 0) {
+        if (newMsgIds.length === 0) {
             await STM.setLastExtractedMsgId(sessionId, lastMsgId);
             return {
                 totalProcessed: sourceIds.length,
@@ -97,9 +97,7 @@ class MemoryPipelineService {
             };
         }
 
-        const newMessages = messages.filter((m) =>
-            newSourceIds.includes(m.msgId),
-        );
+        const newMessages = messages.filter((m) => newMsgIds.includes(m.msgId));
 
         // ── 2. LLM 提取 + 清洗 ──
         // TODO: 从数据库中查询existingMemories，用于给llm确定记忆去重/更新

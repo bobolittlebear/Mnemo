@@ -113,7 +113,7 @@ class ShortTermMemory {
         const key = this.getKey(sessionId);
         const cursorKey = getCursorKey(sessionId);
         await redisClient.del([key, cursorKey]);
-        logger.info('Clearing STM key', { sessionId, keys: [key, cursorKey] });
+        logger.info('clearSession', { sessionId, keys: [key, cursorKey] });
     }
 
     /**

@@ -67,7 +67,7 @@ chatMessageSchema.statics.trimOldMessages = async function (
         // 1. 找出需要被删除的消息的 _id
         // 逻辑：按时间正序排列，跳过最新的 maxMessages 条，剩下的就是要删除的
         const messagesToDelete: ChatMessage[] = await this.find({ sessionId })
-            .sort({ _id: 1 }) // 按 ObjectId 正序（等同于插入时间正序）
+            .sort({ _id: -1 }) // 按 ObjectId 正序（等同于插入时间正序）
             .skip(maxMessages)
             .select('_id')
             .lean(); // lean() 提高查询性能，只返回纯 JSON

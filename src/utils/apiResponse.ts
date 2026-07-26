@@ -1,5 +1,6 @@
 class ApiResponse<T> {
     public readonly timestamp: Date;
+    public count: number | null;
 
     constructor(
         public success: boolean,
@@ -10,6 +11,7 @@ class ApiResponse<T> {
         this.data = data;
         this.message = message;
         this.timestamp = new Date(); // 添加时间戳
+        this.count = Array.isArray(this.data) ? this.data.length : null;
     }
 
     static success<T>(data: T, message: string = ''): ApiResponse<T> {

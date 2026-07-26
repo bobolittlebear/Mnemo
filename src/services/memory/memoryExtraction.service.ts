@@ -1,11 +1,9 @@
 // src/services/memory/memoryExtraction.service.ts
 import { createChat } from '../ai.service';
 import { createLogger } from '@/lib/logger';
-import { EXTRACTION_PROMPT } from '@/utils/constant';
 import type { RawFact } from '@/types/memory';
 import type { RawMessage } from '@/types/chat';
 import { countTokens } from '@/utils/tokenizer';
-import { MemoryFact } from '@/models/MemoryFact';
 import {
     formatConversationText,
     formatExistingMemoriesText,
