@@ -14,11 +14,11 @@ export const MAX_MESSAGE_PER_SESSION = 100;
  * 确保 L2 兜底扫描正常
  */
 export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
+export const COOKIE_SESSION_MAX_AGE = SESSION_TTL_SECONDS * 1000; // 24 小时
 
 export const REDIS_READ_TIMEOUT_MS = 300;
 
 export const COOKIE_TOKEN_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 1 week
-export const COOKIE_MEMORY_KEY_MAX_AGE = 24 * 60 * 60 * 1000; // 24 小时
 
 /** 从会话消息提取长期记忆的 Prompt */
 export const EXTRACTION_PROMPT = `你是记忆提取专家。从以下对话中提取用户的长期记忆。

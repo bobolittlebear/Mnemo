@@ -4,7 +4,7 @@
  */
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
-import { COOKIE_MEMORY_KEY_MAX_AGE } from '@/utils/constant';
+import { COOKIE_SESSION_MAX_AGE } from '@/utils/constant';
 
 // 扩展Express的Request类型，添加userId属性
 declare global {
@@ -31,7 +31,7 @@ export const memoryMiddleware = (
         httpOnly: true,
         // secure: true, // 仅在 HTTPS 下传输（本地测试如果是 HTTP 请改为 false）
         sameSite: 'strict',
-        maxAge: COOKIE_MEMORY_KEY_MAX_AGE,
+        maxAge: COOKIE_SESSION_MAX_AGE,
     });
     req.user = { ...req.user, sessionId };
 
