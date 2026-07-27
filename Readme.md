@@ -26,14 +26,15 @@ Mnemo 不只是一个笔记应用，而是一个具备**完整上下文管理能
 
 ## 🏗️ 技术栈
 
-| 层级            | 技术                    |
-| --------------- | ----------------------- |
-| 后端框架        | Express + TypeScript    |
-| 数据库          | MongoDB（Mongoose ODM） |
-| AI 能力         | OpenAI API（兼容接口）  |
-| 缓存 / 短时记忆 | Redis                   |
-| 定时任务        | node-cron               |
-| 向量检索        | _规划中_                |
+| 层级            | 技术                                        |
+| --------------- | ------------------------------------------- |
+| 后端框架        | Express + TypeScript                        |
+| 数据库          | MongoDB（Mongoose ODM）                     |
+| AI 能力         | OpenAI API（兼容接口）                      |
+| 缓存 / 短时记忆 | Redis                                       |
+| 向量化          | text-embedding-v4（Qwen）                   |
+| 向量检索        | MongoDB Atlas Vector Search + RRF 混合检索  |
+| 周期任务        | 进程内 setInterval（L2 超时扫描）           |
 
 ---
 
@@ -49,40 +50,78 @@ Mnemo 不只是一个笔记应用，而是一个具备**完整上下文管理能
 
 #### 2.1 短期记忆（STM — Short-Term Memory）
 
-以 `前缀 + memory_key` 为 key 缓存在 Redis 中，实现方式：
+以 `前缀 + sessionId` 为 key 缓存在 Redis 中，实现方式：
 
 - 基于 **Redis List** 实现 LRU 样式的消息截断（`LTRIM`）
 - 实现按 User 消息为基准的 `getRecentRounds` **滑动窗口算法**
-- 设计 **TTL 自动过期与会话清理机制**
+- 设计 **TTL 自动过期与会话清理机制**（Session TTL 7 天）
 - 每次调用 LLM 时，从 STM 提取最近 N 轮历史对话注入 System Prompt
+- `safeGetRecentRounds` 带超时保护的安全读取，防止 Redis 阻塞挂起请求
 
 #### 2.2 会话溯源
 
-- 每轮会话生成 `traceId`，便于后期长期记忆提取时溯源追踪
+- 每轮会话生成 `traceId`，便于长期记忆提取时溯源追踪
 
-#### 2.3 长期记忆（LTM — Long-Term Memory）
+#### 2.3 长期记忆（LTM — Long-Term Memory）✅ 主链路已跑通
 
-已完成的模型与基础设施：
+**提取管道（已完成）**：
 
-- `MemoryFact` 数据模型：存储从对话中提取的事实性记忆
-- `ChatMessage` 历史会话记录模型
-- `MemoryExtractionService` 大模型提取服务，从对话中提炼长期记忆
-- `ingestMemoryFacts` 会话记忆去重入库
-- `MemoryPipelineService` 长期记忆提取完整管道
+- `MemoryFact` 数据模型：存储从对话中提取的事实性记忆（按 **userId** 归属）
+- `ChatMessage` 历史会话记录模型（按 **sessionId** 归属，软删除支持）
+- `MemoryExtractionService`：大模型提取服务，清洗 / 过滤闲聊 / 提炼事实
+- `ingestMemoryFacts`：contentHash 精确去重入库
+- `MemoryPipelineService`：基于**增量游标（cursor）**的完整提取管道——读游标 → 取增量消息 → LLM 提取 → 向量化 → 去重入库 → 前移游标，天然幂等不重提
 
-**三层触发机制**（开发中）：
+**三层触发机制（✅ 已完成并通过联调 / 压测）**：
 
-| 层级   | 触发方式     | 说明                                                                                     |
-| ------ | ------------ | ---------------------------------------------------------------------------------------- |
-| 第一层 | 显性结束触发 | 每次 SSE 流式响应结束后，**异步执行**（不阻塞 `[DONE]` 发送）                            |
-| 第二层 | 超时静默触发 | 用户停止发消息超过 T 分钟（如 30 分钟），基于 `lastExtractedAt` 标记判断，使用 Cron 实现 |
-| 第三层 | 强制兜底触发 | 每日固定时间（如凌晨 3 点），扫描所有存在未提取消息的会话                                |
+| 层级 | 触发方式 | 行为 |
+| ---- | -------- | ---- |
+| **L1 显性触发** | 用户结束会话（endSession）/ 销毁会话（clearAll） | 增量收尾提取 + 写终态标记 + 清理 STM |
+| **L2 超时触发** | 周期扫描（30 分钟一轮），会话静默超过 **3 天** | 同 L1，作为兜底安全网 |
+| **L3 阈值兜底** | 会话内消息累计 ≥ 20 条 | 仅增量提取，不写终态，会话可继续 |
+
+三层均调用同一 `pipeline.run`，提取范围由 cursor 决定，行为等价；区别仅在是否写终态、是否清理 STM。
+
+**并发安全 —— 三阶段短锁模型**：
+
+```
+P1 短锁(<50ms)：获锁 → 检查终态 → 检查 processing → 设 processing → 释锁
+P2 无锁(秒级)：await pipeline.run(sessionId)     ← LLM 提取，不持锁
+P3 短锁(<50ms)：获锁 → 二次校验终态 → 写终态 + cleanup → 清 processing → 释锁
+```
+
+- **三道 SKIP 闸门**：SKIP_LOCK（获锁失败不空等）/ SKIP_TERMINAL（终态幂等）/ SKIP_PROCESSING（防重入），已通过真实并发日志验证无双重提取
+- **崩溃自愈**：P2 期间进程崩溃 → processing 标记 300s 自动过期 → 后续触发重新提取，终态最终写入
+- **计数防漂移**：L3 完成后 `decrBy(threshold)` 而非清零，保留提取期间并发新增的计数
+- **配置不变式启动断言**：`processingTtl ≥ 2 × llmTimeoutMax + overhead`，启动期校验失败直接报错，防止调参失配
+
+**架构约束（Clean Architecture）**：
+
+- `trigger/` 为**纯模块**，零外部服务依赖
+- 外部能力（pipeline、消息源、STM 清理）全部经**组合根 `createTriggerSystem` 依赖注入**
+- STM 清理收敛至 coordinator 的 `cleanup` 端口，全仓仅组合根一处认识 STM
+
+**Redis Key 设计**：
+
+| Key | 用途 | TTL |
+| --- | --- | --- |
+| `memory:lock:{sid}` | 分布式锁（仅临界区存在） | 10s |
+| `memory:session:{sid}:processing` | 防并发标记 | 300s |
+| `memory:session:{sid}:extracted` | 终态标记（不可逆） | 7 天（随 Session） |
+| `memory:session:{sid}:msg_count` | L3 消息计数 | 7 天 |
+| `memory:session:{sid}:cursor` | 增量提取游标（归 STM 管理） | 随 Session |
+
+#### 2.4 长期记忆向量化 & 检索 ✅
+
+- MemoryFact 经 text-embedding-v4 向量化入库
+- MongoDB Atlas Vector Search + RRF 混合检索
+- 检索结果注入对话上下文（与提取侧联动持续完善中）
 
 **规划中**：
 
-- 长期记忆向量化 & 向量检索
-- 长期记忆遗忘机制
+- 长期记忆遗忘机制（Ebbinghaus 曲线 / 引用计数）
 - 版本冲突管理方案
+- 会话终止后的写入闸门（ENDING 状态拒收新消息，产品打磨项）
 
 ---
 
@@ -131,11 +170,26 @@ Mnemo 不只是一个笔记应用，而是一个具备**完整上下文管理能
 | traceId 会话溯源                 | ✅ 已实现                                          |
 | 长期记忆数据模型 & 提取服务      | ✅ 已实现                                          |
 | 长期记忆向量化 & 检索            | ✅ 已实现                                          |
-| 长期记忆三层触发机制             | 🔄 开发中                                          |
+| **长期记忆三层触发机制**         | ✅ **已实现**（L1/L2/L3 + 三阶段锁 + cleanup 收敛）|
+| 触发机制联调（Phase 4.2）        | ✅ 已完成（三路径 / 幂等 / 报错兜底 / cursor 增量）|
+| 压力测试（Phase 4.3）            | 🔄 进行中（崩溃恢复 ✅，大窗口耗时验证中）         |
+| 检索注入对话上下文闭环           | 🔄 进行中                                          |
+| 监控埋点（SKIP 命中 / 重试统计） | 📋 规划中                                          |
 | 笔记 RAG 向量化 & 混合检索       | 📋 规划中                                          |
 | 多模态 RAG（图片 / 视频 / 音频） | 📋 规划中                                          |
 | 笔记工具调用（AI 写入）          | 📋 规划中                                          |
 | 任务状态管理                     | 📋 规划中                                          |
+
+### 近期里程碑（2026-07）
+
+- ✅ 三层触发机制全链路落地：L1 显性（endSession/clearAll 双触发点）、L2 超时扫描（3 天阈值 / 30 分钟周期）、L3 阈值兜底（20 条）
+- ✅ 三阶段短锁 + 三道 SKIP 闸门，真实并发日志验证无双重提取
+- ✅ Clean Architecture 重构：trigger 纯模块 + 组合根依赖注入，STM 清理收敛至 cleanup 端口
+- ✅ 标识符作用域拆分：ChatMessage → sessionId（会话态）/ MemoryFact → userId（知识归属）
+- ✅ 配置不变式启动断言 + 单元测试（含边界用例）
+- ✅ 崩溃恢复验证（kill -9 后 processing 过期自愈重提）
+- ✅ L3 计数器 `decrBy` 防漂移修复、msg_count TTL 生效修复
+- 🔄 大窗口（100 条）提取耗时压测
 
 ---
 
@@ -143,50 +197,26 @@ Mnemo 不只是一个笔记应用，而是一个具备**完整上下文管理能
 
 ```
 src/
-├── bin/                       # 脚本入口
-├── controllers/               # 路由控制器
-│   ├── auth.controller.ts
-│   ├── chat.controller.ts
-│   ├── note.controller.ts
-│   └── notebook.controller.ts
-├── db/                        # 数据库连接
-│   └── index.ts
-├── lib/                       # 基础库与客户端
-│   ├── embedding.ts           # 向量化相关
-│   ├── logger.ts              # 日志工具
-│   └── redis.ts               # Redis 客户端
-├── middleware/                # 中间件
-│   ├── auth.middleware.ts     # 鉴权
-│   ├── memory.middleware.ts   # 记忆相关
-│   └── trace.middleware.ts    # traceId 溯源
-├── models/                    # 数据模型
-│   ├── ChatMessage.ts         # 历史会话记录
-│   ├── MemoryFact.ts          # 长期记忆事实
-│   ├── Note.ts                # 笔记
-│   ├── Notebook.ts            # 笔记本
-│   └── User.ts                # 用户
-├── routes/                    # 路由注册
-│   ├── api.route.ts
-│   ├── auth.route.ts
-│   ├── chat.route.ts
-│   ├── index.ts
-│   └── root.route.ts
-├── service/                   # 业务服务
-│   ├── core/                  # 核心配置
-│   │   └── config.ts
-│   ├── ai.service.ts
-│   ├── auth.service.ts
-│   ├── memoryExtraction.service.ts  # 长期记忆提取
-│   ├── note.service.ts
-│   └── notebook.service.ts
-├── types/models/              # 类型定义
-└── util/                      # 工具函数
-    ├── apiResponse.ts
-    ├── constant.ts
-    ├── jwt.ts
-    ├── shortTermMemory.ts     # 短期记忆（STM）
-    ├── streamCleaner.ts
-    └── tool.ts                # 工具调用
+├── controllers/                    # 路由控制器
+├── db/                             # 数据库连接
+├── lib/                            # 基础库（redis / logger / embedding）
+├── middleware/                     # 鉴权 / 记忆 / traceId 中间件
+├── models/                         # ChatMessage / MemoryFact / Note / Notebook / User
+├── routes/                         # 路由注册
+├── services/
+│   ├── chat/                       # 对话服务（chatStream / chatHistory）
+│   └── memory/                     # 记忆服务
+│       ├── index.ts                # 组合根：createTriggerSystem 依赖注入
+│       ├── chatMessageSource.ts    # MessageSource 实现（读 STM 滑动窗口）
+│       ├── memorySearch.service.ts # 记忆混合检索
+│       └── trigger/                # 三层触发纯模块（零外部依赖）
+│           ├── memoryTriggerCoordinator.ts   # 三阶段协调器
+│           ├── memoryTriggerConfig.ts        # 配置 + 不变式断言
+│           ├── messageCounter.ts             # L3 消息计数
+│           ├── sessionTimeoutScanner.ts      # L2 超时扫描
+│           └── ...
+├── types/                          # 类型定义
+└── utils/                          # shortTermMemory(STM) / tool / constant
 ```
 
 ---
@@ -257,7 +287,12 @@ pnpm start
 
 ## 🎯 未来规划
 
-- [ ] 长期记忆向量化存储与语义检索
+- [x] 长期记忆向量化存储与语义检索
+- [x] 长期记忆三层触发机制（L1/L2/L3 + 并发安全）
+- [ ] 检索注入对话上下文完整闭环
+- [ ] 监控埋点：SKIP 闸门命中分布 / processing 超时 / P3 重试次数
+- [ ] 前端会话超时检查 & 提示（「欢迎回来，开始新对话」）
+- [ ] 会话终止写入闸门（ENDING 状态拒收新消息）
 - [ ] 笔记 RAG 混合检索（向量 + BM25）
 - [ ] 多模态 RAG：支持图片、视频、音频等非文本笔记的向量化与检索
 - [ ] 记忆遗忘机制（Ebbinghaus 曲线 / 引用计数）
