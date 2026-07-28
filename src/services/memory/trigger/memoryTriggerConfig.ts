@@ -3,6 +3,7 @@
 // MessageCounter / SessionTimeoutScanner 应从本模块读取对应常量，禁止硬编码。
 
 import { AI_CONFIG } from '@/utils/config';
+import { SESSION_TTL_SECONDS } from '@/utils/constant';
 
 export const memoryTriggerConfig = {
     /** 分布式锁 TTL（10s） */
@@ -10,9 +11,9 @@ export const memoryTriggerConfig = {
     /** 防并发标记 TTL（300s） */
     processingTtlMs: 300000,
     /** 终态标记 TTL（24h，跟随 Session） */
-    extractedTtlSec: 86400,
+    extractedTtlSec: SESSION_TTL_SECONDS,
     /** L3 消息计数 TTL（24h） */
-    msgCountTtlSec: 86400,
+    msgCountTtlSec: SESSION_TTL_SECONDS,
     /** L3 触发阈值（20条消息） */
     messageThreshold: 20,
     /** 非流式 LLM 超时上限（用于不变式校验，非实际超时配置） */
@@ -34,6 +35,16 @@ export function validateConfigInvariants(
     if (cfg.processingTtlMs < required) {
         throw new Error(
             `processingTtlMs(${cfg.processingTtlMs}) 必须满足 >= 2*llmTimeoutMaxMs(${cfg.llmTimeoutMaxMs}) + overhead(${PROCESSING_OVERHEAD_MS}) = ${required}。将来上调 LLM 超时上限时，优先调大 processingTtlMs 而非加续期。`,
+        );
+    }
+    // l2TimeoutSec < msgCountTtlSec ≤ extractedTtlSec
+    // 防止以后调 Session TTL 又忘了这两个
+    if (
+        cfg.l2TimeoutSec >= cfg.msgCountTtlSec ||
+        cfg.msgCountTtlSec > cfg.extractedTtlSec
+    ) {
+        throw new Error(
+            '必须满足 l2TimeoutSec < msgCountTtlSec ≤ extractedTtlSec',
         );
     }
 

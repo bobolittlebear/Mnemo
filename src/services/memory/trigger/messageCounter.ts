@@ -40,9 +40,7 @@ export class MessageCounter {
         const key = msgCountKey(sessionId);
         try {
             const count = await this.redis.incrBy(key, 2);
-            if (count === 1) {
-                await this.redis.expire(key, MSG_COUNT_TTL_SECONDS);
-            }
+            await this.redis.expire(key, MSG_COUNT_TTL_SECONDS, 'NX');
             if (count < this.threshold) return;
 
             let result: TriggerResult;
