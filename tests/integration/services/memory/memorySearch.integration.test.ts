@@ -2,7 +2,7 @@
  * MemorySearchService 混合检索集成测试
  *
  * 真实 MongoDB，Mock Embedding API
- * 验证端到端的向量检索 + 关键词检索 + RRF 融合 + memoryKey 隔离
+ * 验证端到端的向量检索 + 关键词检索 + RRF 融合 + userId 隔离
  *
  * 运行前提：
  *   1. MongoDB 已启动（本地 Docker mnemo-mongo 或 MONGODB_URI 可连）
@@ -86,7 +86,7 @@ function makeEmbeddingFromText(text: string): number[] {
 /** 批量插入 MemoryFact 文档 */
 async function insertFacts(
     facts: Array<{
-        memoryKey: string;
+        userId: string;
         content: string;
         embedding?: number[];
         confidence?: number;
@@ -96,7 +96,7 @@ async function insertFacts(
     }>,
 ) {
     const docs = facts.map((f) => ({
-        memoryKey: f.memoryKey,
+        userId: f.userId,
         content: f.content,
         embedding: f.embedding ?? makeEmbeddingFromText(f.content),
         confidence: f.confidence ?? 0.9,
@@ -111,7 +111,7 @@ async function insertFacts(
     await MemoryFact.insertMany(docs);
 }
 
-// ── 测试用 memoryKey ──
+// ── 测试用 userId ──
 
 const KEY_A = 'int-search:key-a';
 const KEY_B = 'int-search:key-b';
@@ -158,14 +158,14 @@ beforeAll(async () => {
 
 afterAll(async () => {
     await MemoryFact.deleteMany({
-        memoryKey: { $in: ALL_KEYS },
+        userId: { $in: ALL_KEYS },
     });
     await mongoose.disconnect();
 });
 
 beforeEach(async () => {
     await MemoryFact.deleteMany({
-        memoryKey: { $in: ALL_KEYS },
+        userId: { $in: ALL_KEYS },
     });
     mockGenerateEmbedding.mockClear();
 });
@@ -179,13 +179,13 @@ describe('MemorySearchService 混合检索集成测试', () => {
     it('INT1 - 端到端：插入数据后混合检索返回正确结果', async () => {
         // 插入 10 条不同内容
         const facts = Array.from({ length: 10 }, (_, i) => ({
-            memoryKey: KEY_A,
+            userId: KEY_A,
             content: `用户偏好 TypeScript 和 React，项目编号 ${i + 1}`,
         }));
         await insertFacts(facts);
 
         const result = await memorySearchService.search({
-            memoryKey: KEY_A,
+            userId: KEY_A,
             query: 'TypeScript 和 React',
         });
 
@@ -196,7 +196,7 @@ describe('MemorySearchService 混合检索集成测试', () => {
         for (const r of result.results) {
             expect(r.content).toContain('TypeScript');
             expect(typeof r.rrfScore).toBe('number');
-            expect(r.memoryKey).toBe(KEY_A);
+            expect(r.userId).toBe(KEY_A);
         }
 
         // 向量或关键词至少一路有命中
@@ -209,25 +209,25 @@ describe('MemorySearchService 混合检索集成测试', () => {
     it('INT2 - 双路命中的文档 RRF 分数高于单路命中', async () => {
         // 1 条内容精准匹配 "docker kubernetes"，向量和关键词都更容易命中
         const overlapFact = {
-            memoryKey: KEY_A,
+            userId: KEY_A,
             content: '小熊喜欢打游戏',
         };
         // 2 条仅关键词可能命中的文档
         const textOnlyFacts = [
             {
-                memoryKey: KEY_A,
+                userId: KEY_A,
                 content: '我喜欢小熊',
             },
             {
-                memoryKey: KEY_A,
+                userId: KEY_A,
                 content: '我爱小熊',
             },
             {
-                memoryKey: KEY_A,
+                userId: KEY_A,
                 content: '小熊喜欢打游戏2',
             },
             {
-                memoryKey: KEY_A,
+                userId: KEY_A,
                 content: '小熊喜欢妈妈',
             },
         ];
@@ -235,7 +235,7 @@ describe('MemorySearchService 混合检索集成测试', () => {
         await insertFacts([overlapFact, ...textOnlyFacts]);
 
         const result = await memorySearchService.search({
-            memoryKey: KEY_A,
+            userId: KEY_A,
             query: '小熊喜欢打游戏',
         });
 
@@ -271,42 +271,42 @@ describe('MemorySearchService 混合检索集成测试', () => {
     });
 
     // ═══════════════════════════════════════
-    // INT3: memoryKey 隔离
+    // INT3: userId 隔离
     // ═══════════════════════════════════════
-    it('INT3 - memoryKey 隔离：不同 key 的数据互不干扰', async () => {
+    it('INT3 - userId 隔离：不同 key 的数据互不干扰', async () => {
         // KEY_A: 5 条关于前端的内容
         const factsA = Array.from({ length: 5 }, (_, i) => ({
-            memoryKey: KEY_A,
+            userId: KEY_A,
             content: `用户前端开发经验 ${i + 1} 年，使用 React`,
         }));
 
         // KEY_B: 5 条关于后端的内容
         const factsB = Array.from({ length: 5 }, (_, i) => ({
-            memoryKey: KEY_B,
+            userId: KEY_B,
             content: `用户后端开发经验 ${i + 1} 年，使用 Node.js`,
         }));
 
         await insertFacts([...factsA, ...factsB]);
 
         const resultA = await memorySearchService.search({
-            memoryKey: KEY_A,
+            userId: KEY_A,
             query: 'React 前端开发',
         });
 
         const resultB = await memorySearchService.search({
-            memoryKey: KEY_B,
+            userId: KEY_B,
             query: 'Node.js 后端开发',
         });
 
         // KEY_A 的结果全部属于 KEY_A
         for (const r of resultA.results) {
-            expect(r.memoryKey).toBe(KEY_A);
+            expect(r.userId).toBe(KEY_A);
             expect(r.content).toContain('前端');
         }
 
         // KEY_B 的结果全部属于 KEY_B
         for (const r of resultB.results) {
-            expect(r.memoryKey).toBe(KEY_B);
+            expect(r.userId).toBe(KEY_B);
             expect(r.content).toContain('后端');
         }
 
@@ -324,8 +324,8 @@ describe('MemorySearchService 混合检索集成测试', () => {
     // ═══════════════════════════════════════
     it('INT4 - Embedding 失败时降级为关键词检索', async () => {
         await insertFacts([
-            { memoryKey: KEY_A, content: '用户喜欢吃 hotpot 和 spicy food' },
-            { memoryKey: KEY_A, content: '用户偏好 Sichuan cuisine 口味' },
+            { userId: KEY_A, content: '用户喜欢吃 hotpot 和 spicy food' },
+            { userId: KEY_A, content: '用户偏好 Sichuan cuisine 口味' },
         ]);
 
         // Mock embedding 失败
@@ -334,7 +334,7 @@ describe('MemorySearchService 混合检索集成测试', () => {
         );
 
         const result = await memorySearchService.search({
-            memoryKey: KEY_A,
+            userId: KEY_A,
             query: 'hotpot spicy',
         });
 
@@ -353,12 +353,12 @@ describe('MemorySearchService 混合检索集成测试', () => {
     // ═══════════════════════════════════════
     it('INT5 - 查询不匹配时返回空结果或弱命中', async () => {
         await insertFacts([
-            { memoryKey: KEY_A, content: '用户喜欢 TypeScript' },
-            { memoryKey: KEY_A, content: '用户住在北京' },
+            { userId: KEY_A, content: '用户喜欢 TypeScript' },
+            { userId: KEY_A, content: '用户住在北京' },
         ]);
 
         const result = await memorySearchService.search({
-            memoryKey: KEY_A,
+            userId: KEY_A,
             query: '量子计算 超导物理', // 与插入数据完全不相关
         });
 
@@ -381,7 +381,7 @@ describe('MemorySearchService 混合检索集成测试', () => {
     it('E1 - 空集合上检索，返回空结果不报错', async () => {
         // 不插入任何数据
         const result = await memorySearchService.search({
-            memoryKey: KEY_A,
+            userId: KEY_A,
             query: '任何查询',
         });
 
@@ -396,11 +396,11 @@ describe('MemorySearchService 混合检索集成测试', () => {
 
     it('E2 - 单条数据检索，关键词精确匹配', async () => {
         await insertFacts([
-            { memoryKey: KEY_A, content: '用户的猫叫 orange cat' },
+            { userId: KEY_A, content: '用户的猫叫 orange cat' },
         ]);
 
         const result = await memorySearchService.search({
-            memoryKey: KEY_A,
+            userId: KEY_A,
             query: 'orange',
         });
 
@@ -412,7 +412,7 @@ describe('MemorySearchService 混合检索集成测试', () => {
         // 直接用 MongoDB 插入不含 embedding 的文档
         await MemoryFact.insertMany([
             {
-                memoryKey: KEY_A,
+                userId: KEY_A,
                 content: '用户养了一只 golden retriever',
                 confidence: 0.9,
                 contentHash: generateContentHash(
@@ -425,7 +425,7 @@ describe('MemorySearchService 混合检索集成测试', () => {
         ]);
 
         const result = await memorySearchService.search({
-            memoryKey: KEY_A,
+            userId: KEY_A,
             query: 'golden',
         });
 
@@ -438,16 +438,16 @@ describe('MemorySearchService 混合检索集成测试', () => {
 
     it('E4 - 同一内容用不同 query 多次检索，结果一致', async () => {
         await insertFacts([
-            { memoryKey: KEY_A, content: '用户在学 Rust 编程语言' },
+            { userId: KEY_A, content: '用户在学 Rust 编程语言' },
         ]);
 
         const result1 = await memorySearchService.search({
-            memoryKey: KEY_A,
+            userId: KEY_A,
             query: 'Rust 编程',
         });
 
         const result2 = await memorySearchService.search({
-            memoryKey: KEY_A,
+            userId: KEY_A,
             query: 'Rust 编程',
         });
 
@@ -457,13 +457,13 @@ describe('MemorySearchService 混合检索集成测试', () => {
 
     it('E5 - 自定义 finalTopN 限制返回条数', async () => {
         const facts = Array.from({ length: 8 }, (_, i) => ({
-            memoryKey: KEY_A,
+            userId: KEY_A,
             content: `用户学习笔记 ${i + 1}：React hooks 使用技巧`,
         }));
         await insertFacts(facts);
 
         const result = await memorySearchService.search({
-            memoryKey: KEY_A,
+            userId: KEY_A,
             query: 'React hooks',
             finalTopN: 3,
         });
@@ -474,19 +474,19 @@ describe('MemorySearchService 混合检索集成测试', () => {
     it('E6 - notebookId 过滤隔离', async () => {
         await insertFacts([
             {
-                memoryKey: KEY_A,
+                userId: KEY_A,
                 content: '属于笔记本A的内容关于 Docker',
                 notebookId: 'nb-alpha',
             },
             {
-                memoryKey: KEY_A,
+                userId: KEY_A,
                 content: '属于笔记本B的内容关于 Docker',
                 notebookId: 'nb-beta',
             },
         ]);
 
         const result = await memorySearchService.search({
-            memoryKey: KEY_A,
+            userId: KEY_A,
             query: 'Docker',
             notebookId: 'nb-alpha',
         });
@@ -500,19 +500,19 @@ describe('MemorySearchService 混合检索集成测试', () => {
     it('E7 - type 过滤仅返回指定类型', async () => {
         await insertFacts([
             {
-                memoryKey: KEY_A,
+                userId: KEY_A,
                 content: '对话事实：用户喜欢 Vim 编辑器',
                 type: 'fact',
             },
             {
-                memoryKey: KEY_A,
+                userId: KEY_A,
                 content: '笔记分块：Vim 快捷键速查表',
                 type: 'note_chunk',
             },
         ]);
 
         const result = await memorySearchService.search({
-            memoryKey: KEY_A,
+            userId: KEY_A,
             query: 'Vim',
             type: 'fact',
         });

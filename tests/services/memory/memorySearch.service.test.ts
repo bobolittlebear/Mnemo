@@ -50,7 +50,7 @@ function makeRankedDoc(id: string, rank: number): RankedDoc {
     return {
         _id: id,
         content: `content of ${id}`,
-        memoryKey: 'test-key',
+        userId: 'test-key',
         confidence: 0.9,
         category: 'preference',
         type: 'fact',
@@ -73,7 +73,7 @@ function makeVectorDoc(id: string, vectorScore = 0.95) {
     return {
         _id: id,
         content: `content of ${id}`,
-        memoryKey: 'test-key',
+        userId: 'test-key',
         confidence: 0.9,
         category: 'preference',
         type: 'fact',
@@ -89,7 +89,7 @@ function makeTextDoc(id: string, textScore = 1.5) {
     return {
         _id: id,
         content: `content of ${id}`,
-        memoryKey: 'test-key',
+        userId: 'test-key',
         confidence: 0.9,
         category: 'preference',
         type: 'fact',
@@ -136,7 +136,7 @@ describe('MemorySearchService.search', () => {
         textSearchSpy.mockResolvedValue(makeNDocs(3, 'T'));
 
         const result = await memorySearchService.search({
-            memoryKey: 'test-key',
+            userId: 'test-key',
             query: '测试查询',
         });
 
@@ -159,7 +159,7 @@ describe('MemorySearchService.search', () => {
         ]);
 
         const result = await memorySearchService.search({
-            memoryKey: 'test-key',
+            userId: 'test-key',
             query: '重叠测试',
         });
 
@@ -177,7 +177,7 @@ describe('MemorySearchService.search', () => {
 
     it('S3: Query 为空字符串，短路返回', async () => {
         const result = await memorySearchService.search({
-            memoryKey: 'test-key',
+            userId: 'test-key',
             query: '',
         });
 
@@ -190,7 +190,7 @@ describe('MemorySearchService.search', () => {
 
     it('S4: Query 仅含空白字符，trim 后短路', async () => {
         const result = await memorySearchService.search({
-            memoryKey: 'test-key',
+            userId: 'test-key',
             query: '   ',
         });
 
@@ -206,7 +206,7 @@ describe('MemorySearchService.search', () => {
         textSearchSpy.mockResolvedValue(makeNDocs(5, 'T'));
 
         const result = await memorySearchService.search({
-            memoryKey: 'test-key',
+            userId: 'test-key',
             query: '降级测试',
         });
 
@@ -225,7 +225,7 @@ describe('MemorySearchService.search', () => {
         textSearchSpy.mockResolvedValue(makeNDocs(5, 'T'));
 
         const result = await memorySearchService.search({
-            memoryKey: 'test-key',
+            userId: 'test-key',
             query: '维度测试',
         });
 
@@ -242,7 +242,7 @@ describe('MemorySearchService.search', () => {
         textSearchSpy.mockResolvedValue(makeNDocs(4, 'T'));
 
         const result = await memorySearchService.search({
-            memoryKey: 'test-key',
+            userId: 'test-key',
             query: '向量失败测试',
         });
 
@@ -256,7 +256,7 @@ describe('MemorySearchService.search', () => {
         textSearchSpy.mockRejectedValue(new Error('全文索引错误'));
 
         const result = await memorySearchService.search({
-            memoryKey: 'test-key',
+            userId: 'test-key',
             query: '关键词失败测试',
         });
 
@@ -272,7 +272,7 @@ describe('MemorySearchService.search', () => {
         textSearchSpy.mockRejectedValue(new Error('全文索引错误'));
 
         const result = await memorySearchService.search({
-            memoryKey: 'test-key',
+            userId: 'test-key',
             query: '全失败测试',
         });
 
@@ -288,7 +288,7 @@ describe('MemorySearchService.search', () => {
         textSearchSpy.mockResolvedValue([makeRankedDoc('A', 2)]);
 
         const result = await memorySearchService.search({
-            memoryKey: 'test-key',
+            userId: 'test-key',
             query: '参数测试',
             vectorTopK: 50,
             textTopK: 50,
@@ -296,7 +296,7 @@ describe('MemorySearchService.search', () => {
             rrfK: 30,
         });
 
-        // vectorSearch(memoryKey, embedding, topK=50, numCandidates=100, ...)
+        // vectorSearch(userId, embedding, topK=50, numCandidates=100, ...)
         expect(vectorSearchSpy).toHaveBeenCalledWith(
             'test-key',
             expect.any(Array),
@@ -306,7 +306,7 @@ describe('MemorySearchService.search', () => {
             undefined,
         );
 
-        // textSearch(memoryKey, query, topK=50, ...)
+        // textSearch(userId, query, topK=50, ...)
         expect(textSearchSpy).toHaveBeenCalledWith(
             'test-key',
             '参数测试',
@@ -329,7 +329,7 @@ describe('MemorySearchService.search', () => {
 
     it('S11: query 传入 generateEmbedding 前已 trim', async () => {
         await memorySearchService.search({
-            memoryKey: 'test-key',
+            userId: 'test-key',
             query: '  hello world  ',
         });
 
@@ -338,7 +338,7 @@ describe('MemorySearchService.search', () => {
 
     it('S12: notebookId + type 过滤条件传递到双路检索', async () => {
         await memorySearchService.search({
-            memoryKey: 'test-key',
+            userId: 'test-key',
             query: '过滤测试',
             notebookId: 'nb1',
             type: 'fact',
@@ -368,7 +368,7 @@ describe('MemorySearchService.search', () => {
         textSearchSpy.mockRejectedValue(new Error('全文索引错误'));
 
         const result = await memorySearchService.search({
-            memoryKey: 'test-key',
+            userId: 'test-key',
             query: '全降级测试',
         });
 
@@ -381,7 +381,7 @@ describe('MemorySearchService.search', () => {
 
     it('E1: query 为 undefined，短路返回不触发降级', async () => {
         const result = await memorySearchService.search({
-            memoryKey: 'test-key',
+            userId: 'test-key',
             query: undefined as any,
         });
 
@@ -398,7 +398,7 @@ describe('MemorySearchService.search', () => {
         textSearchSpy.mockResolvedValue([makeRankedDoc('A', 1)]);
 
         const result = await memorySearchService.search({
-            memoryKey: 'test-key',
+            userId: 'test-key',
             query: '空embeddings测试',
         });
 
@@ -412,7 +412,7 @@ describe('MemorySearchService.search', () => {
         textSearchSpy.mockResolvedValue([makeRankedDoc('B', 1)]);
 
         const result1 = await memorySearchService.search({
-            memoryKey: 'key1',
+            userId: 'key1',
             query: '第一次',
         });
 
@@ -421,7 +421,7 @@ describe('MemorySearchService.search', () => {
         textSearchSpy.mockResolvedValue([makeRankedDoc('C', 1)]);
 
         const result2 = await memorySearchService.search({
-            memoryKey: 'key2',
+            userId: 'key2',
             query: '第二次',
         });
 
@@ -437,7 +437,7 @@ describe('MemorySearchService.search', () => {
         });
 
         await memorySearchService.search({
-            memoryKey: 'test-key',
+            userId: 'test-key',
             query: '向量验证',
         });
 
@@ -448,7 +448,7 @@ describe('MemorySearchService.search', () => {
 
     it('E5: textSearch 第二个参数是 trimmed query 字符串（非 embedding）', async () => {
         await memorySearchService.search({
-            memoryKey: 'test-key',
+            userId: 'test-key',
             query: '  关键词验证  ',
         });
 
@@ -459,11 +459,11 @@ describe('MemorySearchService.search', () => {
 
     it('E6: 未指定参数时使用默认值（vectorTopK=20, textTopK=20, numCandidates=100）', async () => {
         await memorySearchService.search({
-            memoryKey: 'test-key',
+            userId: 'test-key',
             query: '默认参数',
         });
 
-        // vectorSearch(memoryKey, embedding, topK=20, numCandidates=100, ...)
+        // vectorSearch(userId, embedding, topK=20, numCandidates=100, ...)
         expect(vectorSearchSpy).toHaveBeenCalledWith(
             'test-key',
             expect.any(Array),
@@ -473,7 +473,7 @@ describe('MemorySearchService.search', () => {
             undefined,
         );
 
-        // textSearch(memoryKey, query, topK=20, ...)
+        // textSearch(userId, query, topK=20, ...)
         expect(textSearchSpy).toHaveBeenCalledWith(
             'test-key',
             '默认参数',
@@ -485,7 +485,7 @@ describe('MemorySearchService.search', () => {
 
     it('E7: 双路均返回 0 条结果，degraded 为 false', async () => {
         const result = await memorySearchService.search({
-            memoryKey: 'test-key',
+            userId: 'test-key',
             query: '无结果测试',
         });
 
@@ -497,7 +497,7 @@ describe('MemorySearchService.search', () => {
 
     it('E8: 仅指定 notebookId 不指定 type，type 参数为 undefined', async () => {
         await memorySearchService.search({
-            memoryKey: 'test-key',
+            userId: 'test-key',
             query: '部分过滤',
             notebookId: 'nb1',
         });
@@ -562,10 +562,10 @@ describe('MemorySearchService.vectorSearch', () => {
         expect(pipeline[2].$project).toBeDefined();
         expect(pipeline[2].$project.vectorScore).toBe(1);
         expect(pipeline[2].$project.content).toBe(1);
-        expect(pipeline[2].$project.memoryKey).toBe(1);
+        expect(pipeline[2].$project.userId).toBe(1);
     });
 
-    it('S15: memoryKey 必选过滤', async () => {
+    it('S15: userId 必选过滤', async () => {
         (MemoryFact.aggregate as any).mockResolvedValue([]);
 
         await (memorySearchService as any).vectorSearch(
@@ -579,7 +579,7 @@ describe('MemorySearchService.vectorSearch', () => {
             .calls[0]![0] as any[];
         const filter = pipeline[0].$vectorSearch.filter;
 
-        expect(filter.memoryKey).toEqual({ $eq: 'my-memory-key' });
+        expect(filter.userId).toEqual({ $eq: 'my-memory-key' });
     });
 
     it('S16: notebookId + type 组合过滤动态拼接', async () => {
@@ -598,7 +598,7 @@ describe('MemorySearchService.vectorSearch', () => {
             .calls[0]![0] as any[];
         const filter = pipeline[0].$vectorSearch.filter;
 
-        expect(filter.memoryKey).toEqual({ $eq: 'test-key' });
+        expect(filter.userId).toEqual({ $eq: 'test-key' });
         expect(filter.notebookId).toEqual({ $eq: 'nb1' });
         expect(filter.type).toEqual({ $eq: 'fact' });
     });
@@ -705,7 +705,7 @@ describe('MemorySearchService.vectorSearch', () => {
         expect(filter.type).toBeUndefined();
     });
 
-    it('E14: 不传 notebookId 和 type，filter 仅含 memoryKey', async () => {
+    it('E14: 不传 notebookId 和 type，filter 仅含 userId', async () => {
         (MemoryFact.aggregate as any).mockResolvedValue([]);
 
         await (memorySearchService as any).vectorSearch(
@@ -717,7 +717,7 @@ describe('MemorySearchService.vectorSearch', () => {
 
         const filter = (MemoryFact.aggregate as any).mock.calls[0]![0][0]
             .$vectorSearch.filter;
-        expect(Object.keys(filter)).toEqual(['memoryKey']);
+        expect(Object.keys(filter)).toEqual(['userId']);
     });
 });
 
@@ -764,7 +764,7 @@ describe('MemorySearchService.textSearch', () => {
         expect(pipeline[4].$project.content).toBe(1);
     });
 
-    it('S19: $match 同时包含 $text 和 memoryKey', async () => {
+    it('S19: $match 同时包含 $text 和 userId', async () => {
         (MemoryFact.aggregate as any).mockResolvedValue([]);
 
         await (memorySearchService as any).textSearch('my-key', '搜索词', 20);
@@ -772,7 +772,7 @@ describe('MemorySearchService.textSearch', () => {
         const match = (MemoryFact.aggregate as any).mock.calls[0]![0][0].$match;
 
         expect(match.$text).toEqual({ $search: '搜索词' });
-        expect(match.memoryKey).toBe('my-key');
+        expect(match.userId).toBe('my-key');
     });
 
     it('S20: rank 与 rawScore 映射（1-based，rawScore 取自 textScore）', async () => {
@@ -855,18 +855,18 @@ describe('MemorySearchService.textSearch', () => {
 
         const match = (MemoryFact.aggregate as any).mock.calls[0]![0][0].$match;
 
-        expect(match.memoryKey).toBe('test-key');
+        expect(match.userId).toBe('test-key');
         expect(match.notebookId).toBe('nb1');
         expect(match.type).toBe('fact');
     });
 
-    it('E20: 不传 notebookId 和 type，$match 仅含 $text 和 memoryKey', async () => {
+    it('E20: 不传 notebookId 和 type，$match 仅含 $text 和 userId', async () => {
         (MemoryFact.aggregate as any).mockResolvedValue([]);
 
         await (memorySearchService as any).textSearch('test-key', '搜索词', 20);
 
         const match = (MemoryFact.aggregate as any).mock.calls[0]![0][0].$match;
 
-        expect(Object.keys(match).sort()).toEqual(['$text', 'memoryKey']);
+        expect(Object.keys(match).sort()).toEqual(['$text', 'userId']);
     });
 });

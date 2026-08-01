@@ -19,9 +19,10 @@ export function createPipelineAdapter(
     deps: PipelineAdapterDeps,
 ): PipelineService {
     return {
-        async run(sessionId: string): Promise<void> {
+        async run(sessionId: string, userId?: string): Promise<void> {
             const messages = await deps.messages.getMessages(sessionId);
-            await deps.pipeline.run(sessionId, messages);
+            const context = userId !== undefined ? { sessionId, userId } : { sessionId };
+            await deps.pipeline.run(context, messages);
         },
     };
 }

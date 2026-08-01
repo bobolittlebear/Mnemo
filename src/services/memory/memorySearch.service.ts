@@ -57,7 +57,7 @@ class MemorySearchService {
      */
     async search(options: MemorySearchOptions): Promise<MemorySearchResponse> {
         const {
-            memoryKey,
+            userId,
             query,
             vectorTopK = DEFAULT_SEARCH_CONFIG.vectorTopK,
             textTopK = DEFAULT_SEARCH_CONFIG.textTopK,
@@ -102,7 +102,7 @@ class MemorySearchService {
                 error,
             });
             return this.textOnlyFallback(
-                memoryKey,
+                userId,
                 trimmedQuery,
                 textTopK,
                 finalTopN,
@@ -114,7 +114,7 @@ class MemorySearchService {
         // ── 2. 并行执行双路检索 ──
         const [vectorResult, textResult] = await Promise.allSettled([
             this.vectorSearch(
-                memoryKey,
+                userId,
                 queryEmbedding,
                 vectorTopK,
                 numCandidates,
@@ -122,7 +122,7 @@ class MemorySearchService {
                 type,
             ),
             this.textSearch(
-                memoryKey,
+                userId,
                 trimmedQuery,
                 textTopK,
                 notebookId,
@@ -198,12 +198,12 @@ class MemorySearchService {
     }
 
     /**
-     * 向量检索：$vectorSearch + memoryKey 过滤
+     * 向量检索：$vectorSearch + userId 过滤
      *
      * 依赖 Atlas Vector Search 索引 `autoembed_index`（cosine, 1536维）
      */
     private async vectorSearch(
-        memoryKey: string,
+        userId: string,
         queryEmbedding: number[],
         topK: number,
         numCandidates: number,
@@ -212,7 +212,7 @@ class MemorySearchService {
     ): Promise<RankedDoc[]> {
         // 构建 $vectorSearch filter
         const filter: Record<string, { $eq: string }> = {
-            memoryKey: { $eq: memoryKey },
+            userId: { $eq: userId },
         };
         if (notebookId) filter.notebookId = { $eq: notebookId };
         if (type) filter.type = { $eq: type };
@@ -237,7 +237,7 @@ class MemorySearchService {
                 $project: {
                     _id: 1,
                     content: 1,
-                    memoryKey: 1,
+                    userId: 1,
                     confidence: 1,
                     category: 1,
                     type: 1,
@@ -260,7 +260,7 @@ class MemorySearchService {
         return docs.map((doc, index) => ({
             _id: doc._id.toString(),
             content: doc.content,
-            memoryKey: doc.memoryKey,
+            userId: doc.userId,
             confidence: doc.confidence,
             category: doc.category,
             type: doc.type,
@@ -274,12 +274,12 @@ class MemorySearchService {
     }
 
     /**
-     * 关键词检索：$text + memoryKey 过滤
+     * 关键词检索：$text + userId 过滤
      *
      * 依赖 schema 定义的 `memory_content_text_index`（default_language: 'none'）
      */
     private async textSearch(
-        memoryKey: string,
+        userId: string,
         query: string,
         topK: number,
         notebookId?: string,
@@ -288,7 +288,7 @@ class MemorySearchService {
         // 构建 $match 条件
         const matchStage: Record<string, unknown> = {
             $text: { $search: query },
-            memoryKey,
+            userId,
         };
         if (notebookId) matchStage.notebookId = notebookId;
         if (type) matchStage.type = type;
@@ -302,7 +302,7 @@ class MemorySearchService {
                 $project: {
                     _id: 1,
                     content: 1,
-                    memoryKey: 1,
+                    userId: 1,
                     confidence: 1,
                     category: 1,
                     type: 1,
@@ -325,7 +325,7 @@ class MemorySearchService {
         return docs.map((doc, index) => ({
             _id: doc._id.toString(),
             content: doc.content,
-            memoryKey: doc.memoryKey,
+            userId: doc.userId,
             confidence: doc.confidence,
             category: doc.category,
             type: doc.type,
@@ -345,7 +345,7 @@ class MemorySearchService {
      * rrfScore 设为文本原始得分，便于下游排序
      */
     private async textOnlyFallback(
-        memoryKey: string,
+        userId: string,
         query: string,
         textTopK: number,
         finalTopN: number,
@@ -354,7 +354,7 @@ class MemorySearchService {
     ): Promise<MemorySearchResponse> {
         try {
             const textDocs = await this.textSearch(
-                memoryKey,
+                userId,
                 query,
                 textTopK,
                 notebookId,
@@ -366,7 +366,7 @@ class MemorySearchService {
                 .map((doc) => ({
                     _id: doc._id,
                     content: doc.content,
-                    memoryKey: doc.memoryKey,
+                    userId: doc.userId,
                     confidence: doc.confidence,
                     category: doc.category,
                     type: doc.type,

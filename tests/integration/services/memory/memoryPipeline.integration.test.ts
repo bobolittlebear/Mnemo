@@ -129,7 +129,8 @@ import { MemoryFact } from '@/models/MemoryFact';
 import STM from '@/utils/shortTermMemory';
 import redisClient from '@/lib/redis';
 import { generateSessionKey } from '@/utils/tool';
-import memoryPipeline from '@/services/memory/memoryPipeline.service';
+import MemoryPipelineService from '@/services/memory/memoryPipeline.service';
+import type { SessionIdentityResolver } from '@/services/memory/sessionIdentity.resolver';
 
 // ── 测试数据库配置 ──
 const TEST_MONGO_URI =
@@ -196,12 +197,21 @@ beforeEach(async () => {
     mockGenerateEmbeddings.mockClear();
 });
 
+// ── Pipeline 实例（集成测试用 fake resolver，显式传 userId 优先）──
+const fakeResolver: SessionIdentityResolver = {
+    resolve: vi.fn().mockResolvedValue(null),
+};
+const memoryPipeline = new MemoryPipelineService(fakeResolver);
+
 describe('Pipeline 集成测试', () => {
     // ═══════════════════════════════════════
     // INT1: 端到端提取入库 + Redis 标记
     // ═══════════════════════════════════════
     it('INT1 - 端到端：对话消息 → 提取 → 向量化 → 入库落盘 + Redis 标记', async () => {
-        const result = await memoryPipeline.run(testSessionId, testMessages);
+        const result = await memoryPipeline.run(
+            { sessionId: testSessionId, userId: generateSessionKey(testSessionId) },
+            testMessages,
+        );
 
         // 验证返回结果
         expect(result.totalProcessed).toBe(3); // Mock 返回 3 条事实
@@ -226,7 +236,7 @@ describe('Pipeline 集成测试', () => {
 
         // 验证数据真的写进了 MongoDB
         const factsInDb = await MemoryFact.find({
-            memoryKey: generateSessionKey(testSessionId),
+            userId: generateSessionKey(testSessionId),
         }).lean();
 
         expect(factsInDb.length).toBe(3);
@@ -260,7 +270,10 @@ describe('Pipeline 集成测试', () => {
     // ═══════════════════════════════════════
     it('INT2 - 同一消息列表重复执行，第二次应跳过，标记仍正确', async () => {
         // 第一次执行
-        const result1 = await memoryPipeline.run(testSessionId, testMessages);
+        const result1 = await memoryPipeline.run(
+            { sessionId: testSessionId, userId: generateSessionKey(testSessionId) },
+            testMessages,
+        );
         expect(result1.inserted).toBeGreaterThan(0);
 
         // 第一次执行后 Redis 标记应为最后一条消息 ID
@@ -269,11 +282,14 @@ describe('Pipeline 集成测试', () => {
 
         // 统计 DB 中的 fact 数量
         const countAfterFirst = await MemoryFact.countDocuments({
-            memoryKey: generateSessionKey(testSessionId),
+            userId: generateSessionKey(testSessionId),
         });
 
         // 第二次执行相同消息 — 幂等检查应跳过
-        const result2 = await memoryPipeline.run(testSessionId, testMessages);
+        const result2 = await memoryPipeline.run(
+            { sessionId: testSessionId, userId: generateSessionKey(testSessionId) },
+            testMessages,
+        );
 
         // 应该跳过，返回全 0
         expect(result2.totalProcessed).toBe(testMessages.length);
@@ -282,7 +298,7 @@ describe('Pipeline 集成测试', () => {
 
         // DB 中 fact 数量不应增加
         const countAfterSecond = await MemoryFact.countDocuments({
-            memoryKey: generateSessionKey(testSessionId),
+            userId: generateSessionKey(testSessionId),
         });
         expect(countAfterSecond).toBe(countAfterFirst);
 
@@ -297,7 +313,7 @@ describe('Pipeline 集成测试', () => {
     // ═══════════════════════════════════════
     // INT3: contentHash 去重
     // ═══════════════════════════════════════
-    it('INT3 - 同一 memoryKey 内 contentHash 去重', async () => {
+    it('INT3 - 同一 userId 内 contentHash 去重', async () => {
         // 同一 session 连续两次提取相同内容
         // 第二次应该 upsert 更新而非新增
         const messagesA = [
@@ -310,11 +326,14 @@ describe('Pipeline 集成测试', () => {
             },
         ];
 
-        await memoryPipeline.run('dup-session-a', messagesA);
+        await memoryPipeline.run(
+            { sessionId: 'dup-session-a', userId: generateSessionKey('dup-session-a') },
+            messagesA,
+        );
 
-        // 同一 memoryKey 内没有 contentHash 重复
+        // 同一 userId 内没有 contentHash 重复
         const facts = await MemoryFact.find({
-            memoryKey: generateSessionKey('dup-session-a'),
+            userId: generateSessionKey('dup-session-a'),
         }).lean();
 
         const hashes = facts.map((f) => f.contentHash);
@@ -348,7 +367,7 @@ describe('Pipeline 集成测试', () => {
         ];
 
         const result = await memoryPipeline.run(
-            'nonsense-session',
+            { sessionId: 'nonsense-session', userId: generateSessionKey('nonsense-session') },
             nonsenseMessages,
         );
 
@@ -357,7 +376,7 @@ describe('Pipeline 集成测试', () => {
 
         // DB 中不应有脏数据
         const facts = await MemoryFact.find({
-            memoryKey: generateSessionKey('nonsense-session'),
+            userId: generateSessionKey('nonsense-session'),
         }).lean();
         expect(facts.length).toBe(0);
 
@@ -377,19 +396,25 @@ describe('Pipeline 集成测试', () => {
     // ═══════════════════════════════════════
     it('INT5 - Redis 标记被清除后，相同消息应重新提取', async () => {
         // 第一次执行
-        const result1 = await memoryPipeline.run(testSessionId, testMessages);
+        const result1 = await memoryPipeline.run(
+            { sessionId: testSessionId, userId: generateSessionKey(testSessionId) },
+            testMessages,
+        );
         expect(result1.inserted).toBeGreaterThan(0);
 
         // 清除 MongoDB 中的 facts（模拟数据丢失）
         await MemoryFact.deleteMany({
-            memoryKey: generateSessionKey(testSessionId),
+            userId: generateSessionKey(testSessionId),
         });
 
         // 清除 Redis 标记（模拟标记过期或丢失）
         await redisClient.del(generateSessionKey(testSessionId));
 
         // 第二次执行 — 幂等检查找不到已提取记录，应重新走全链路
-        const result2 = await memoryPipeline.run(testSessionId, testMessages);
+        const result2 = await memoryPipeline.run(
+            { sessionId: testSessionId, userId: generateSessionKey(testSessionId) },
+            testMessages,
+        );
         expect(result2.inserted).toBeGreaterThan(0);
 
         // 标记再次更新

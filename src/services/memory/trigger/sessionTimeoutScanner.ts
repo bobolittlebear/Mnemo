@@ -1,5 +1,6 @@
 import { createLogger } from '@/lib/logger';
 import { memoryTriggerConfig } from './memoryTriggerConfig';
+import type { SessionIdentityResolver } from '@/services/memory/sessionIdentity.resolver';
 
 const log = createLogger('ltm');
 
@@ -14,6 +15,7 @@ export interface TerminalTriggerCoordinator {
     executeTerminalTrigger(
         sessionId: string,
         layer: 'explicit' | 'timeout',
+        userId?: string,
     ): Promise<TriggerResult>;
 }
 
@@ -24,6 +26,7 @@ export interface InactiveSessionStore {
 export interface ScannerDeps {
     coordinator: TerminalTriggerCoordinator;
     sessionStore: InactiveSessionStore;
+    resolver: SessionIdentityResolver;
     timeoutSec?: number;
     scanIntervalSec?: number;
 }
@@ -31,6 +34,7 @@ export interface ScannerDeps {
 export class SessionTimeoutScanner {
     private readonly coordinator: TerminalTriggerCoordinator;
     private readonly sessionStore: InactiveSessionStore;
+    private readonly resolver: SessionIdentityResolver;
     private readonly timeoutSec: number;
     private readonly scanIntervalSec: number;
     private timer: NodeJS.Timeout | null = null;
@@ -38,6 +42,7 @@ export class SessionTimeoutScanner {
     constructor(deps: ScannerDeps) {
         this.coordinator = deps.coordinator;
         this.sessionStore = deps.sessionStore;
+        this.resolver = deps.resolver;
         this.timeoutSec = deps.timeoutSec ?? DEFAULT_TIMEOUT_SEC;
         this.scanIntervalSec =
             deps.scanIntervalSec ?? DEFAULT_SCAN_INTERVAL_SEC;
@@ -47,9 +52,16 @@ export class SessionTimeoutScanner {
         const sids = await this.sessionStore.findInactiveSessions(
             this.timeoutSec,
         );
+        const userMap = this.resolver.resolveBatch
+            ? await this.resolver.resolveBatch(sids)
+            : null;
         for (const sid of sids) {
             try {
-                await this.coordinator.executeTerminalTrigger(sid, 'timeout');
+                await this.coordinator.executeTerminalTrigger(
+                    sid,
+                    'timeout',
+                    userMap?.get(sid) ?? undefined,
+                );
             } catch (e) {
                 log.error('L2 超时扫描单会话兜底失败', e as Error, {
                     sessionId: sid,

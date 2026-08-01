@@ -66,7 +66,7 @@ export function factNotFound() {
 export function factAlreadyExists() {
     mockMemoryFactFindOne.mockResolvedValue({
         _id: 'existing-fact-id',
-        memoryKey: fixtures.mockMemoryKey,
+        userId: fixtures.mockUserId,
         sourceMessageIds: ['msg-001', 'msg-002', 'msg-003'],
     });
 }

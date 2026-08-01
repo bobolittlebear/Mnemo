@@ -8,7 +8,8 @@
  * trigger/ 目录保持纯粹 —— 不引用任何外部服务，全部经此文件注入。
  */
 import redisClient from '@/lib/redis';
-import memoryPipelineService from '@/services/memory/memoryPipeline.service';
+import MemoryPipelineService from '@/services/memory/memoryPipeline.service';
+import { createRedisSessionIdentityResolver } from './sessionIdentity.resolver';
 import STM from '@/utils/shortTermMemory';
 import { RedisInactiveSessionStore } from './inactiveSessionStore';
 import { STMChatMessageSource } from './chatMessageSource';
@@ -18,6 +19,12 @@ import { validateConfigInvariants } from './trigger/memoryTriggerConfig';
 
 // 应用启动期校验触发器配置不变式（§7.2 / O4）：防止 llmTimeoutMaxMs 上调后 processing TTL 不足引发双重提取。
 validateConfigInvariants();
+
+const sessionIdentityResolver = createRedisSessionIdentityResolver(redisClient);
+
+const memoryPipelineService = new MemoryPipelineService(
+    sessionIdentityResolver,
+);
 
 const triggerSystem = createTriggerSystem({
     redis: redisClient,
@@ -32,8 +39,10 @@ export const { coordinator, messageCounter, sessionEndTrigger } = triggerSystem;
 const sessionTimeoutScanner = new SessionTimeoutScanner({
     coordinator,
     sessionStore: new RedisInactiveSessionStore(),
+    resolver: sessionIdentityResolver,
 });
 sessionTimeoutScanner.start();
 export { sessionTimeoutScanner };
 
 export { sessionMemoryLifecycle } from './trigger';
+export { memoryPipelineService };

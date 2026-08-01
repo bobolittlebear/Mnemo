@@ -42,7 +42,7 @@ export async function ingestMemoryFacts(
                 updateOne: {
                     // filter 仅依赖 userId + contentHash，实现租户/会话级精确去重
                     filter: {
-                        memoryKey: context.sessionId, // 改为userId
+                        userId: context.userId, // 改为userId
                         contentHash,
                     },
                     update: {
@@ -56,7 +56,7 @@ export async function ingestMemoryFacts(
                             sourceMessageIds: fact.sourceMessageIds,
                         },
                         $setOnInsert: {
-                            memoryKey: context.sessionId, // 改为userId
+                            userId: context.userId,
                             type: context.type || 'fact',
                             notebookId: context.notebookId,
                             contentHash,

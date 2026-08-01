@@ -47,9 +47,12 @@ describe('memoryTriggerConfig', () => {
             expect(() => validateConfigInvariants(bad)).toThrow(/必须为正/);
         });
 
-        it('extractedTtlSec 为负时抛错', () => {
+        it('extractedTtlSec 为负时抛错（链不变式先触发）', () => {
             const bad = { ...memoryTriggerConfig, extractedTtlSec: -1 };
-            expect(() => validateConfigInvariants(bad)).toThrow(/必须为正/);
+            // extractedTtlSec = -1 违反 l2TimeoutSec < msgCountTtlSec ≤ extractedTtlSec，先于"必须为正"触发
+            expect(() => validateConfigInvariants(bad)).toThrow(
+                /必须满足 l2TimeoutSec < msgCountTtlSec ≤ extractedTtlSec/,
+            );
         });
     });
 });

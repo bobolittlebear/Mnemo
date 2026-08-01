@@ -49,7 +49,8 @@ function makeFacts(count: number): EmbeddedFact[] {
 }
 
 const ctx: IngestionContext = {
-    sessionId: fixtures.mockMemoryKey,
+    userId: fixtures.mockUserId,
+    sessionId: fixtures.mockUserId,
 };
 
 beforeEach(() => {
@@ -116,8 +117,8 @@ describe('IngestionService', () => {
             expect(op.updateOne.upsert).toBe(true);
             expect(op.updateOne.filter).toHaveProperty('contentHash');
             expect(op.updateOne.filter).toHaveProperty(
-                'memoryKey',
-                fixtures.mockMemoryKey,
+                'userId',
+                fixtures.mockUserId,
             );
             expect(op.updateOne.update.$set).toHaveProperty('content');
             expect(op.updateOne.update.$set).toHaveProperty('embedding');
@@ -128,12 +129,12 @@ describe('IngestionService', () => {
         }
     });
 
-    it('I6 - memoryKey 应从 context 注入每条 operation', async () => {
+    it('I6 - userId 应从 context 注入每条 operation', async () => {
         mockedBulkWrite.mockResolvedValue(fixtures.mockBulkWriteResult as any);
         await ingestMemoryFacts(makeFacts(1), ctx);
 
         const op = (mockedBulkWrite.mock.calls[0]?.[0] as any[])[0];
-        expect(op.updateOne.filter.memoryKey).toBe(fixtures.mockMemoryKey);
+        expect(op.updateOne.filter.userId).toBe(fixtures.mockUserId);
     });
 
     it('I7 - upsert 的文档应计入 inserted 而非忽略', async () => {

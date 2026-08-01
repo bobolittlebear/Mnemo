@@ -5,7 +5,7 @@ import ApiResponse from '@/utils/apiResponse';
 import { UNKNOWN_ERROR } from '@/utils/constant';
 import memoryExtractionService from '@/services/memory/memoryExtraction.service';
 import type { RawMessage } from '@/types/chat';
-import memoryPipelineService from '@/services/memory/memoryPipeline.service';
+import { memoryPipelineService } from '@/services/memory';
 const logger = createLogger('api');
 
 /**
@@ -53,8 +53,15 @@ const ingestFacts = async (req: Request, res: Response) => {
         logger.info('/fact/pipeline', {
             length: messages.length,
         });
-        const sessionId = req.cookies.sessionId;
-        const facts = await memoryPipelineService.run(sessionId, messages);
+        const sessionId = req.user.sessionId!;
+        const userId = req.user.userId!;
+        const facts = await memoryPipelineService.run(
+            {
+                sessionId,
+                userId,
+            },
+            messages,
+        );
         res.json(ApiResponse.success({ facts }));
     } catch (error) {
         logger.error('向量化生成失败', {

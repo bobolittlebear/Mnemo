@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { RedisClientType } from 'redis';
 import { TerminalStateManager } from '@/services/memory/trigger/terminalStateManager';
 import { sessionTriggerKeys } from '@/services/memory/trigger/triggerKeys';
+import { memoryTriggerConfig } from '@/services/memory/trigger/memoryTriggerConfig';
 
 interface MockRedis {
     store: Map<string, { value: string; ex: number }>;
@@ -71,7 +72,7 @@ describe('TerminalStateManager', () => {
         it('默认 TTL 为 86400', async () => {
             await manager.markExtracted(sessionId);
             expect(redis.set).toHaveBeenCalledWith(expectedKey, '1', {
-                EX: 86400,
+                EX: memoryTriggerConfig.extractedTtlSec,
             });
         });
 

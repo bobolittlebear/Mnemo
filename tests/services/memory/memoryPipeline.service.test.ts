@@ -50,8 +50,15 @@ import STM from '@/utils/shortTermMemory';
 import { generateEmbeddings } from '@/lib/embedding';
 import { MemoryFact } from '@/models/MemoryFact';
 import MemoryPipelineService from '@/services/memory/memoryPipeline.service';
+import type { SessionIdentityResolver } from '@/services/memory/sessionIdentity.resolver';
 import * as fixtures from '../../helpers/fixtures';
 import { v7 as uuid } from 'uuid';
+
+// ── Fake Resolver ──
+const fakeResolver: SessionIdentityResolver = {
+    resolve: vi.fn().mockResolvedValue(fixtures.mockUserId),
+    resolveBatch: vi.fn().mockResolvedValue(new Map()),
+};
 
 // ── 获取 Mock 引用 ──
 const mockedExtractFacts = vi.mocked(memoryExtractionService.extractFacts);
@@ -61,7 +68,7 @@ const mockedGetLastExtractedMsgId = vi.mocked(STM.getLastExtractedMsgId);
 const mockedGenerateEmbeddings = vi.mocked(generateEmbeddings);
 const mockedFind = vi.mocked(MemoryFact.find);
 
-const pipeline = MemoryPipelineService;
+const pipeline = new MemoryPipelineService(fakeResolver);
 
 beforeEach(() => {
     vi.clearAllMocks();
@@ -104,7 +111,7 @@ describe('PipelineService', () => {
     // ──────────────────── P1: 空消息短路 ────────────────────
 
     it('P1 - 空消息列表应立即返回全 0，不调任何依赖', async () => {
-        const result = await pipeline.run(fixtures.mockSessionId, []);
+        const result = await pipeline.run({ sessionId: fixtures.mockSessionId, userId: fixtures.mockUserId }, []);
         expect(result).toEqual({
             totalProcessed: 0,
             inserted: 0,
@@ -127,7 +134,7 @@ describe('PipelineService', () => {
         mockedSetLastExtractedMsgId.mockResolvedValue(undefined);
 
         const result = await pipeline.run(
-            fixtures.mockSessionId,
+            { sessionId: fixtures.mockSessionId, userId: fixtures.mockUserId },
             fixtures.mockMessages,
         );
         expect(result).toEqual({
@@ -149,7 +156,7 @@ describe('PipelineService', () => {
         mockedGetLastExtractedMsgId.mockResolvedValue('msg-999');
 
         const result = await pipeline.run(
-            fixtures.mockSessionId,
+            { sessionId: fixtures.mockSessionId, userId: fixtures.mockUserId },
             fixtures.mockMessages,
         );
         expect(result.skipped).toBe(3);
@@ -168,7 +175,7 @@ describe('PipelineService', () => {
         mockedSetLastExtractedMsgId.mockResolvedValue(undefined);
 
         const result = await pipeline.run(
-            fixtures.mockSessionId,
+            { sessionId: fixtures.mockSessionId, userId: fixtures.mockUserId },
             fixtures.mockMessages,
         );
         expect(result).toEqual({
@@ -215,7 +222,7 @@ describe('PipelineService', () => {
         });
 
         const result = await pipeline.run(
-            fixtures.mockSessionId,
+            { sessionId: fixtures.mockSessionId, userId: fixtures.mockUserId },
             fixtures.mockMessages,
         );
         expect(result.inserted).toBe(1);
@@ -234,7 +241,7 @@ describe('PipelineService', () => {
     it('P5 - 全链路成功应走完 5 步并返回正确统计', async () => {
         setupHappyPath();
         const result = await pipeline.run(
-            fixtures.mockSessionId,
+            { sessionId: fixtures.mockSessionId, userId: fixtures.mockUserId },
             fixtures.mockMessages,
         );
         expect(result).toEqual({
@@ -259,7 +266,7 @@ describe('PipelineService', () => {
         mockedExtractFacts.mockRejectedValue(new Error('LLM API timeout'));
 
         await expect(
-            pipeline.run(fixtures.mockSessionId, fixtures.mockMessages),
+            pipeline.run({ sessionId: fixtures.mockSessionId, userId: fixtures.mockUserId }, fixtures.mockMessages),
         ).rejects.toThrow('LLM API timeout');
         expect(mockedSetLastExtractedMsgId).not.toHaveBeenCalled();
         expect(mockedGenerateEmbeddings).not.toHaveBeenCalled();
@@ -283,7 +290,7 @@ describe('PipelineService', () => {
         );
 
         await expect(
-            pipeline.run(fixtures.mockSessionId, fixtures.mockMessages),
+            pipeline.run({ sessionId: fixtures.mockSessionId, userId: fixtures.mockUserId }, fixtures.mockMessages),
         ).rejects.toThrow('Embedding API error');
         expect(mockedIngestMemoryFacts).not.toHaveBeenCalled();
         expect(mockedSetLastExtractedMsgId).not.toHaveBeenCalled();
@@ -310,7 +317,7 @@ describe('PipelineService', () => {
         );
 
         await expect(
-            pipeline.run(fixtures.mockSessionId, fixtures.mockMessages),
+            pipeline.run({ sessionId: fixtures.mockSessionId, userId: fixtures.mockUserId }, fixtures.mockMessages),
         ).rejects.toThrow('MongoDB connection lost');
         expect(mockedSetLastExtractedMsgId).not.toHaveBeenCalled();
     });
@@ -319,7 +326,7 @@ describe('PipelineService', () => {
 
     it('P9 - 各步骤严格按序调用：游标 → DB → LLM → 向量 → 入库 → 更新游标', async () => {
         setupHappyPath();
-        await pipeline.run(fixtures.mockSessionId, fixtures.mockMessages);
+        await pipeline.run({ sessionId: fixtures.mockSessionId, userId: fixtures.mockUserId }, fixtures.mockMessages);
 
         const callOrder = [
             mockedGetLastExtractedMsgId.mock.invocationCallOrder[0]!,
@@ -336,25 +343,26 @@ describe('PipelineService', () => {
 
     // ──────────────────── P10: DB 去重查询参数 ────────────────────
 
-    it('P10 - DB 去重查询应使用 memoryKey + sourceMessageIds $in', async () => {
+    it('P10 - DB 去重查询应使用 userId + sourceMessageIds $in', async () => {
         setupHappyPath();
-        await pipeline.run(fixtures.mockSessionId, fixtures.mockMessages);
+        await pipeline.run({ sessionId: fixtures.mockSessionId, userId: fixtures.mockUserId }, fixtures.mockMessages);
         expect(mockedFind).toHaveBeenCalledWith({
-            memoryKey: fixtures.mockMemoryKey,
+            userId: fixtures.mockUserId,
             sourceMessageIds: { $in: ['msg-001', 'msg-002', 'msg-003'] },
         });
     });
 
     // ──────────────────── P11: context 传参验证 ────────────────────
 
-    it('P11 - 传给 ingestMemoryFacts 的 context 包含正确的 memoryKey', async () => {
+    it('P11 - 传给 ingestMemoryFacts 的 context 包含正确的 userId', async () => {
         setupHappyPath();
-        await pipeline.run(fixtures.mockSessionId, fixtures.mockMessages);
+        await pipeline.run({ sessionId: fixtures.mockSessionId, userId: fixtures.mockUserId }, fixtures.mockMessages);
         const ingestCallArgs = mockedIngestMemoryFacts.mock.calls[0]!;
         const facts = ingestCallArgs[0];
         const context = ingestCallArgs[1];
 
-        expect(context.sessionId).toBe(fixtures.mockMemoryKey);
+        expect(context.userId).toBe(fixtures.mockUserId);
+        expect(context.sessionId).toBe(fixtures.mockSessionId);
         // 每条 fact 的 embedding 来自向量化结果
         expect(facts[0]!.embedding).toEqual([0.1, 0.2, 0.3]);
         expect(facts[1]!.embedding).toEqual([0.4, 0.5, 0.6]);
@@ -369,7 +377,7 @@ describe('PipelineService', () => {
         mockedSetLastExtractedMsgId.mockResolvedValue(undefined);
 
         const result = await pipeline.run(
-            fixtures.mockSessionId,
+            { sessionId: fixtures.mockSessionId, userId: fixtures.mockUserId },
             fixtures.mockMessages,
         );
         expect(result).toEqual({
@@ -399,7 +407,7 @@ describe('PipelineService', () => {
         mockedSetLastExtractedMsgId.mockResolvedValue(undefined);
 
         const result = await pipeline.run(
-            fixtures.mockSessionId,
+            { sessionId: fixtures.mockSessionId, userId: fixtures.mockUserId },
             fixtures.mockMessages,
         );
         expect(result.skipped).toBe(3);
@@ -409,5 +417,64 @@ describe('PipelineService', () => {
             fixtures.mockSessionId,
             'msg-003',
         );
+    });
+
+    // ──────────────────── B1/B2/B3: userId 条件解析 ────────────────────
+
+    it('B1 - 条件解析-短路：context 含 userId 时跳过 resolver，直接使用传入值', async () => {
+        setupHappyPath();
+        const result = await pipeline.run(
+            { sessionId: fixtures.mockSessionId, userId: 'explicit-u' },
+            fixtures.mockMessages,
+        );
+        expect(fakeResolver.resolve).not.toHaveBeenCalled();
+        const ingestCallArgs = mockedIngestMemoryFacts.mock.calls[0]!;
+        const context = ingestCallArgs[1];
+        expect(context.userId).toBe('explicit-u');
+        expect(result).toEqual({
+            totalProcessed: 2,
+            inserted: 2,
+            updated: 0,
+            skipped: 0,
+        });
+    });
+
+    it('B2 - 条件解析-回退：context 无 userId 时调用 resolver 解析', async () => {
+        setupHappyPath();
+        const result = await pipeline.run(
+            { sessionId: fixtures.mockSessionId },
+            fixtures.mockMessages,
+        );
+        expect(fakeResolver.resolve).toHaveBeenCalledTimes(1);
+        expect(fakeResolver.resolve).toHaveBeenCalledWith(fixtures.mockSessionId);
+        const ingestCallArgs = mockedIngestMemoryFacts.mock.calls[0]!;
+        const context = ingestCallArgs[1];
+        expect(context.userId).toBe(fixtures.mockUserId);
+        expect(result).toEqual({
+            totalProcessed: 2,
+            inserted: 2,
+            updated: 0,
+            skipped: 0,
+        });
+    });
+
+    it('B3 - 条件解析-null跳过：resolver 返回 null 时短路，不调 LLM/向量/入库', async () => {
+        vi.mocked(fakeResolver.resolve).mockResolvedValue(null);
+        mockedGetLastExtractedMsgId.mockResolvedValue(null);
+        mockFindLean([]);
+
+        const result = await pipeline.run(
+            { sessionId: fixtures.mockSessionId },
+            fixtures.mockMessages,
+        );
+        expect(fakeResolver.resolve).toHaveBeenCalledTimes(1);
+        expect(mockedExtractFacts).not.toHaveBeenCalled();
+        expect(mockedIngestMemoryFacts).not.toHaveBeenCalled();
+        expect(result).toEqual({
+            totalProcessed: 0,
+            inserted: 0,
+            updated: 0,
+            skipped: 0,
+        });
     });
 });

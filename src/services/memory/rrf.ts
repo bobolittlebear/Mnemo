@@ -39,7 +39,7 @@ export function rrfFusion(
                     doc: {
                         _id: doc._id,
                         content: doc.content,
-                        memoryKey: doc.memoryKey,
+                        userId: doc.userId,
                         confidence: doc.confidence,
                         category: doc.category,
                         type: doc.type,

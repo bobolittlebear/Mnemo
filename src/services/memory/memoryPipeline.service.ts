@@ -19,9 +19,16 @@ import type {
     IngestionResult,
 } from '@/types/memory';
 import type { RawMessage } from '@/types/chat';
+import type { SessionIdentityResolver } from './sessionIdentity.resolver';
 
 const logger = createLogger('ltm');
+
 class MemoryPipelineService {
+    private readonly resolver: SessionIdentityResolver;
+
+    constructor(resolver: SessionIdentityResolver) {
+        this.resolver = resolver;
+    }
     /**
      * 长期记忆提取完整管道
      *
@@ -35,10 +42,18 @@ class MemoryPipelineService {
      * @returns 入库结果统计
      */
     async run(
-        sessionId: string, // 无前缀Id
+        context: IngestionContext,
         messages: RawMessage[],
     ): Promise<IngestionResult> {
         if (!messages.length) {
+            return { totalProcessed: 0, inserted: 0, updated: 0, skipped: 0 };
+        }
+
+        const { sessionId } = context;
+        const userId =
+            context.userId ?? (await this.resolver.resolve(sessionId));
+        if (!userId) {
+            logger.warn('无法解析 userId，跳过提取', { sessionId });
             return { totalProcessed: 0, inserted: 0, updated: 0, skipped: 0 };
         }
 
@@ -71,7 +86,7 @@ class MemoryPipelineService {
 
         if (idsToCheck.length > 0) {
             const existingDocs = await MemoryFact.find({
-                memoryKey: sessionId, // 改为userId
+                userId,
                 sourceMessageIds: { $in: sourceIds },
             })
                 .select('sourceMessageIds')
@@ -104,7 +119,7 @@ class MemoryPipelineService {
         const rawFacts = await memoryExtractionService.extractFacts(
             newMessages,
             {
-                userId: sessionId, // 后续统一为userId/sessionId
+                userId, // 后续统一为userId/sessionId
                 existingMemories: [], // TODO
             },
         );
@@ -132,11 +147,10 @@ class MemoryPipelineService {
             embedding: embeddings[i]!,
         }));
 
-        const context: IngestionContext = {
-            sessionId,
-        };
-
-        const result = await ingestMemoryFacts(embeddedFacts, context);
+        const result = await ingestMemoryFacts(embeddedFacts, {
+            ...context,
+            userId,
+        });
 
         // ── 5. 更新标记（仅全链路成功后）──
         await STM.setLastExtractedMsgId(sessionId, lastMsgId);
@@ -150,24 +164,4 @@ class MemoryPipelineService {
     }
 }
 
-export default new MemoryPipelineService();
-
-/**
- * 集成方式
-import memoryPipeline from '@/services/memory/memoryPipeline.service';
-
-// 第一层：SSE [DONE] 后异步触发（不阻塞响应）
-setImmediate(async () => {
-  try {
-    await memoryPipeline.run(sessionId, messagesToExtract);
-  } catch (error) {
-    logger.error('Pipeline failed', { sessionId, error });
-  }
-});
-
-// 第二层：Cron 超时静默触发
-// 扫描 STM中超时会话 → memoryPipeline.run()
-
-// 第三层：每日凌晨兜底扫描
-// 扫描所有未提取会话 → memoryPipeline.run()
- */
+export default MemoryPipelineService;

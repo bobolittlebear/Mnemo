@@ -58,13 +58,15 @@ const chat = async (req: Request, res: Response) => {
             res.status(400).json({ error: 'Invalid messages format' });
             return;
         }
-
+        // TODO 问题：这违背了我们之前确定的 “身份与资源分离” 原则。req.user 只应包含 userId、role 等身份信息。
+        // sessionId 应从 URL Path (req.params) 或 Body 中获取。
         const sessionId = req.user.sessionId!;
         setSSEHeaders(res);
 
         // 委托 Service 执行流式对话，Controller 只负责将清洗后的 chunk 写入 SSE
         await chatStreamService.streamChat({
             sessionId,
+            userId: req.user.userId!,
             messages,
             traceId,
             onChunk: (content) => {
@@ -102,9 +104,13 @@ const chat = async (req: Request, res: Response) => {
  */
 const endSession = async (req: Request, res: Response) => {
     try {
-        const sessionId = req.user.sessionId;
+        const { sessionId, userId } = req.user || {};
+
         if (sessionId) {
-            await chatHistoryService.endSession(sessionId);
+            await chatHistoryService.endSession({
+                sessionId,
+                userId: userId!,
+            });
         }
         res.json(ApiResponse.success({}));
     } catch (error) {
@@ -153,8 +159,10 @@ const getChatHistory = async (req: Request, res: Response) => {
  */
 const clearChatHistory = async (req: Request, res: Response) => {
     try {
-        const sessionId = req.user.sessionId!;
-        const result = await chatHistoryService.clearAll(sessionId);
+        const result = await chatHistoryService.clearAll({
+            sessionId: req.user.sessionId!,
+            userId: req.user.userId!,
+        });
         res.json(ApiResponse.success(result));
     } catch (error) {
         res.json(

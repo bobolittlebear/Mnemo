@@ -64,7 +64,7 @@ type MetaData = {
 
 /** 长期记忆 */
 export interface MemoryFact extends Document {
-    memoryKey: string; // 应存用户id
+    userId: string;
     content: string;
     sourceMessageIds: string[]; // 对应的源消息ID
     embedding?: number[];

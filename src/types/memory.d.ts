@@ -20,6 +20,7 @@ export interface EmbeddedFact extends RawFact {
  * 入库上下文元数据
  */
 export interface IngestionContext {
+    userId?: string;
     sessionId: string;
     notebookId?: string;
     type?: 'fact' | 'note_chunk' | 'media';
@@ -42,7 +43,7 @@ export interface IngestionResult {
  */
 export interface MemorySearchOptions {
     /** 租户/会话级隔离键 */
-    memoryKey: string;
+    userId: string;
     /** 用户查询文本 */
     query: string;
     /** 向量检索返回条数（默认 20） */
@@ -66,7 +67,7 @@ export interface MemorySearchOptions {
 export interface MemorySearchBaseDoc {
     _id: string;
     content: string;
-    memoryKey: string;
+    userId: string;
     confidence: number;
     category?: string;
     type: string;

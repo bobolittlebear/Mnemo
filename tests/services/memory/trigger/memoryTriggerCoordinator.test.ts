@@ -50,7 +50,7 @@ describe('MemoryTriggerCoordinator', () => {
                 terminalWritten: false,
             });
             expect(mocks.terminal.markExtracted).not.toHaveBeenCalled();
-            expect(mocks.pipeline.run).toHaveBeenCalledWith('s1');
+            expect(mocks.pipeline.run).toHaveBeenCalledWith('s1', undefined);
             expect(mocks.processing.clear).toHaveBeenCalled();
             // Phase 1 acquire + Phase 3 acquire
             expect(mocks.lock.acquire).toHaveBeenCalledTimes(2);
@@ -71,7 +71,7 @@ describe('MemoryTriggerCoordinator', () => {
             });
             expect(mocks.terminal.markExtracted).toHaveBeenCalledTimes(1);
             expect(mocks.terminal.markExtracted).toHaveBeenCalledWith('s1');
-            expect(mocks.pipeline.run).toHaveBeenCalledWith('s1');
+            expect(mocks.pipeline.run).toHaveBeenCalledWith('s1', undefined);
             expect(mocks.processing.clear).toHaveBeenCalled();
         });
 
@@ -85,6 +85,20 @@ describe('MemoryTriggerCoordinator', () => {
                 terminalWritten: true,
             });
             expect(mocks.terminal.markExtracted).toHaveBeenCalledTimes(1);
+        });
+
+        it('C1 - userId 透传：有 userId 时透传到 pipeline.run', async () => {
+            const result = await coordinator.executeTerminalTrigger(
+                's1',
+                'explicit',
+                'u_xyz',
+            );
+
+            expect(mocks.pipeline.run).toHaveBeenCalledWith('s1', 'u_xyz');
+            expect(result).toEqual({
+                status: 'COMPLETED',
+                terminalWritten: true,
+            });
         });
     });
 

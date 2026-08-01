@@ -19,6 +19,7 @@ const skipped = (
 type EndFn = (
     sessionId: string,
     layer: 'explicit' | 'timeout',
+    userId?: string,
 ) => Promise<TriggerResult>;
 
 function createCoordinator(fn: EndFn) {
@@ -31,6 +32,22 @@ function createStore(sids: string[]) {
     };
 }
 
+function createResolver(opts?: { resolveBatch?: boolean }) {
+    if (opts?.resolveBatch === false) {
+        return {
+            resolve: vi.fn(async () => null),
+        };
+    }
+    // Default: has resolveBatch
+    return {
+        resolve: vi.fn(async () => null),
+        resolveBatch: vi.fn(
+            async (ids: string[]) =>
+                new Map(ids.map((id) => [id, 'u_' + id])),
+        ),
+    };
+}
+
 describe('SessionTimeoutScanner', () => {
     beforeEach(() => {
         vi.useFakeTimers();
@@ -40,12 +57,14 @@ describe('SessionTimeoutScanner', () => {
         vi.useRealTimers();
     });
 
-    it('findInactiveSessions 返回 2 个 sid：各调用一次 executeTerminalTrigger，参数为 (sid, timeout)', async () => {
+    it('findInactiveSessions 返回 2 个 sid：各调用一次 executeTerminalTrigger，参数为 (sid, timeout, undefined)', async () => {
         const coordinator = createCoordinator(async () => completed(true));
         const store = createStore(['sid1', 'sid2']);
+        const resolver = createResolver({ resolveBatch: false });
         const scanner = new SessionTimeoutScanner({
             coordinator,
             sessionStore: store,
+            resolver,
         });
 
         await scanner.scanOnce();
@@ -59,20 +78,24 @@ describe('SessionTimeoutScanner', () => {
             1,
             'sid1',
             'timeout',
+            undefined,
         );
         expect(coordinator.executeTerminalTrigger).toHaveBeenNthCalledWith(
             2,
             'sid2',
             'timeout',
+            undefined,
         );
     });
 
     it('findInactiveSessions 返回空数组：executeTerminalTrigger 不被调用', async () => {
         const coordinator = createCoordinator(async () => completed(true));
         const store = createStore([]);
+        const resolver = createResolver({ resolveBatch: false });
         const scanner = new SessionTimeoutScanner({
             coordinator,
             sessionStore: store,
+            resolver,
         });
 
         await scanner.scanOnce();
@@ -85,9 +108,11 @@ describe('SessionTimeoutScanner', () => {
             sid === 'sid1' ? skipped('TERMINAL') : completed(true),
         );
         const store = createStore(['sid1', 'sid2']);
+        const resolver = createResolver({ resolveBatch: false });
         const scanner = new SessionTimeoutScanner({
             coordinator,
             sessionStore: store,
+            resolver,
         });
 
         await expect(scanner.scanOnce()).resolves.toBeUndefined();
@@ -101,9 +126,11 @@ describe('SessionTimeoutScanner', () => {
             return completed(true);
         });
         const store = createStore(['sid1', 'sid2']);
+        const resolver = createResolver({ resolveBatch: false });
         const scanner = new SessionTimeoutScanner({
             coordinator,
             sessionStore: store,
+            resolver,
         });
 
         await expect(scanner.scanOnce()).resolves.toBeUndefined();
@@ -113,15 +140,18 @@ describe('SessionTimeoutScanner', () => {
             2,
             'sid2',
             'timeout',
+            undefined,
         );
     });
 
     it('start() 启动周期扫描：按 scanIntervalSec 间隔触发 scanOnce', async () => {
         const coordinator = createCoordinator(async () => completed(true));
         const store = createStore(['sid1']);
+        const resolver = createResolver({ resolveBatch: false });
         const scanner = new SessionTimeoutScanner({
             coordinator,
             sessionStore: store,
+            resolver,
             scanIntervalSec: 100,
         });
         const spy = vi.spyOn(scanner, 'scanOnce');
@@ -139,9 +169,11 @@ describe('SessionTimeoutScanner', () => {
     it('stop() 清除定时器：不再触发 scanOnce', async () => {
         const coordinator = createCoordinator(async () => completed(true));
         const store = createStore(['sid1']);
+        const resolver = createResolver({ resolveBatch: false });
         const scanner = new SessionTimeoutScanner({
             coordinator,
             sessionStore: store,
+            resolver,
             scanIntervalSec: 100,
         });
         const spy = vi.spyOn(scanner, 'scanOnce');
@@ -156,14 +188,72 @@ describe('SessionTimeoutScanner', () => {
     it('自定义 timeoutSec 透传给 findInactiveSessions', async () => {
         const coordinator = createCoordinator(async () => completed(true));
         const store = createStore([]);
+        const resolver = createResolver({ resolveBatch: false });
         const scanner = new SessionTimeoutScanner({
             coordinator,
             sessionStore: store,
+            resolver,
             timeoutSec: 60,
         });
 
         await scanner.scanOnce();
 
         expect(store.findInactiveSessions).toHaveBeenCalledWith(60);
+    });
+
+    // ── M4: batch resolve tests ──
+
+    it('resolveBatch 仅触发 1 次，coordinator 第三参数为对应 userId', async () => {
+        const coordinator = createCoordinator(async () => completed(true));
+        const store = createStore(['sid1', 'sid2']);
+        const resolver = createResolver(); // has resolveBatch
+        const scanner = new SessionTimeoutScanner({
+            coordinator,
+            sessionStore: store,
+            resolver,
+        });
+
+        await scanner.scanOnce();
+
+        expect(resolver.resolveBatch).toHaveBeenCalledTimes(1);
+        expect(resolver.resolveBatch).toHaveBeenCalledWith(['sid1', 'sid2']);
+        expect(coordinator.executeTerminalTrigger).toHaveBeenNthCalledWith(
+            1,
+            'sid1',
+            'timeout',
+            'u_sid1',
+        );
+        expect(coordinator.executeTerminalTrigger).toHaveBeenNthCalledWith(
+            2,
+            'sid2',
+            'timeout',
+            'u_sid2',
+        );
+    });
+
+    it('resolver 无 resolveBatch 时降级：第三参数全为 undefined', async () => {
+        const coordinator = createCoordinator(async () => completed(true));
+        const store = createStore(['sid1', 'sid2']);
+        const resolver = createResolver({ resolveBatch: false });
+        const scanner = new SessionTimeoutScanner({
+            coordinator,
+            sessionStore: store,
+            resolver,
+        });
+
+        await scanner.scanOnce();
+
+        expect(coordinator.executeTerminalTrigger).toHaveBeenNthCalledWith(
+            1,
+            'sid1',
+            'timeout',
+            undefined,
+        );
+        expect(coordinator.executeTerminalTrigger).toHaveBeenNthCalledWith(
+            2,
+            'sid2',
+            'timeout',
+            undefined,
+        );
     });
 });

@@ -10,12 +10,12 @@
  * 二者签名不一致（单参 vs 双参）由 pipelineAdapter 桥接。
  */
 import type { RawMessage } from '@/types/chat';
-import type { IngestionResult } from '@/types/memory';
+import type { IngestionContext, IngestionResult } from '@/types/memory';
 
 export interface PipelineService {
-    run(sessionId: string): Promise<void>;
+    run(sessionId: string, userId?: string): Promise<void>;
 }
 
 export interface MemoryPipelineContract {
-    run(sessionId: string, messages: RawMessage[]): Promise<IngestionResult>;
+    run(context: IngestionContext, messages: RawMessage[]): Promise<IngestionResult>;
 }

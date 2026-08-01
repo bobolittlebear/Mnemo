@@ -46,19 +46,21 @@ export class MemoryTriggerCoordinator {
     constructor(private readonly deps: CoordinatorDeps) {}
 
     async triggerThreshold(sessionId: string): Promise<TriggerResult> {
-        return this.runExtraction(sessionId, 'threshold');
+        return this.runExtraction(sessionId, 'threshold', undefined);
     }
 
     async executeTerminalTrigger(
         sessionId: string,
         layer: 'explicit' | 'timeout',
+        userId?: string,
     ): Promise<TriggerResult> {
-        return this.runExtraction(sessionId, layer);
+        return this.runExtraction(sessionId, layer, userId);
     }
 
     private async runExtraction(
         sessionId: string,
         layer: TriggerLayer,
+        userId?: string,
     ): Promise<TriggerResult> {
         const { lock, terminal, processing, pipeline, metrics, cleanup } =
             this.deps;
@@ -90,7 +92,7 @@ export class MemoryTriggerCoordinator {
 
         // Phase 2：无锁，Pipeline 自管游标
         try {
-            await pipeline.run(sessionId);
+            await pipeline.run(sessionId, userId);
         } catch (e) {
             await processing.clear(sessionId);
             throw e;

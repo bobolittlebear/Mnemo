@@ -31,22 +31,28 @@ const skipped = (
 
 function createFakeRedis(): RedisClientType {
     const store = new Map<string, number>();
-    const incrBy = vi.fn<
-        (key: string, increment: number) => Promise<number>
-    >(async (key, increment) => {
-        const next = (store.get(key) ?? 0) + increment;
-        store.set(key, next);
-        return next;
-    });
-    const expire = vi.fn<(key: string, seconds: number) => Promise<number>>(
-        async () => 1,
+    const incrBy = vi.fn<(key: string, increment: number) => Promise<number>>(
+        async (key, increment) => {
+            const next = (store.get(key) ?? 0) + increment;
+            store.set(key, next);
+            return next;
+        },
     );
+    const expire = vi.fn<
+        (key: string, seconds: number, mode?: string) => Promise<number>
+    >(async () => 1);
     const del = vi.fn<(...keys: string[]) => Promise<number>>(async (key) => {
         const had = store.has(key);
         store.delete(key);
         return had ? 1 : 0;
     });
-    return { incrBy, expire, del } as any;
+    const decrBy = vi.fn(async (key: string, decrement: number) => {
+        const next = (store.get(key) ?? 0) - decrement;
+        store.set(key, next);
+        return next;
+    });
+
+    return { incrBy, expire, del, decrBy } as any;
 }
 
 function createCoordinator(
@@ -86,7 +92,8 @@ describe('MessageCounter', () => {
             threshold: 5,
         });
 
-        for (let i = 0; i < 5; i++) await counter.record('s1');
+        // incrBy 2：3 次后 count=6 >= 5，触发 1 次
+        for (let i = 0; i < 3; i++) await counter.record('s1');
 
         expect(coordinator.triggerThreshold).toHaveBeenCalledTimes(1);
         expect(coordinator.triggerThreshold).toHaveBeenCalledWith('s1');
@@ -105,7 +112,7 @@ describe('MessageCounter', () => {
         expect(coordinator.triggerThreshold).toHaveBeenCalledTimes(1);
     });
 
-    it('incrBy 2 首次 count=2，不触发 count===1 的 TTL 分支', async () => {
+    it('每次 record 都调用 expire 设置 NX TTL', async () => {
         const coordinator = createCoordinator(async () => completed());
         const counter = new MessageCounter({
             coordinator,
@@ -113,15 +120,19 @@ describe('MessageCounter', () => {
             threshold: 5,
         });
 
-        // incrBy 2：首次 count=2，count===1 条件永远不成立
+        // incrBy 2 后 expire 无条件调用，带 NX 模式（仅在 key 无过期时间时设置）
         await counter.record('s1');
-        expect(redis.expire).not.toHaveBeenCalled();
+        expect(redis.expire).toHaveBeenCalledWith(
+            KEY,
+            expect.any(Number),
+            'NX',
+        );
 
         await counter.record('s1');
-        expect(redis.expire).not.toHaveBeenCalled();
+        expect(redis.expire).toHaveBeenCalledTimes(2);
     });
 
-    it('COMPLETED 重置 msg_count', async () => {
+    it('COMPLETED 扣减 msg_count（decrBy threshold）', async () => {
         const coordinator = createCoordinator(async () => completed());
         const counter = new MessageCounter({
             coordinator,
@@ -129,12 +140,15 @@ describe('MessageCounter', () => {
             threshold: 5,
         });
 
-        // incrBy 2：count 2,4,6(触发→del),2,4 → 1 次触发
+        // incrBy 2, threshold=5, COMPLETED → decrBy(5)
+        // count: 2,4,6(触发→decrBy 5→1),3,5(触发→decrBy 5→0) → 2 次触发
         for (let i = 0; i < 5; i++) await counter.record('s1');
 
-        expect(redis.del).toHaveBeenCalledWith(KEY);
+        expect(redis.decrBy).toHaveBeenCalledWith(KEY, 5);
+        expect(redis.decrBy).toHaveBeenCalledTimes(2);
+        expect(redis.del).not.toHaveBeenCalled();
 
-        // incrBy 2：上次重置后 count=4，+2=6 再次触发
+        // incrBy 2：上次扣减后 count=0，+2=2 < 5，不再触发
         await counter.record('s1');
         expect(coordinator.triggerThreshold).toHaveBeenCalledTimes(2);
     });

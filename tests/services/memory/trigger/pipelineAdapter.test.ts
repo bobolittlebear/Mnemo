@@ -44,7 +44,7 @@ describe('createPipelineAdapter', () => {
 
         expect(getMessages).toHaveBeenCalledWith('sid-1');
         expect(getMessages).toHaveBeenCalledTimes(1);
-        expect(pipelineRun).toHaveBeenCalledWith('sid-1', msgs);
+        expect(pipelineRun).toHaveBeenCalledWith({ sessionId: 'sid-1' }, msgs);
         expect(pipelineRun).toHaveBeenCalledTimes(1);
     });
 
@@ -54,7 +54,7 @@ describe('createPipelineAdapter', () => {
         await adapter.run('sid-2');
 
         expect(getMessages).toHaveBeenCalledWith('sid-2');
-        expect(pipelineRun).toHaveBeenCalledWith('sid-2', []);
+        expect(pipelineRun).toHaveBeenCalledWith({ sessionId: 'sid-2' }, []);
     });
 
     it('错误处理：getMessages 抛错时向上抛出且不调用 pipeline.run', async () => {
@@ -71,6 +71,18 @@ describe('createPipelineAdapter', () => {
         pipelineRun.mockRejectedValue(boom);
 
         await expect(adapter.run('sid-4')).rejects.toThrow('pipeline boom');
-        expect(pipelineRun).toHaveBeenCalledWith('sid-4', [mkMessage('m1')]);
+        expect(pipelineRun).toHaveBeenCalledWith({ sessionId: 'sid-4' }, [mkMessage('m1')]);
+    });
+
+    it('userId 透传：传入 userId 时 context 包含 userId', async () => {
+        const msgs = [mkMessage('m1')];
+        getMessages.mockResolvedValue(msgs);
+
+        await adapter.run('sid-5', 'u_123');
+
+        expect(pipelineRun).toHaveBeenCalledWith(
+            { sessionId: 'sid-5', userId: 'u_123' },
+            msgs,
+        );
     });
 });

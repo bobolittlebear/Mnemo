@@ -1,11 +1,14 @@
 import notebookController from '@/controllers/notebook.controller';
 import noteController from '@/controllers/note.controller';
+import sessionController from '@/controllers/session.controller';
 import { authMiddleware } from '@/middleware/auth.middleware';
 import { Router } from 'express';
 
 const router: Router = Router();
 
 router.use(authMiddleware); // 保护所有后续路由，必须先通过认证
+
+router.post('/session', sessionController.createSession);
 
 router.post('/notebooks', notebookController.createNotebook);
 router.get('/notebooks', notebookController.getNotebooks);

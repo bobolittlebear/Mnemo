@@ -15,7 +15,7 @@ import type { RankedDoc, MemorySearchResult } from '@/types/memory';
 function makeDoc(overrides: Partial<RankedDoc> & { _id: string; rank: number }): RankedDoc {
     return {
         content: `content of ${overrides._id}`,
-        memoryKey: 'test-key',
+        userId: 'test-key',
         confidence: 0.9,
         category: 'preference',
         type: 'fact',
@@ -230,7 +230,7 @@ describe('rrfFusion', () => {
             _id: 'full-doc',
             rank: 1,
             content: '用户偏好 TypeScript',
-            memoryKey: 'session:abc',
+            userId: 'session:abc',
             confidence: 0.95,
             category: 'preference',
             type: 'fact',
@@ -246,7 +246,7 @@ describe('rrfFusion', () => {
         const doc = result[0]!;
         expect(doc._id).toBe('full-doc');
         expect(doc.content).toBe('用户偏好 TypeScript');
-        expect(doc.memoryKey).toBe('session:abc');
+        expect(doc.userId).toBe('session:abc');
         expect(doc.confidence).toBe(0.95);
         expect(doc.category).toBe('preference');
         expect(doc.type).toBe('fact');

@@ -37,7 +37,7 @@ export class RedisInactiveSessionStore implements InactiveSessionStore {
      * @param timeoutSec 超时秒数，last_active_at 距今超过该值即视为不活跃
      * @returns 不活跃的 sessionId 数组
      */
-    async findInactiveSessions(timeoutSec: number): Promise<string[]> {
+    async findInactiveSessions(timeoutSec: number): Promise<Array<string>> {
         const thresholdMs = timeoutSec * 1000;
         const now = Date.now();
         const pattern = `${PREFIX}*${SUFFIX}`;
