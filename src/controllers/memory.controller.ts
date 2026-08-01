@@ -53,7 +53,7 @@ const ingestFacts = async (req: Request, res: Response) => {
         logger.info('/fact/pipeline', {
             length: messages.length,
         });
-        const sessionId = req.user.sessionId!;
+        const sessionId = req.meta.sessionId!;
         const userId = req.user.userId!;
         const facts = await memoryPipelineService.run(
             {

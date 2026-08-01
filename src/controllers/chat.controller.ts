@@ -1,11 +1,14 @@
 // src/controllers/chat.controller.ts
+import crypto from 'crypto';
 import { Request, Response } from 'express';
 import { createLogger } from '@/lib/logger';
+import redisClient from '@/lib/redis';
 import ApiResponse from '@/utils/apiResponse';
-import { UNKNOWN_ERROR } from '@/utils/constant';
+import { SESSION_TTL_SECONDS, UNKNOWN_ERROR } from '@/utils/constant';
 import chatStreamService from '@/services/chat/chatStream.service';
 import chatHistoryService from '@/services/chat/chatHistory.service';
 import { generateMessageId } from '@/utils/tool';
+import Session from '@/models/Session';
 import type { RawMessage } from '@/types/chat';
 
 const logger = createLogger('api');
@@ -53,29 +56,93 @@ const chat = async (req: Request, res: Response) => {
         attachMessageId(messages);
         attachTimestamp(messages);
 
+        // 1. 身份与资源分离：userId 来自认证，sessionId 来自路由参数
+        const uid = req.user.userId!;
+
+        // 会话归属解析：新会话 vs 续聊
+        let sid: string | undefined = req.meta.sessionId;
+        let isNew = false;
+
+        if (!sid) {
+            // 新会话：生成 sessionId、绑定 Redis、写 Session 文档
+            const firstUserMsg = messages.find((m) => m.role === 'user');
+            const title = (firstUserMsg?.content || '').slice(0, 30);
+            sid = crypto.randomBytes(16).toString('hex');
+            await redisClient.set(`session:user:${sid}`, uid, {
+                EX: SESSION_TTL_SECONDS,
+            });
+            await Session.create({
+                userId: uid,
+                sessionId: sid,
+                title,
+            });
+            req.meta.sessionId = sid;
+            isNew = true;
+        } else {
+            // 续聊：校验会话归属 + 状态
+            const session = await Session.findOne({
+                userId: uid,
+                sessionId: sid,
+            });
+            if (!session) {
+                res.status(404).json({ error: '会话不存在' });
+                return;
+            }
+            if (session.status === 'deleted') {
+                res.status(403).json({ error: '会话已销毁，不可复用' });
+                return;
+            }
+            if (session.status === 'archived') {
+                // 重激活：归档会话恢复为活跃
+                Session.updateOne(
+                    { sessionId: sid },
+                    { $set: { status: 'active' } },
+                ).catch(() => {});
+            }
+        }
+
         if (!messages.length) {
             logger.warn('无效的消息格式', { traceId, body: req.body });
             res.status(400).json({ error: 'Invalid messages format' });
             return;
         }
-        // TODO 问题：这违背了我们之前确定的 “身份与资源分离” 原则。req.user 只应包含 userId、role 等身份信息。
-        // sessionId 应从 URL Path (req.params) 或 Body 中获取。
-        const sessionId = req.user.sessionId!;
+
         setSSEHeaders(res);
+
+        // 1. 会话元数据
+        const firstUserMsg = messages.find((m) => m.role === 'user');
+        const title = (firstUserMsg?.content || '').slice(0, 30);
+        res.write(
+            `event: meta\ndata: ${JSON.stringify({ sessionId: sid, title })}\n\n`,
+        );
+
+        // 2. 记忆检索结果（LLM 响应前发送，让前端展示引用来源）
+        // event: memory_hit
+        // data: {"count":3,"snippets":[{"id":"mem_001","content":"...","score":0.92}]}
+
+        // 3. 工具调用（Agent 执行动作时）
+        // event: tool_call
+        // data: {"name":"search_memory","arguments":{"query":"用户偏好"}}
 
         // 委托 Service 执行流式对话，Controller 只负责将清洗后的 chunk 写入 SSE
         await chatStreamService.streamChat({
-            sessionId,
-            userId: req.user.userId!,
+            sessionId: sid,
+            userId: uid,
             messages,
             traceId,
+            // signal: abortController.signal, // 后续加入心跳保护机制， 传递中断信号给 Service
             onChunk: (content) => {
-                res.write(`data: ${JSON.stringify({ content })}\n\n`);
+                // 4. 显式声明 event: delta + JSON 格式统一
+                res.write(
+                    `event: delta\ndata: ${JSON.stringify({ content })}\n\n`,
+                );
             },
         });
 
         // 流正常结束
         res.write('event: done\ndata: [DONE]\n\n');
+        // 5. done 事件保持 JSON 格式
+        // res.write('event: done\ndata: {}\n\n');·
         res.end();
     } catch (error: unknown) {
         logger.error('流式对话失败', {
@@ -104,12 +171,18 @@ const chat = async (req: Request, res: Response) => {
  */
 const endSession = async (req: Request, res: Response) => {
     try {
-        const { sessionId, userId } = req.user || {};
+        const userId = req.user.userId!;
+        const sessionId = req.meta.sessionId;
+
+        if (!sessionId) {
+            res.status(400).json(ApiResponse.error('缺少 sessionId'));
+            return;
+        }
 
         if (sessionId) {
             await chatHistoryService.endSession({
                 sessionId,
-                userId: userId!,
+                userId,
             });
         }
         res.json(ApiResponse.success({}));
@@ -129,7 +202,11 @@ const endSession = async (req: Request, res: Response) => {
 const getChatHistory = async (req: Request, res: Response) => {
     const startTime = Date.now();
     try {
-        const sessionId = req.user.sessionId!;
+        const sessionId = req.meta.sessionId;
+        if (!sessionId) {
+            res.status(400).json(ApiResponse.error('缺少 sessionId'));
+            return;
+        }
         const limit = Math.min(Number(req.query?.limit) || 20, 100);
         const beforeId = req.query?.before_id as string | undefined;
 
@@ -159,8 +236,13 @@ const getChatHistory = async (req: Request, res: Response) => {
  */
 const clearChatHistory = async (req: Request, res: Response) => {
     try {
+        const sessionId = req.meta.sessionId;
+        if (!sessionId) {
+            res.status(400).json(ApiResponse.error('缺少 sessionId'));
+            return;
+        }
         const result = await chatHistoryService.clearAll({
-            sessionId: req.user.sessionId!,
+            sessionId,
             userId: req.user.userId!,
         });
         res.json(ApiResponse.success(result));

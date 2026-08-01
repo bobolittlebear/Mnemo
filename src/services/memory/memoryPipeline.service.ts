@@ -45,6 +45,9 @@ class MemoryPipelineService {
         context: IngestionContext,
         messages: RawMessage[],
     ): Promise<IngestionResult> {
+        logger.info('开始执行pipeline, 传入参数：', {
+            msgLength: messages.length,
+        });
         if (!messages.length) {
             return { totalProcessed: 0, inserted: 0, updated: 0, skipped: 0 };
         }
@@ -114,6 +117,10 @@ class MemoryPipelineService {
 
         const newMessages = messages.filter((m) => newMsgIds.includes(m.msgId));
 
+        logger.debug('根据游标过滤该提取的msg数量：', {
+            newMsgIds,
+        });
+
         // ── 2. LLM 提取 + 清洗 ──
         // TODO: 从数据库中查询existingMemories，用于给llm确定记忆去重/更新
         const rawFacts = await memoryExtractionService.extractFacts(
@@ -123,6 +130,9 @@ class MemoryPipelineService {
                 existingMemories: [], // TODO
             },
         );
+        logger.debug('提取的事实：', {
+            rawFacts: rawFacts.map((i) => i.content),
+        });
 
         if (rawFacts.length === 0) {
             await STM.setLastExtractedMsgId(sessionId, lastMsgId);

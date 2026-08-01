@@ -9,6 +9,7 @@ const router: Router = Router();
 router.use(authMiddleware); // 保护所有后续路由，必须先通过认证
 
 router.post('/session', sessionController.createSession);
+router.get('/sessions', sessionController.getSessions);
 
 router.post('/notebooks', notebookController.createNotebook);
 router.get('/notebooks', notebookController.getNotebooks);

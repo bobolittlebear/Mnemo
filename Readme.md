@@ -274,11 +274,9 @@ pnpm start
 | POST   | `/api/notebooks`       | 创建笔记本         | ✅               |
 | GET    | `/api/notes`           | 获取笔记列表       | ✅               |
 | POST   | `/api/notes`           | 创建笔记           | ✅               |
-| POST   | `/stream/chat`         | AI 流式对话（SSE） | ❌*（临时会话）* |
-| GET    | `/stream/chat/history` | 获取会话历史消息   | ❌               |
-| DELETE | `/stream/chat/history` | 重置会话历史消息   | ❌               |
-
-> `* /stream/chat` 当前未接入鉴权，支持匿名临时会话，正式上线前需补全。
+| POST   | `/stream/chat`         | AI 流式对话（SSE） |  ✅               |
+| GET    | `/stream/chat/history` | 获取会话历史消息   | ✅               |
+| DELETE | `/stream/chat/history` | 重置会话历史消息   | ✅               |
 
 ---
 

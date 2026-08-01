@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import redisClient from '@/lib/redis';
+import Session from '@/models/Session';
 import ApiResponse from '@/utils/apiResponse';
 import { SESSION_TTL_SECONDS, UNKNOWN_ERROR } from '@/utils/constant';
 import { createLogger } from '@/lib/logger';
@@ -9,14 +10,25 @@ const logger = createLogger('ltm');
 /** sessionId 白名单：仅允许字母数字、下划线、连字符 */
 const SID_PATTERN = /^[a-zA-Z0-9_-]+$/;
 
-export async function createSession(req: Request, res: Response): Promise<void> {
+export async function createSession(
+    req: Request,
+    res: Response,
+): Promise<void> {
     try {
         const { sessionId } = req.body;
         const userId = req.user?.userId;
 
         // sessionId 必填 + 格式校验（防 Redis key 注入）
-        if (!sessionId || typeof sessionId !== 'string' || !SID_PATTERN.test(sessionId)) {
-            res.status(400).json(ApiResponse.error('sessionId 无效：必填且仅允许字母、数字、下划线、连字符'));
+        if (
+            !sessionId ||
+            typeof sessionId !== 'string' ||
+            !SID_PATTERN.test(sessionId)
+        ) {
+            res.status(400).json(
+                ApiResponse.error(
+                    'sessionId 无效：必填且仅允许字母、数字、下划线、连字符',
+                ),
+            );
             return;
         }
 
@@ -28,17 +40,61 @@ export async function createSession(req: Request, res: Response): Promise<void> 
 
         const key = `session:user:${sessionId}`;
         // NX: 仅 key 不存在时写入，保证幂等；EX: 设置过期时间
-        await redisClient.set(key, String(userId), { NX: true, EX: SESSION_TTL_SECONDS });
+        await redisClient.set(key, String(userId), {
+            NX: true,
+            EX: SESSION_TTL_SECONDS,
+        });
 
         logger.info('session 映射已创建', { sessionId, userId });
 
         res.status(200).json(ApiResponse.success({ ok: true }));
     } catch (error) {
-        logger.error('创建 session 映射失败', error instanceof Error ? error : new Error(String(error)));
+        logger.error(
+            '创建 session 映射失败',
+            error instanceof Error ? error : new Error(String(error)),
+        );
         res.status(500).json(
-            ApiResponse.error(error instanceof Error ? error.message : UNKNOWN_ERROR),
+            ApiResponse.error(
+                error instanceof Error ? error.message : UNKNOWN_ERROR,
+            ),
         );
     }
 }
 
-export default { createSession };
+export async function getSessions(req: Request, res: Response): Promise<void> {
+    try {
+        const userId = req.user?.userId;
+        if (!userId) {
+            res.status(401).json(ApiResponse.error('未认证'));
+            return;
+        }
+
+        const docs = await Session.find({ userId, status: 'active' })
+            .sort({ lastActiveAt: -1 })
+            .select('sessionId title createdAt lastActiveAt')
+            .lean();
+
+        const list = docs.map((doc: any) => ({
+            sessionId: doc.sessionId,
+            title: doc.title,
+            createdAt: doc.createdAt,
+            lastActiveAt: doc.lastActiveAt,
+        }));
+
+        logger.info('查询会话列表', { userId, count: list.length });
+
+        res.json(ApiResponse.success({ list }));
+    } catch (error) {
+        logger.error(
+            '查询会话列表失败',
+            error instanceof Error ? error : new Error(String(error)),
+        );
+        res.status(500).json(
+            ApiResponse.error(
+                error instanceof Error ? error.message : UNKNOWN_ERROR,
+            ),
+        );
+    }
+}
+
+export default { createSession, getSessions };

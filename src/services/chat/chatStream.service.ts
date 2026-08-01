@@ -4,6 +4,7 @@ import { createLogger } from '@/lib/logger';
 import { StreamCleaner } from '@/utils/streamCleaner';
 import STM from '@/utils/shortTermMemory';
 import ChatMessage from '@/models/ChatMessage';
+import Session from '@/models/Session';
 import { messageCounter, sessionMemoryLifecycle } from '@/services/memory';
 import type { ChatCompletionChunk } from 'openai/resources/chat/completions';
 import type { RawMessage } from '@/types/chat';
@@ -27,6 +28,7 @@ class ChatStreamService {
      */
     async streamChat(props: {
         sessionId: string;
+        userId: string;
         messages: RawMessage[];
         traceId: string;
         onChunk: (content: string) => void;
@@ -142,6 +144,12 @@ class ChatStreamService {
         // 更新会话最后活跃时间（毫秒时间戳），为 L2 超时静默触发器提供数据源。
         // 不阻塞主流程，失败不影响落库（touch 内部已吞异常）。
         void sessionMemoryLifecycle.touch(sessionId);
+
+        // 同步更新 MongoDB Session 文档的 lastActiveAt，不阻塞，吞异常
+        Session.updateOne(
+            { sessionId },
+            { $set: { lastActiveAt: new Date() } },
+        ).catch(() => {});
 
         // MongoDB 写入放入下一个事件循环，不阻塞 SSE 响应结束
         setImmediate(() => {

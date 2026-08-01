@@ -1,6 +1,7 @@
 // src/services/chat/chatHistory.service.ts
 import { createLogger } from '@/lib/logger';
 import ChatMessage from '@/models/ChatMessage';
+import Session from '@/models/Session';
 import { HistoryMessage } from '@/types/chat';
 import mongoose from 'mongoose';
 import { sessionEndTrigger, sessionMemoryLifecycle } from '@/services/memory';
@@ -44,7 +45,9 @@ export default {
      * 彻底清空当前用户的会话记录（Redis STM + MongoDB）
      * 触发场景 用户点击“删除对话”、GDPR/个保法请求、账号注销
      */
-    async clearAll(sessionId: string) {
+    async clearAll(props: { sessionId: string; userId: string }) {
+        const { sessionId } = props || {};
+
         // L1 显性触发 立即触发终态提取，写入 extracted 标记后清除STM
         await sessionEndTrigger.end(sessionId);
 
@@ -64,6 +67,12 @@ export default {
 
         // 销毁会话触发器状态：清除全部 5 个 trigger key
         await sessionMemoryLifecycle.destroy(sessionId);
+
+        // 标记会话为已删除
+        Session.updateOne({ sessionId }, { $set: { status: 'deleted' } }).catch(
+            () => {},
+        );
+
         return { deletedCount: result.modifiedCount };
     },
 
@@ -71,8 +80,14 @@ export default {
      * 结束会话（仅清除 Redis STM，保留 MongoDB 历史）
      * 触发场景	session超时、任务完成、任务归档
      */
-    async endSession(sessionId: string) {
+    async endSession(props: { sessionId: string; userId: string }) {
+        const { sessionId } = props || {};
         // L1 显性触发 立即触发终态提取，写入 extracted 标记后清除STM
         await sessionEndTrigger.end(sessionId);
+
+        // 标记会话为已归档
+        Session.updateOne({ sessionId }, { $set: { status: 'archived' } }).catch(
+            () => {},
+        );
     },
 };
