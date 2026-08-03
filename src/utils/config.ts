@@ -23,3 +23,33 @@ export const EMBEDDING_MODEL: string =
 export const EMBEDDING_DIMENSIONS = process.env.EMBEDDING_DIMENSIONS
     ? Number(process.env.EMBEDDING_DIMENSIONS)
     : EMBEDDING_CONFIG.DEFAULT_EMBEDDING_DIMENSIONS;
+
+// ── 记忆选择层配置常量 ──────────────────────────────────────────
+
+/** 百分位截断阈值（0-1），保留 rrfScore >= P70 的候选 */
+export const MEMORY_SELECTION_PERCENTILE = 0.7;
+
+/** 百分位算法：线性插值法（与 NumPy 兼容） */
+export const MEMORY_SELECTION_PERCENTILE_ALGORITHM = 'linear' as const;
+
+/** 小样本保护：候选数 ≤ 此值时跳过百分位截断 */
+export const MEMORY_SELECTION_PERCENTILE_MIN_COUNT = 5;
+
+/** 硬上限：最终返回的最大记忆条数 */
+export const MEMORY_SELECTION_HARD_MAX = 8;
+
+/**
+ * 语义去重相似度阈值
+ * TODO: 需按 Qwen text-embedding-v4 实际分布校准
+ * TODO: 两周后基于 metadata.droppedByDedup 日志校准 Qwen text-embedding-v4 最优阈值
+ */
+export const MEMORY_SELECTION_DEDUP_THRESHOLD = 0.88;
+
+/** 是否启用时效性提权（当前关闭，Pipeline C 骨架） */
+export const MEMORY_SELECTION_RECENCY_ENABLED = false;
+
+/** 时效性地板系数：最低权重不低于此值 */
+export const MEMORY_SELECTION_RECENCY_FLOOR = 0.7;
+
+/** 时效性半衰期（天）：每过半衰期权重衰减一半 */
+export const MEMORY_SELECTION_RECENCY_HALF_LIFE = 14;

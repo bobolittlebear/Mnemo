@@ -108,3 +108,70 @@ export interface MemorySearchResponse {
     degraded: boolean;
     degradedReason?: string;
 }
+
+// ── 记忆选择层类型 ──────────────────────────────────────────────
+
+/**
+ * 记忆选择层配置（可覆盖常量默认值）
+ */
+export interface SelectionConfig {
+    /** 百分位阈值（0-1），低于此值的候选被截断 */
+    percentile?: number;
+    /** 百分位算法 */
+    percentileAlgorithm?: 'linear';
+    /** 小样本保护：候选数 ≤ 此值时跳过百分位截断 */
+    percentileMinCount?: number;
+    /** 硬上限：最终返回的最大条数 */
+    hardMax?: number;
+    /** 语义去重相似度阈值 */
+    dedupThreshold?: number;
+    /** 是否启用时效性提权 */
+    recencyEnabled?: boolean;
+    /** 时效性地板系数 */
+    recencyFloor?: number;
+    /** 时效性半衰期（天） */
+    recencyHalfLife?: number;
+}
+
+/**
+ * Embedding 批量查询接口（DI 注入，便于测试替换）
+ */
+export interface EmbeddingProvider {
+    batchGet(ids: string[]): Promise<Map<string, number[] | null>>;
+}
+
+/**
+ * 记忆选择层输出
+ */
+export interface MemorySelectionOutput {
+    selected: MemorySearchResult[];
+    metadata: MemorySelectionMetadata;
+}
+
+/**
+ * 选择过程元数据（可观测性）
+ */
+export interface MemorySelectionMetadata {
+    /** 输入候选总数 */
+    totalCandidates: number;
+    /** 百分位阈值（跳过时为 NaN） */
+    percentileThreshold: number;
+    /** 百分位截断后剩余数 */
+    afterPercentile: number;
+    /** 去重后剩余数 */
+    afterDedup: number;
+    /** 是否触发了硬上限截断 */
+    hardMaxApplied: boolean;
+    /** 硬上限截断丢弃数 */
+    hardMaxDropped: number;
+    /** 无 embedding 的候选数（直接保留） */
+    embeddingMissing: number;
+    /** 是否跳过了去重（embedding 查询失败） */
+    dedupSkipped: boolean;
+    /** 选择总耗时（ms） */
+    selectionLatencyMs: number;
+    /** 被去重丢弃的 content 摘要列表 */
+    droppedByDedup: string[];
+    /** 去重簇（可选，诊断用） */
+    dedupClusters?: string[][];
+}
