@@ -20,12 +20,12 @@ import type {
 import { createLogger } from '@/lib/logger';
 import {
     MEMORY_SELECTION_PERCENTILE,
-    MEMORY_SELECTION_PERCENTILE_MIN_COUNT,
     MEMORY_SELECTION_HARD_MAX,
     MEMORY_SELECTION_DEDUP_THRESHOLD,
     MEMORY_SELECTION_RECENCY_ENABLED,
     MEMORY_SELECTION_RECENCY_FLOOR,
     MEMORY_SELECTION_RECENCY_HALF_LIFE,
+    MEMORY_SELECTION_MIN_VECTOR_SCORE,
 } from '@/utils/config';
 import mongoose from 'mongoose';
 
@@ -158,8 +158,6 @@ class MemorySelectionService {
         const startTime = Date.now();
 
         const percentile = config?.percentile ?? MEMORY_SELECTION_PERCENTILE;
-        const percentileMinCount =
-            config?.percentileMinCount ?? MEMORY_SELECTION_PERCENTILE_MIN_COUNT;
         const hardMax = config?.hardMax ?? MEMORY_SELECTION_HARD_MAX;
         const dedupThreshold =
             config?.dedupThreshold ?? MEMORY_SELECTION_DEDUP_THRESHOLD;
@@ -169,13 +167,46 @@ class MemorySelectionService {
             config?.recencyFloor ?? MEMORY_SELECTION_RECENCY_FLOOR;
         const recencyHalfLife =
             config?.recencyHalfLife ?? MEMORY_SELECTION_RECENCY_HALF_LIFE;
+        const minVectorScore =
+            config?.minVectorScore ?? MEMORY_SELECTION_MIN_VECTOR_SCORE;
+
+        // ── A0 向量分数绝对地板：候选集全部不相关但百分位掐不掉的均匀噪声 → 直接返回空 ──
+        if (candidates.length > 0) {
+            const vectorScores = candidates
+                .map((c) => c.vectorScore)
+                .filter((s): s is number => s !== undefined);
+            // 仅当存在 vectorScore 时才触发地板（纯 BM25 降级跳过）
+            if (vectorScores.length > 0) {
+                const maxVectorScore = Math.max(...vectorScores);
+                if (maxVectorScore < minVectorScore) {
+                    const selectionLatencyMs = Date.now() - startTime;
+                    logger.info('记忆选择完成（A0 vectorScore 地板触发，全部丢弃）', {
+                        totalCandidates: candidates.length,
+                        maxVectorScore,
+                        minVectorScore,
+                        selectionLatencyMs,
+                    });
+                    return {
+                        selected: [],
+                        metadata: {
+                            totalCandidates: candidates.length,
+                            percentileThreshold: NaN,
+                            afterPercentile: 0,
+                            afterDedup: 0,
+                            hardMaxApplied: false,
+                            hardMaxDropped: 0,
+                            embeddingMissing: 0,
+                            dedupSkipped: false,
+                            selectionLatencyMs,
+                            droppedByDedup: [],
+                        },
+                    };
+                }
+            }
+        }
 
         // ── Pipeline A: 噪声兜底（百分位截断） ──
-        const afterA = this.applyPercentileCutoff(
-            candidates,
-            percentile,
-            percentileMinCount,
-        );
+        const afterA = this.applyPercentileCutoff(candidates, percentile);
 
         // ── Pipeline B: 语义去重 ──
         const afterB = await this.applySemanticDedup(
@@ -238,29 +269,14 @@ class MemorySelectionService {
     /**
      * 百分位截断：保留 rrfScore >= P-th 百分位的候选。
      *
-     * 小样本保护：候选数 ≤ percentileMinCount 时全部保留。
      * 空集兜底：过滤后为空时取 rrfScore 最高的一条。
      */
     private applyPercentileCutoff(
         candidates: MemorySearchResult[],
         percentile: number,
-        minCount: number,
     ): { results: MemorySearchResult[]; threshold: number } {
         if (candidates.length === 0) {
             return { results: [], threshold: NaN };
-        }
-
-        // 小样本保护：候选数不足，跳过百分位计算
-        if (candidates.length <= minCount) {
-            logger.debug('小样本保护触发，跳过百分位截断', {
-                count: candidates.length,
-                minCount,
-            });
-            return {
-                results: candidates,
-                // 跳过百分位计算时 threshold 为 NaN，注释说明
-                threshold: NaN,
-            };
         }
 
         // 按 rrfScore 升序排序，计算百分位阈值

@@ -26,14 +26,14 @@ export const EMBEDDING_DIMENSIONS = process.env.EMBEDDING_DIMENSIONS
 
 // ── 记忆选择层配置常量 ──────────────────────────────────────────
 
+/** A0 向量分数绝对地板：候选集最高 vectorScore 低于此值时直接返回空 selected，防止均匀噪声场景 */
+export const MEMORY_SELECTION_MIN_VECTOR_SCORE = 0.5;
+
 /** 百分位截断阈值（0-1），保留 rrfScore >= P70 的候选 */
 export const MEMORY_SELECTION_PERCENTILE = 0.7;
 
 /** 百分位算法：线性插值法（与 NumPy 兼容） */
 export const MEMORY_SELECTION_PERCENTILE_ALGORITHM = 'linear' as const;
-
-/** 小样本保护：候选数 ≤ 此值时跳过百分位截断 */
-export const MEMORY_SELECTION_PERCENTILE_MIN_COUNT = 5;
 
 /** 硬上限：最终返回的最大记忆条数 */
 export const MEMORY_SELECTION_HARD_MAX = 8;

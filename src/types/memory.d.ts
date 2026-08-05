@@ -85,6 +85,8 @@ export interface RankedDoc extends MemorySearchBaseDoc {
     rank: number;
     /** 单路原始得分 */
     rawScore: number;
+    /** 向量检索余弦相似度得分（仅向量管道有值） */
+    vectorScore?: number;
 }
 
 /**
@@ -93,6 +95,8 @@ export interface RankedDoc extends MemorySearchBaseDoc {
 export interface MemorySearchResult extends MemorySearchBaseDoc {
     /** RRF 融合得分 */
     rrfScore: number;
+    /** 向量检索余弦相似度得分（纯 BM25 降级时无此字段） */
+    vectorScore?: number;
 }
 
 /**
@@ -119,8 +123,6 @@ export interface SelectionConfig {
     percentile?: number;
     /** 百分位算法 */
     percentileAlgorithm?: 'linear';
-    /** 小样本保护：候选数 ≤ 此值时跳过百分位截断 */
-    percentileMinCount?: number;
     /** 硬上限：最终返回的最大条数 */
     hardMax?: number;
     /** 语义去重相似度阈值 */
@@ -131,6 +133,8 @@ export interface SelectionConfig {
     recencyFloor?: number;
     /** 时效性半衰期（天） */
     recencyHalfLife?: number;
+    /** A0 向量分数地板：候选集最高 vectorScore 低于此值时直接返回空 */
+    minVectorScore?: number;
 }
 
 /**

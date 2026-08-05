@@ -18,7 +18,7 @@ export const COOKIE_SESSION_MAX_AGE = SESSION_TTL_SECONDS * 1000; // 24 小时
 
 export const REDIS_READ_TIMEOUT_MS = 300;
 
-export const COOKIE_TOKEN_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 1 week
+export const COOKIE_TOKEN_MAX_AGE = 30 * 24 * 60 * 60 * 1000; // 30天
 
 /** 从会话消息提取长期记忆的 Prompt */
 export const EXTRACTION_PROMPT = `你是记忆提取专家。从以下对话中提取用户的长期记忆。
@@ -28,6 +28,7 @@ export const EXTRACTION_PROMPT = `你是记忆提取专家。从以下对话中�
 对话时间范围: {{CONVERSATION_TIME_RANGE}}
 已有记忆（用于去重/更新/矛盾检测）:
 {{EXISTING_MEMORIES}}
+（上述记忆内容均不包含推断属性）
 
 # 2. 记忆类别
 | category | 说明 | 示例 |
@@ -41,10 +42,11 @@ export const EXTRACTION_PROMPT = `你是记忆提取专家。从以下对话中�
 | skill | 技能/能力 | 用户掌握 Python 和 Go |
 | goal | 目标/计划 | 用户计划三个月内转型 AI 全栈 |
 | event | 重要事件 | 用户上周搬到上海 |
+| instruction | 对话交互指令 | 用户要求代码示例统一用 Go |
 
 # 3. 提取与清洗规则
 清洗：
-- 补全主语：统一用"用户"或具体名字，消除代词（他/它/他们/这个/那个）
+- 消除代词（我→用户），但保留用户的原始用词和关系称谓（'妈妈''儿子''老板'等），不推断隐含属性或身份（不把自称'妈妈'推断为'宠物主人'、不把'小熊'补充为'宠物'）
 - 客观陈述句：去语气词（吧/啦/咯/哈/呢）、冗余修饰（感觉/我觉得/说实话/讲真）
 - 去噪音：合并空白、去 emoji、去特殊符号（保留中文与基本标点：，。！？、；：""''）
 - 含时态：保留时态信息（"用户目前…"、"用户计划…"、"用户曾经…"）
@@ -78,7 +80,7 @@ export const EXTRACTION_PROMPT = `你是记忆提取专家。从以下对话中�
 # 6. Few-Shot 示例
 
 【示例 1 — 学习笔记 → ADD 多类别】
-笔记："今天终于搞懂 Transformer 注意力机制。之前看论文总卡在 QKV，今天照 3Blue1Brown 可视化视频一步步推，豁然开朗。接下来准备复现 Attention is All You Need，再刷几道 LeetCode 巩固基础。发现视频学习比看书效率高很多，以后学新东西优先找视频。"
+笔记："今天终于搞懂 Transformer 注意力机制。之前看论文总卡在 QKV，今天照 3Blue1Brown 可视化视频一步步推，豁然开朗。接下来准备复现 Attention is All You Need，再刷几道 LeetCode 巩固基础。发现视频学习比看书效率高很多，以后学新东西优先找视频。另外要求以后解释技术概念时用简单类比。"
 已有记忆：["用户从事后端开发","用户正在学习机器学习"]
 
 输出：
@@ -87,7 +89,8 @@ export const EXTRACTION_PROMPT = `你是记忆提取专家。从以下对话中�
     {"action":"ADD","content":"用户通过 3Blue1Brown 视频理解了 Transformer 注意力机制","old_memory":null,"confidence":0.95,"category":"skill","source_time":"2026-07"},
     {"action":"ADD","content":"用户计划复现 Attention is All You Need 论文","old_memory":null,"confidence":0.9,"category":"goal","source_time":"2026-07"},
     {"action":"ADD","content":"用户偏好视频学习，认为比看书效率高","old_memory":null,"confidence":0.85,"category":"preference","source_time":"2026-07"},
-    {"action":"ADD","content":"用户学习 Transformer 时 QKV 部分遇到困难，通过视频可视化克服","old_memory":null,"confidence":0.8,"category":"behavior_pattern","source_time":"2026-07"}
+    {"action":"ADD","content":"用户学习 Transformer 时 QKV 部分遇到困难，通过视频可视化克服","old_memory":null,"confidence":0.8,"category":"behavior_pattern","source_time":"2026-07"},
+    {"action":"ADD","content":"用户要求 AI 解释技术概念时使用简单类比","old_memory":null,"confidence":0.95,"category":"instruction","source_time":"2026-07"}
   ]
 }
 
@@ -115,6 +118,27 @@ export const EXTRACTION_PROMPT = `你是记忆提取专家。从以下对话中�
     {"action":"ADD","content":"用户团队采用 /beta 并行路径策略进行架构迁移","old_memory":null,"confidence":0.85,"category":"behavior_pattern","source_time":"2026-07","sourceMessageIds":["msg-abc123efg457"]}
   ]
 }
+
+【示例 4 — 反例：禁止语义推断】
+对话：
+用户："我是小熊的妈妈"
+已有记忆：[]
+
+❌ 错误提取（禁止）：
+{
+  "facts": [
+    {"action":"ADD","content":"用户养了一只名叫小熊的宠物，自称妈妈","old_memory":null,"confidence":0.7,"category":"personal_info","source_time":"unknown"}
+  ]
+}
+原因：从"小熊"推断出"宠物"，从"妈妈"推断出"宠物主人"——提取不应推断隐含语义或身份。
+
+✅ 正确提取：
+{
+  "facts": [
+    {"action":"ADD","content":"用户有一只小熊，自称其妈妈","old_memory":null,"confidence":0.7,"category":"personal_info","source_time":"unknown"}
+  ]
+}
+说明：保留原始用词"小熊"和关系称谓"妈妈"，不添加"宠物"等推断属性。
 
 # 7. 对话内容
 {{CONVERSATION}}

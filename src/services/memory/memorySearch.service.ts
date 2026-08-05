@@ -13,6 +13,7 @@ import type {
 } from '@/types/memory';
 import mongoose from 'mongoose';
 import { rrfFusion } from './rrf';
+import { tokenize } from '@/utils/tokenizer';
 
 const logger = createLogger('ltm');
 
@@ -85,7 +86,6 @@ class MemorySearchService {
             const startTime = Date.now();
             const { embeddings } = await generateEmbedding(trimmedQuery);
             queryEmbedding = embeddings[0]!;
-            logger.info('queryEmbedding', { trimmedQuery, queryEmbedding });
 
             // 防御：维度校验
             if (queryEmbedding.length !== EMBEDDING_DIMENSIONS) {
@@ -121,14 +121,13 @@ class MemorySearchService {
                 notebookId,
                 type,
             ),
-            this.textSearch(
-                userId,
-                trimmedQuery,
-                textTopK,
-                notebookId,
-                type,
-            ),
+            this.textSearch(userId, trimmedQuery, textTopK, notebookId, type),
         ]);
+        logger.info('检索结果', {
+            userId,
+            vectorResult,
+            textResult,
+        });
 
         const vectorDocs =
             vectorResult.status === 'fulfilled' ? vectorResult.value : [];
@@ -185,7 +184,7 @@ class MemorySearchService {
             vectorCount: vectorDocs.length,
             textCount: textDocs.length,
             fusedCount: fused.length,
-            degraded,
+            fused,
         });
 
         return {
@@ -220,7 +219,7 @@ class MemorySearchService {
         const pipeline = [
             {
                 $vectorSearch: {
-                    index: 'autoembed_index',
+                    index: 'vector_index',
                     path: 'embedding',
                     queryVector: queryEmbedding,
                     numCandidates,
@@ -270,6 +269,7 @@ class MemorySearchService {
             updatedAt: doc.updatedAt,
             rank: index + 1,
             rawScore: doc.vectorScore ?? 0,
+            vectorScore: doc.vectorScore,
         }));
     }
 
@@ -285,18 +285,19 @@ class MemorySearchService {
         notebookId?: string,
         type?: string,
     ): Promise<RankedDoc[]> {
-        // 构建 $match 条件
-        const matchStage: Record<string, unknown> = {
-            $text: { $search: query },
-            userId,
-        };
-        if (notebookId) matchStage.notebookId = notebookId;
-        if (type) matchStage.type = type;
+        // 中文分词：将查询拆分为空格分隔的词序列，与 searchText 索引匹配
+        const tokenizedQuery = tokenize(query);
+
+        // 构建标量过滤条件（仅包含有值的可选字段）
+        const scalarFilter: Record<string, unknown> = { userId };
+        if (notebookId) scalarFilter.notebookId = notebookId;
+        if (type) scalarFilter.type = type;
 
         const pipeline = [
-            { $match: matchStage }, // 执行全文搜索查询
-            { $addFields: { textScore: { $meta: 'textScore' } } }, // 提取 MongoDB 自动计算的文本相关性分数
-            { $sort: { textScore: -1 } }, // 按 textScore 降序排列
+            { $match: { $text: { $search: tokenizedQuery } } }, // 第一步：分词查询走文本索引
+            { $addFields: { textScore: { $meta: 'textScore' } } },
+            { $match: scalarFilter }, // 第二步：在文本结果上做标量过滤
+            { $sort: { textScore: -1 } },
             { $limit: topK },
             {
                 $project: {

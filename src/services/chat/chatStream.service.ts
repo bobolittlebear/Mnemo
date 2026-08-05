@@ -6,6 +6,8 @@ import STM from '@/utils/shortTermMemory';
 import ChatMessage from '@/models/ChatMessage';
 import Session from '@/models/Session';
 import { messageCounter, sessionMemoryLifecycle } from '@/services/memory';
+import memorySearchService from '@/services/memory/memorySearch.service';
+import memorySelectionService from '@/services/memory/memorySelection.service';
 import type { ChatCompletionChunk } from 'openai/resources/chat/completions';
 import type { RawMessage } from '@/types/chat';
 import { generateMessageId } from '@/utils/tool';
@@ -33,7 +35,7 @@ class ChatStreamService {
         traceId: string;
         onChunk: (content: string) => void;
     }): Promise<void> {
-        const { messages, traceId, sessionId, onChunk } = props || {};
+        const { messages, traceId, sessionId, userId, onChunk } = props || {};
         const cleaner = new StreamCleaner();
         const latestUserMsg = messages[messages.length - 1]!;
 
@@ -59,9 +61,62 @@ class ChatStreamService {
             Boolean,
         );
 
+        // 记忆检索 → 选择 → 拼 system prompt
+        let systemPrompt: string | undefined;
+        try {
+            const searchResult = await memorySearchService.search({
+                userId,
+                query: latestUserMsg.content as string,
+            });
+            const { selected, metadata } = await memorySelectionService.select(
+                searchResult.results,
+            );
+
+            if (selected.length > 0) {
+                const today = new Date().toISOString().slice(0, 10);
+                const formatDate = (d: Date) =>
+                    new Date(d).toISOString().slice(0, 10);
+                const xmlEscape = (s: string) =>
+                    s
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/"/g, '&quot;');
+
+                const memsXml = selected
+                    .map(
+                        (m) =>
+                            `<mem category="${xmlEscape(m.category ?? '')}" learned="${formatDate(m.createdAt)}">${xmlEscape(m.content)}</mem>`,
+                    )
+                    .join('\n');
+
+                systemPrompt = `<memory_instructions>
+请基于以下用户记忆提供个性化回答：
+- 将记忆信息自然融入回答中，不要刻意提及"根据记忆"等表述
+- 如果记忆与用户当前表述矛盾，以用户当前表述为准
+- 不要编造记忆中没有的信息
+</memory_instructions>
+<user_memory count="${selected.length}" retrieved_at="${today}">
+${memsXml}
+</user_memory>`;
+
+                logger.info('记忆注入成功', {
+                    totalCandidates: metadata.totalCandidates,
+                    afterPercentile: metadata.afterPercentile,
+                    afterDedup: metadata.afterDedup,
+                    selected: selected.length,
+                    memories: selected.map((i) => i.content),
+                });
+            }
+        } catch (error) {
+            logger.warn('记忆注入失败，对话照常继续', { error });
+            systemPrompt = undefined;
+        }
+
         const assistantMsgId = generateMessageId();
         // 2. 发起 AI 流并逐块消费
         const stream = (await createStreamChat(finalMessages, {
+            ...(systemPrompt ? { systemPrompt } : {}),
             metadata: {
                 traceId,
                 msgId: assistantMsgId,

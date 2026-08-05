@@ -3,6 +3,7 @@
 import { MemoryFact } from '@/models/MemoryFact';
 import { createLogger } from '@/lib/logger';
 import { generateContentHash } from '@/utils/tool';
+import { tokenize } from '@/utils/tokenizer';
 import type {
     EmbeddedFact,
     IngestionContext,
@@ -48,6 +49,7 @@ export async function ingestMemoryFacts(
                     update: {
                         $set: {
                             content: fact.content,
+                            searchText: tokenize(fact.content),
                             embedding: fact.embedding,
                             confidence: fact.confidence,
                             category: fact.category,

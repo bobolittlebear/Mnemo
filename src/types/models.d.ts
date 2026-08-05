@@ -36,9 +36,12 @@ type MemoryCategory =
     | 'personal_info'
     | 'decision'
     | 'behavior_pattern'
+    | 'relationship'
+    | 'diet'
     | 'skill'
     | 'goal'
     | 'event'
+    | 'instruction'
     | string;
 
 type MetaData = {
@@ -66,6 +69,7 @@ type MetaData = {
 export interface MemoryFact extends Document {
     userId: string;
     content: string;
+    searchText?: string; // 分词后的搜索文本，用于中文全文检索
     sourceMessageIds: string[]; // 对应的源消息ID
     embedding?: number[];
     confidence: number;

@@ -546,7 +546,7 @@ describe('MemorySearchService.vectorSearch', () => {
 
         // 阶段 1: $vectorSearch
         const vs = pipeline[0].$vectorSearch;
-        expect(vs.index).toBe('autoembed_index');
+        expect(vs.index).toBe('vector_index');
         expect(vs.path).toBe('embedding');
         expect(vs.numCandidates).toBe(100);
         expect(vs.limit).toBe(20);
@@ -728,7 +728,7 @@ describe('MemorySearchService.textSearch', () => {
         vi.clearAllMocks();
     });
 
-    it('S18: 管道结构包含 $match → $addFields → $sort → $limit → $project', async () => {
+    it('S18: 管道结构包含 $match(text) → $addFields → $match(filter) → $sort → $limit → $project', async () => {
         (MemoryFact.aggregate as any).mockResolvedValue([
             makeTextDoc('A', 1.5),
         ]);
@@ -740,10 +740,10 @@ describe('MemorySearchService.textSearch', () => {
         const pipeline = (MemoryFact.aggregate as any).mock
             .calls[0]![0] as any[];
 
-        // 5 个阶段
-        expect(pipeline.length).toBe(5);
+        // 6 个阶段
+        expect(pipeline.length).toBe(6);
 
-        // 阶段 1: $match
+        // 阶段 1: $match（文本索引搜索）
         expect(pipeline[0].$match).toBeDefined();
         expect(pipeline[0].$match.$text).toEqual({ $search: '搜索词' });
 
@@ -752,27 +752,32 @@ describe('MemorySearchService.textSearch', () => {
             $meta: 'textScore',
         });
 
-        // 阶段 3: $sort
-        expect(pipeline[2].$sort.textScore).toBe(-1);
+        // 阶段 3: $match（标量过滤：userId）
+        expect(pipeline[2].$match).toBeDefined();
+        expect(pipeline[2].$match.userId).toBe('test-key');
 
-        // 阶段 4: $limit
-        expect(pipeline[3].$limit).toBe(20);
+        // 阶段 4: $sort
+        expect(pipeline[3].$sort.textScore).toBe(-1);
 
-        // 阶段 5: $project
-        expect(pipeline[4].$project).toBeDefined();
-        expect(pipeline[4].$project.textScore).toBe(1);
-        expect(pipeline[4].$project.content).toBe(1);
+        // 阶段 5: $limit
+        expect(pipeline[4].$limit).toBe(20);
+
+        // 阶段 6: $project
+        expect(pipeline[5].$project).toBeDefined();
+        expect(pipeline[5].$project.textScore).toBe(1);
+        expect(pipeline[5].$project.content).toBe(1);
     });
 
-    it('S19: $match 同时包含 $text 和 userId', async () => {
+    it('S19: $match 第一阶段含 $text，第二阶段含 userId', async () => {
         (MemoryFact.aggregate as any).mockResolvedValue([]);
 
         await (memorySearchService as any).textSearch('my-key', '搜索词', 20);
 
-        const match = (MemoryFact.aggregate as any).mock.calls[0]![0][0].$match;
+        const textMatch = (MemoryFact.aggregate as any).mock.calls[0]![0][0].$match;
+        const filterMatch = (MemoryFact.aggregate as any).mock.calls[0]![0][2].$match;
 
-        expect(match.$text).toEqual({ $search: '搜索词' });
-        expect(match.userId).toBe('my-key');
+        expect(textMatch.$text).toEqual({ $search: '搜索词' });
+        expect(filterMatch.userId).toBe('my-key');
     });
 
     it('S20: rank 与 rawScore 映射（1-based，rawScore 取自 textScore）', async () => {
@@ -839,10 +844,10 @@ describe('MemorySearchService.textSearch', () => {
 
         const pipeline = (MemoryFact.aggregate as any).mock
             .calls[0]![0] as any[];
-        expect(pipeline[3].$limit).toBe(50);
+        expect(pipeline[4].$limit).toBe(50);
     });
 
-    it('E19: notebookId + type 透传到 $match', async () => {
+    it('E19: notebookId + type 透传到第二个 $match（标量过滤阶段）', async () => {
         (MemoryFact.aggregate as any).mockResolvedValue([]);
 
         await (memorySearchService as any).textSearch(
@@ -853,20 +858,19 @@ describe('MemorySearchService.textSearch', () => {
             'fact',
         );
 
-        const match = (MemoryFact.aggregate as any).mock.calls[0]![0][0].$match;
+        const filterMatch = (MemoryFact.aggregate as any).mock.calls[0]![0][2].$match;
 
-        expect(match.userId).toBe('test-key');
-        expect(match.notebookId).toBe('nb1');
-        expect(match.type).toBe('fact');
+        expect(filterMatch.notebookId).toBe('nb1');
+        expect(filterMatch.type).toBe('fact');
     });
 
-    it('E20: 不传 notebookId 和 type，$match 仅含 $text 和 userId', async () => {
+    it('E20: 不传 notebookId 和 type，$match 仅含 $text', async () => {
         (MemoryFact.aggregate as any).mockResolvedValue([]);
 
         await (memorySearchService as any).textSearch('test-key', '搜索词', 20);
 
         const match = (MemoryFact.aggregate as any).mock.calls[0]![0][0].$match;
 
-        expect(Object.keys(match).sort()).toEqual(['$text', 'userId']);
+        expect(Object.keys(match).sort()).toEqual(['$text']);
     });
 });

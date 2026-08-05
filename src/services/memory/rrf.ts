@@ -34,6 +34,10 @@ export function rrfFusion(
             if (existing) {
                 existing.rrfScore += contribution;
                 existing.doc.rrfScore = existing.rrfScore;
+                // 若新管道 doc 有 vectorScore 而已有条目无，补上
+                if (doc.vectorScore !== undefined && existing.doc.vectorScore === undefined) {
+                    existing.doc.vectorScore = doc.vectorScore;
+                }
             } else {
                 scoreMap.set(doc._id, {
                     doc: {
@@ -48,6 +52,7 @@ export function rrfFusion(
                         createdAt: doc.createdAt,
                         updatedAt: doc.updatedAt,
                         rrfScore: contribution,
+                        vectorScore: doc.vectorScore,
                     },
                     rrfScore: contribution,
                 });

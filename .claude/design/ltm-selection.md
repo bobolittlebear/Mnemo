@@ -8,7 +8,7 @@
 
 定位：**噪声兜底 + 多样性保障**——百分位截断是兜底去噪手段而非质量选择器，语义去重是多样性保障而非聚类算法。RRF 粗排仍是质量排序的主裁判。
 
-**输入**：`MemorySearchResult[]`（来自 `memorySearch.service.search()`，每项含 `rrfScore`）
+**输入**：`MemorySearchResult[]`（来自 `memorySearch.service.search()`，每项含 `rrfScore` 和 `vectorScore`）
 **输出**：`MemorySelectionOutput`（含 `selected` 子集 + `metadata` 过滤过程数据）
 
 ## 2. 数据流
@@ -22,7 +22,8 @@ memorySearch.service.search(userId, query)
     ▼
 memorySelection.service.select(results, config)
     │
-    ├─ A: 小样本保护（≤5条跳过）→ 百分位截断（噪声兜底）→ 空集兜底
+    ├─ A0: vectorScore 绝对地板（语义相关性门卫，拦均匀噪声）
+    ├─ A1: 百分位截断（长尾噪声兜底）→ 空集兜底
     ├─ B: 查询 embedding → 贪心去重（重复时保留更长者）→ 降级保护
     ├─ 硬上限：最终条数截断
     │
@@ -32,15 +33,50 @@ memorySelection.service.select(results, config)
 调用方将 selected 格式化为 system prompt 片段 → 注入 LLM
 ```
 
-## 3. Pipeline A — 百分位阈值过滤（噪声兜底）
+## 3. Pipeline A — 两级噪声过滤
+
+### A0 — 绝对分数地板（语义相关性门卫）
+
+**目标**：拦截"候选集中没有任何一条记忆与查询语义相关"的场景（均匀噪声），这是百分位截断无法应对的。
+
+**为什么必须用 vectorScore 而非 rrfScore**：
+
+| 维度 | vectorScore（余弦相似度） | rrfScore（排名融合分） |
+|---|---|---|
+| 尺 | 绝对尺，语义距离，0–1，跨查询可比 | 相对尺，候选集内哪个更好，0–0.033，不跨查询可比 |
+| 适合做 | 相关性门卫：有没有任何一条够格 | 质量排序：够格的里面谁更强 |
+
+RRF 公式的满分是 1/61+1/61≈0.033，永远到不了 0.3。用 rrfScore 做绝对地板是数学矛盾。
+
+**做法**：取候选集中所有 `vectorScore` 的最大值（排除 undefined——纯文本检索降级场景无 vectorScore，直接跳过本步）。若最大值 < `MEMORY_SELECTION_MIN_VECTOR_SCORE`（默认 0.5），直接返回空 selected，不跑后续管道。若 ≥ 阈值，进入 A1。
+
+**降级保护**：候选集无任何 vectorScore（纯 BM25 降级检索）→ 跳过 A0，直接进入 A1。
+
+**BM25 独有记忆为何不需要地板**：
+
+| 来源 | 有 vectorScore？ | 地板行为 | 原因 |
+|---|---|---|---|
+| 双路都命中 | ✅ | 生效 | 向量+关键词双重确认 |
+| 仅向量命中 | ✅ | 生效 | 向量独有，必须经地板过滤 |
+| 仅 BM25 命中 | ❌ | 跳过 | 关键词精准匹配本身就是相关性担保 |
+
+BM25 靠分词做 exact/partial match（"小熊"→"小熊"），结果天然比向量检索更精确——BM25 的优势是**高精确**，劣势是**低召回**（同义词覆盖不到）。对 BM25 独有的记忆再加一道向量相似度地板，等于拿 BM25 的短板测 BM25 的长板，没有意义。
+
+BM25 误召回（如"小熊饼干"匹配"小熊宠物"）会被 A1 百分位截断处理：单项 BM25 命中只有一个排名分，RRF 总分远低于双路命中项，在候选集中天然垫底，P70 截断大概率掐掉。
+
+**即：A0 门卫拦向量均匀噪声，A1 门卫拦长尾噪声（含 BM25 误召回）。两道光栅各司其职，不重叠。**
+
+**关键决策**：
+- 0.5 为初值，需线上观察后校准（过严可降至 0.4，过松可升至 0.6）。
+- 地板触发可通过 metadata 反推：`totalCandidates > 0 && selected === []` 唯一标识触发（正常管道 Top-1 兜底保证不会空输出）。
+
+### A1 — 百分位阈值过滤（长尾噪声兜底）
 
 **目标**：丢弃 RRF 分数显著偏低的噪声记忆，不固定 Top-K。
 
 **做法**：
-1. **小样本保护**：若 `candidates.length <= 5`，跳过百分位计算，全部进入下一管。
-   - ≤4 条时 RRF 分布在统计上不可信，强行截断无意义。
-2. **百分位计算**：取所有候选的 `rrfScore`，按**线性插值法**（与 NumPy `percentile(method='linear')` 一致）计算第 N 百分位值（默认 N=70）。保留 `rrfScore >= percentileValue` 的记忆。
-3. **空集兜底**：若过滤后为空，强制取 `rrfScore` 最高的一条（避免完全失忆）。
+1. **百分位计算**：取所有候选的 `rrfScore`，按**线性插值法**（与 NumPy `percentile(method='linear')` 一致）计算第 N 百分位值（默认 N=70）。保留 `rrfScore >= percentileValue` 的记忆。
+2. **空集兜底**：若过滤后为空，强制取 `rrfScore` 最高的一条（避免完全失忆）。
 
 **关键决策**：
 - 百分位而非绝对阈值：RRF 分数不跨查询可比，绝对值无意义。
@@ -48,6 +84,8 @@ memorySelection.service.select(results, config)
 - 百分位是兜底去噪手段，不是质量排序主裁判——RRF 粗排仍是主裁判，此管道只负责掐掉长尾。
 
 **metadata 记录**：`totalCandidates`、`percentileThreshold`、`afterPercentile`。
+
+> A0 地板触发可由 metadata 反推（`totalCandidates > 0 && selected === []`），无需额外字段。
 
 ## 4. Pipeline B — 贪心语义去重（多样性保障）
 
@@ -108,9 +146,9 @@ finalScore = rrfScore * (recencyFloor + (1 - recencyFloor) * 0.5^(age_days / hal
 
 | 配置项 | 默认值 | 管道 | 说明 |
 |---|---|---|---|
-| `MEMORY_SELECTION_PERCENTILE` | 0.7 | A | RRF 百分位截断线（噪声兜底，非质量选择） |
-| `MEMORY_SELECTION_PERCENTILE_ALGORITHM` | `'linear'` | A | 百分位算法：线性插值（NumPy 兼容） |
-| `MEMORY_SELECTION_PERCENTILE_MIN_COUNT` | 5 | A | 小样本保护：≤N 条跳过百分位 |
+| `MEMORY_SELECTION_MIN_VECTOR_SCORE` | 0.5 | A0 | vectorScore 绝对地板（均匀噪声门卫） |
+| `MEMORY_SELECTION_PERCENTILE` | 0.7 | A1 | RRF 百分位截断线（长尾噪声兜底，非质量选择） |
+| `MEMORY_SELECTION_PERCENTILE_ALGORITHM` | `'linear'` | A1 | 百分位算法：线性插值（NumPy 兼容） |
 | `MEMORY_SELECTION_HARD_MAX` | 8 | 硬上限 | 最终注入最大条数 |
 | `MEMORY_SELECTION_DEDUP_THRESHOLD` | 0.88 | B | 余弦相似度去重阈值（TODO：嵌入模型校准） |
 | `MEMORY_SELECTION_RECENCY_ENABLED` | false | C | 时效加权开关（推迟） |

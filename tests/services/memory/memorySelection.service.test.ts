@@ -161,13 +161,15 @@ describe('MemorySelectionService', () => {
             // 5 个正交 embedding → 全部不触发去重
             mockOrthoEmbeddings(candidates);
 
-            const { selected, metadata } = await MemorySelectionService.select(candidates);
+            const { selected, metadata } = await MemorySelectionService.select(candidates, {
+                percentile: 0, // bypass Pipeline A 让全部候选进入 B
+            });
 
-            // Pipeline A: 5 ≤ MIN_COUNT(5)，小样本保护触发，全部保留
+            // Pipeline A: bypass，全部保留
             expect(metadata.totalCandidates).toBe(5);
             expect(metadata.afterPercentile).toBe(5);
-            // 小样本保护时 threshold = NaN
-            expect(metadata.percentileThreshold).toBeNaN();
+            // percentile=0 时 threshold 为最低分（全部通过）
+            expect(metadata.percentileThreshold).toBe(0.1);
 
             // Pipeline B: 正交向量全部不重复
             expect(metadata.afterDedup).toBe(5);
@@ -182,7 +184,7 @@ describe('MemorySelectionService', () => {
             expect(metadata.selectionLatencyMs).toBeGreaterThanOrEqual(0);
         });
 
-        it('H2 — 硬上限触发：10 条高分候选 → A（bypass via percentileMinCount）→ B 无重复 → 硬上限截断到 HARD_MAX', async () => {
+        it('H2 — 硬上限触发：10 条高分候选 → A（bypass via percentile=0）→ B 无重复 → 硬上限截断到 HARD_MAX', async () => {
             const candidates = makeCandidates(
                 [0.91, 0.92, 0.93, 0.94, 0.95, 0.96, 0.97, 0.98, 0.99, 1.0],
                 undefined,
@@ -197,7 +199,7 @@ describe('MemorySelectionService', () => {
 
             // bypass Pipeline A 百分位截断，让 10 条全进 B
             const { selected, metadata } = await MemorySelectionService.select(candidates, {
-                percentileMinCount: 100,
+                percentile: 0,
             });
 
             expect(metadata.totalCandidates).toBe(10);
@@ -224,30 +226,22 @@ describe('MemorySelectionService', () => {
     // ══════════════════════════════════════════════════════════════
 
     describe('Pipeline A — 百分位截断', () => {
-        it('小样本保护：3 条候选 → 全部保留，threshold = NaN', async () => {
+        it('百分位=0 绕过 A：3 条候选 → 全部保留', async () => {
             const candidates = makeCandidates([0.2, 0.5, 0.8]);
             mockOrthoEmbeddings(candidates);
 
-            const { selected, metadata } = await MemorySelectionService.select(candidates);
+            const { selected, metadata } = await MemorySelectionService.select(candidates, {
+                percentile: 0,
+            });
 
             expect(metadata.totalCandidates).toBe(3);
             expect(metadata.afterPercentile).toBe(3);
-            expect(metadata.percentileThreshold).toBeNaN();
+            // percentile=0 时 threshold 为最低分（全部通过）
+            expect(metadata.percentileThreshold).toBe(0.2);
             expect(selected.length).toBe(3);
         });
 
-        it('小样本保护临界：5 条候选 → ≤ MIN_COUNT(5) 跳过 A', async () => {
-            const candidates = makeCandidates([0.1, 0.2, 0.3, 0.4, 0.5]);
-            mockOrthoEmbeddings(candidates);
-
-            const { metadata } = await MemorySelectionService.select(candidates);
-
-            expect(metadata.totalCandidates).toBe(5);
-            expect(metadata.afterPercentile).toBe(5);
-            expect(metadata.percentileThreshold).toBeNaN();
-        });
-
-        it('小样本突破：6 条候选 → A 正常执行百分位截断', async () => {
+        it('默认 P70 百分位截断：6 条候选 → A 正常执行', async () => {
             const candidates = makeCandidates([0.1, 0.2, 0.3, 0.5, 0.7, 0.9]);
             mockOrthoEmbeddings(candidates);
 
@@ -304,9 +298,11 @@ describe('MemorySelectionService', () => {
             // 正交 embedding → cos = 0 < 0.88 → 全部保留
             mockOrthoEmbeddings(candidates);
 
-            const { selected, metadata } = await MemorySelectionService.select(candidates);
+            const { selected, metadata } = await MemorySelectionService.select(candidates, {
+                percentile: 0, // bypass Pipeline A
+            });
 
-            // 5 ≤ MIN_COUNT，A 保留全部
+            // percentile=0 bypass A，全部保留
             expect(metadata.afterPercentile).toBe(5);
             // B 无去重
             expect(metadata.afterDedup).toBe(5);
@@ -376,7 +372,9 @@ describe('MemorySelectionService', () => {
             map.set(idB, similarEmb);
             mockEmbeddingResponse(map);
 
-            const { metadata } = await MemorySelectionService.select(candidates);
+            const { metadata } = await MemorySelectionService.select(candidates, {
+                percentile: 0, // bypass Pipeline A 让两条都进入 B
+            });
 
             expect(metadata.dedupSkipped).toBe(false);
             // 两条去重保留一条；rrfScore 高的（0.9, shortContent）先进 kept，
@@ -407,7 +405,9 @@ describe('MemorySelectionService', () => {
             map.set(idB, sameEmb);
             mockEmbeddingResponse(map);
 
-            const { metadata } = await MemorySelectionService.select(candidates);
+            const { metadata } = await MemorySelectionService.select(candidates, {
+                percentile: 0, // bypass Pipeline A 让两条都进入 B
+            });
 
             expect(metadata.dedupSkipped).toBe(false);
             expect(metadata.afterDedup).toBe(1);
@@ -444,7 +444,7 @@ describe('MemorySelectionService', () => {
 
             const { metadata } = await MemorySelectionService.select(candidates, {
                 dedupThreshold: 0.88,
-                percentileMinCount: 100, // bypass Pipeline A 让全部 6 条进入 B
+                percentile: 0, // bypass Pipeline A 让全部 6 条进入 B
             });
 
             expect(metadata.dedupSkipped).toBe(false);
@@ -477,7 +477,7 @@ describe('MemorySelectionService', () => {
             // threshold = 0.75: cos 0.90 > 0.75 → 触发去重 → 1 条
             mockMemoryFactLean.mockReset();
             mockEmbeddingResponse(buildMap());
-            const r1 = await MemorySelectionService.select(buildCandidates(), { dedupThreshold: 0.75 });
+            const r1 = await MemorySelectionService.select(buildCandidates(), { dedupThreshold: 0.75, percentile: 0 });
             expect(r1.metadata.dedupSkipped).toBe(false);
             expect(r1.metadata.afterDedup).toBe(1);
             expect(r1.metadata.droppedByDedup.length).toBe(1);
@@ -485,7 +485,7 @@ describe('MemorySelectionService', () => {
             // threshold = 0.88: cos 0.90 > 0.88 → 触发去重 → 1 条
             mockMemoryFactLean.mockReset();
             mockEmbeddingResponse(buildMap());
-            const r2 = await MemorySelectionService.select(buildCandidates(), { dedupThreshold: 0.88 });
+            const r2 = await MemorySelectionService.select(buildCandidates(), { dedupThreshold: 0.88, percentile: 0 });
             expect(r2.metadata.dedupSkipped).toBe(false);
             expect(r2.metadata.afterDedup).toBe(1);
             expect(r2.metadata.droppedByDedup.length).toBe(1);
@@ -493,7 +493,7 @@ describe('MemorySelectionService', () => {
             // threshold = 0.95: cos 0.90 < 0.95 → 不去重 → 2 条
             mockMemoryFactLean.mockReset();
             mockEmbeddingResponse(buildMap());
-            const r3 = await MemorySelectionService.select(buildCandidates(), { dedupThreshold: 0.95 });
+            const r3 = await MemorySelectionService.select(buildCandidates(), { dedupThreshold: 0.95, percentile: 0 });
             expect(r3.metadata.dedupSkipped).toBe(false);
             expect(r3.metadata.afterDedup).toBe(2);
             expect(r3.metadata.droppedByDedup.length).toBe(0);
@@ -515,7 +515,9 @@ describe('MemorySelectionService', () => {
             // mock lean 抛出异常 → batchGet 整体失败
             mockMemoryFactLean.mockRejectedValue(new Error('MongoDB 连接失败'));
 
-            const { selected, metadata } = await MemorySelectionService.select(candidates);
+            const { selected, metadata } = await MemorySelectionService.select(candidates, {
+                percentile: 0, // bypass Pipeline A 让全部候选进入 B
+            });
 
             expect(metadata.dedupSkipped).toBe(true);
             // 降级后 B 管直接返回 A 管输出
@@ -543,7 +545,9 @@ describe('MemorySelectionService', () => {
             map.set(idC, oneHot(2));
             mockEmbeddingResponse(map);
 
-            const { selected, metadata } = await MemorySelectionService.select(candidates);
+            const { selected, metadata } = await MemorySelectionService.select(candidates, {
+                percentile: 0, // bypass Pipeline A 让全部候选进入 B
+            });
 
             expect(metadata.dedupSkipped).toBe(false);
             // embeddingMissing: idB 是 null（1 条缺失）
@@ -609,7 +613,7 @@ describe('MemorySelectionService', () => {
             mockOrthoEmbeddings(candidates);
 
             const { selected } = await MemorySelectionService.select(candidates, {
-                percentileMinCount: 100, // bypass A
+                percentile: 0, // bypass A
             });
 
             // 验证排序：selected 按 rrfScore 降序
@@ -630,7 +634,9 @@ describe('MemorySelectionService', () => {
             const candidates = makeCandidates([0.5, 0.6, 0.7]);
             mockOrthoEmbeddings(candidates);
 
-            const { selected, metadata } = await MemorySelectionService.select(candidates);
+            const { selected, metadata } = await MemorySelectionService.select(candidates, {
+                percentile: 0, // bypass Pipeline A
+            });
 
             // 正常走完管线，无异常
             expect(selected.length).toBe(3);
@@ -643,6 +649,7 @@ describe('MemorySelectionService', () => {
 
             const { selected, metadata } = await MemorySelectionService.select(candidates, {
                 recencyEnabled: true,
+                percentile: 0, // bypass Pipeline A
             });
 
             // Pipeline C 目前是骨架（直接返回原数组），不影响结果

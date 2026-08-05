@@ -8,6 +8,8 @@ const MemoryFactSchema = new Schema<RawMemoryFact>(
 
         content: { type: String, required: true, trim: true },
 
+        searchText: { type: String, default: '' },
+
         sourceMessageIds: {
             type: [String],
             required: true,
@@ -28,6 +30,11 @@ const MemoryFactSchema = new Schema<RawMemoryFact>(
             type: String,
             enum: ['fact', 'note_chunk', 'media'],
             default: 'fact',
+        },
+        category: {
+            type: String,
+            enum: ['preference', 'personal_info', 'decision', 'behavior_pattern', 'relationship', 'diet', 'skill', 'goal', 'event', 'instruction'],
+            required: true,
         },
         contentHash: { type: String, required: true },
         metadata: { type: Schema.Types.Mixed, default: {} },
@@ -50,11 +57,12 @@ const MemoryFactSchema = new Schema<RawMemoryFact>(
 MemoryFactSchema.index({ userId: 1, createdAt: -1 });
 
 // 全文检索索引（用于 BM25 关键词匹配，支撑混合检索）
+// 注：索引字段从 content 改为 searchText（中文分词后的文本），旧 content 索引需手动删除
 MemoryFactSchema.index(
-    { content: 'text' },
+    { searchText: 'text' },
     {
         name: 'memory_content_text_index',
-        weights: { content: 10 },
+        weights: { searchText: 10 },
         language_override: 'none', // 中文场景建议关闭词干分析
         default_language: 'none',
     },
