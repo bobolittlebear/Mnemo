@@ -1,0 +1,335 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Memory Selection Eval > T1: 强相关，P70 截断 m3/m4 1`] = `
+{
+  "afterDedup": 1,
+  "afterPercentile": 1,
+  "dedupClusters": undefined,
+  "dedupSkipped": false,
+  "droppedByDedup": [],
+  "embeddingMissing": 0,
+  "hardMaxApplied": false,
+  "hardMaxDropped": 0,
+  "percentileThreshold": 0.030199999999999998,
+  "totalCandidates": 4,
+}
+`;
+
+exports[`Memory Selection Eval > T2: 中等相关，长尾截断 A0 通过 P70 保留 3 条 1`] = `
+{
+  "afterDedup": 2,
+  "afterPercentile": 2,
+  "dedupClusters": undefined,
+  "dedupSkipped": false,
+  "droppedByDedup": [],
+  "embeddingMissing": 2,
+  "hardMaxApplied": false,
+  "hardMaxDropped": 0,
+  "percentileThreshold": 0.02219999999999999,
+  "totalCandidates": 7,
+}
+`;
+
+exports[`Memory Selection Eval > T3: 均匀噪声 A0 地板拦截 max=0.18<0.5 1`] = `
+{
+  "afterDedup": 0,
+  "afterPercentile": 0,
+  "dedupSkipped": false,
+  "droppedByDedup": [],
+  "embeddingMissing": 0,
+  "hardMaxApplied": false,
+  "hardMaxDropped": 0,
+  "percentileThreshold": NaN,
+  "totalCandidates": 3,
+}
+`;
+
+exports[`Memory Selection Eval > T4: 弱相关但一条撞线 A0 集合级放行 ARCH NOTE 1`] = `
+{
+  "afterDedup": 1,
+  "afterPercentile": 1,
+  "dedupClusters": undefined,
+  "dedupSkipped": false,
+  "droppedByDedup": [],
+  "embeddingMissing": 0,
+  "hardMaxApplied": false,
+  "hardMaxDropped": 0,
+  "percentileThreshold": 0.0232,
+  "totalCandidates": 3,
+}
+`;
+
+exports[`Memory Selection Eval > T5-block: vectorScore =0.4999 被 A0 拦截 1`] = `
+{
+  "afterDedup": 0,
+  "afterPercentile": 0,
+  "dedupSkipped": false,
+  "droppedByDedup": [],
+  "embeddingMissing": 0,
+  "hardMaxApplied": false,
+  "hardMaxDropped": 0,
+  "percentileThreshold": NaN,
+  "totalCandidates": 1,
+}
+`;
+
+exports[`Memory Selection Eval > T5-pass: vectorScore 恰好 =0.50 通过 A0 1`] = `
+{
+  "afterDedup": 1,
+  "afterPercentile": 1,
+  "dedupClusters": undefined,
+  "dedupSkipped": false,
+  "droppedByDedup": [],
+  "embeddingMissing": 0,
+  "hardMaxApplied": false,
+  "hardMaxDropped": 0,
+  "percentileThreshold": 0.025,
+  "totalCandidates": 1,
+}
+`;
+
+exports[`Memory Selection Eval > T6: 纯 BM25 召回跳过 A0 P70 保留 m1 1`] = `
+{
+  "afterDedup": 1,
+  "afterPercentile": 1,
+  "dedupClusters": undefined,
+  "dedupSkipped": false,
+  "droppedByDedup": [],
+  "embeddingMissing": 0,
+  "hardMaxApplied": false,
+  "hardMaxDropped": 0,
+  "percentileThreshold": 0.0168,
+  "totalCandidates": 2,
+}
+`;
+
+exports[`Memory Selection Eval > T7: 高分密集 P70 threshold≈0.026 保留 m1-m6 1`] = `
+{
+  "afterDedup": 3,
+  "afterPercentile": 3,
+  "dedupClusters": undefined,
+  "dedupSkipped": false,
+  "droppedByDedup": [],
+  "embeddingMissing": 3,
+  "hardMaxApplied": false,
+  "hardMaxDropped": 0,
+  "percentileThreshold": 0.0299,
+  "totalCandidates": 8,
+}
+`;
+
+exports[`Memory Selection Eval > T8: 正常截断非空集 P70 threshold≈0.011 保留 m1+m2 1`] = `
+{
+  "afterDedup": 1,
+  "afterPercentile": 1,
+  "dedupClusters": undefined,
+  "dedupSkipped": false,
+  "droppedByDedup": [],
+  "embeddingMissing": 0,
+  "hardMaxApplied": false,
+  "hardMaxDropped": 0,
+  "percentileThreshold": 0.018199999999999997,
+  "totalCandidates": 4,
+}
+`;
+
+exports[`Memory Selection Eval > T9: 去重保留更长者 m1(短)被 m2(长)替换 1`] = `
+{
+  "afterDedup": 1,
+  "afterPercentile": 1,
+  "dedupClusters": undefined,
+  "dedupSkipped": false,
+  "droppedByDedup": [],
+  "embeddingMissing": 0,
+  "hardMaxApplied": false,
+  "hardMaxDropped": 0,
+  "percentileThreshold": 0.030199999999999998,
+  "totalCandidates": 4,
+}
+`;
+
+exports[`Memory Selection Eval > T10: 不重复全部保留 m3 低 vectorScore 因集合级放行存活 ARCH NOTE 1`] = `
+{
+  "afterDedup": 2,
+  "afterPercentile": 2,
+  "dedupClusters": undefined,
+  "dedupSkipped": false,
+  "droppedByDedup": [],
+  "embeddingMissing": 0,
+  "hardMaxApplied": false,
+  "hardMaxDropped": 0,
+  "percentileThreshold": 0.0308,
+  "totalCandidates": 5,
+}
+`;
+
+exports[`Memory Selection Eval > T11: embedding 缺失降级 m2 直接保留 embeddingMissing=1 1`] = `
+{
+  "afterDedup": 1,
+  "afterPercentile": 1,
+  "dedupClusters": undefined,
+  "dedupSkipped": false,
+  "droppedByDedup": [],
+  "embeddingMissing": 0,
+  "hardMaxApplied": false,
+  "hardMaxDropped": 0,
+  "percentileThreshold": 0.028399999999999998,
+  "totalCandidates": 4,
+}
+`;
+
+exports[`Memory Selection Eval > T12: 硬上限触发 15条高分互不重复 A1保留约11条 硬上限截到8 1`] = `
+{
+  "afterDedup": 3,
+  "afterPercentile": 5,
+  "dedupClusters": [
+    [
+      "记忆4-转型 AI",
+      "记忆3-学 Python",
+    ],
+    [
+      "记忆5-学 Rust",
+      "记忆3-学 Python",
+    ],
+  ],
+  "dedupSkipped": false,
+  "droppedByDedup": [
+    "记忆4-转型 AI",
+    "记忆5-学 Rust",
+  ],
+  "embeddingMissing": 0,
+  "hardMaxApplied": false,
+  "hardMaxDropped": 0,
+  "percentileThreshold": 0.0299,
+  "totalCandidates": 15,
+}
+`;
+
+exports[`Memory Selection Eval > T13: 不触发硬上限 5条互不重复 <8 1`] = `
+{
+  "afterDedup": 2,
+  "afterPercentile": 2,
+  "dedupClusters": undefined,
+  "dedupSkipped": false,
+  "droppedByDedup": [],
+  "embeddingMissing": 0,
+  "hardMaxApplied": false,
+  "hardMaxDropped": 0,
+  "percentileThreshold": 0.0298,
+  "totalCandidates": 5,
+}
+`;
+
+exports[`Memory Selection Eval > T14: 端到端全管道 m1-m2相似度0.93去重淘汰m2 m4用Go写CLI与m1不重复 sim=0.72 1`] = `
+{
+  "afterDedup": 1,
+  "afterPercentile": 2,
+  "dedupClusters": [
+    [
+      "用户喜欢 Go",
+      "用户偏好 Go 语言",
+    ],
+  ],
+  "dedupSkipped": false,
+  "droppedByDedup": [
+    "用户喜欢 Go",
+  ],
+  "embeddingMissing": 0,
+  "hardMaxApplied": false,
+  "hardMaxDropped": 0,
+  "percentileThreshold": 0.030199999999999998,
+  "totalCandidates": 7,
+}
+`;
+
+exports[`Memory Selection Eval > T16: 混合 vectorScore 3条有+2条undefined A0取有值的max=0.85放行 P70保留m1 1`] = `
+{
+  "afterDedup": 1,
+  "afterPercentile": 1,
+  "dedupClusters": undefined,
+  "dedupSkipped": false,
+  "droppedByDedup": [],
+  "embeddingMissing": 0,
+  "hardMaxApplied": false,
+  "hardMaxDropped": 0,
+  "percentileThreshold": 0.0248,
+  "totalCandidates": 3,
+}
+`;
+
+exports[`Memory Selection Eval > T17-079: 去重边界阈值=0.88 sim(m1-m2)=0.879 不触发去重 1`] = `
+{
+  "afterDedup": 1,
+  "afterPercentile": 1,
+  "dedupClusters": undefined,
+  "dedupSkipped": false,
+  "droppedByDedup": [],
+  "embeddingMissing": 0,
+  "hardMaxApplied": false,
+  "hardMaxDropped": 0,
+  "percentileThreshold": 0.0314,
+  "totalCandidates": 3,
+}
+`;
+
+exports[`Memory Selection Eval > T17-080: 去重边界阈值=0.88 sim(m1-m2)=0.880 触发去重保留m1 1`] = `
+{
+  "afterDedup": 1,
+  "afterPercentile": 1,
+  "dedupClusters": undefined,
+  "dedupSkipped": false,
+  "droppedByDedup": [],
+  "embeddingMissing": 0,
+  "hardMaxApplied": false,
+  "hardMaxDropped": 0,
+  "percentileThreshold": 0.0314,
+  "totalCandidates": 3,
+}
+`;
+
+exports[`Memory Selection Eval > T17-081: 去重边界阈值=0.88 sim(m1-m2)=0.881 触发去重保留m1 1`] = `
+{
+  "afterDedup": 1,
+  "afterPercentile": 1,
+  "dedupClusters": undefined,
+  "dedupSkipped": false,
+  "droppedByDedup": [],
+  "embeddingMissing": 0,
+  "hardMaxApplied": false,
+  "hardMaxDropped": 0,
+  "percentileThreshold": 0.0314,
+  "totalCandidates": 3,
+}
+`;
+
+exports[`T8b: 百分位截断返回空集 (mock 强制空集) > 百分位截断返回空数组时，selected 为空 1`] = `
+{
+  "afterDedup": 0,
+  "afterPercentile": 0,
+  "dedupClusters": undefined,
+  "dedupSkipped": false,
+  "droppedByDedup": [],
+  "embeddingMissing": 0,
+  "hardMaxApplied": false,
+  "hardMaxDropped": 0,
+  "percentileThreshold": undefined,
+  "selectionLatencyMs": 0,
+  "totalCandidates": 2,
+}
+`;
+
+exports[`T15: batchGet 异常降级 (dedupSkipped=true) > batchGet 抛 Error 时 B 管跳过 selected=A管输出 1`] = `
+{
+  "afterDedup": 2,
+  "afterPercentile": 2,
+  "dedupClusters": undefined,
+  "dedupSkipped": true,
+  "droppedByDedup": [],
+  "embeddingMissing": 2,
+  "hardMaxApplied": false,
+  "hardMaxDropped": 0,
+  "percentileThreshold": 0.0288,
+  "selectionLatencyMs": 5,
+  "totalCandidates": 3,
+}
+`;

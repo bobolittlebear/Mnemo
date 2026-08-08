@@ -1,0 +1,1509 @@
+[
+    {
+        "id": "T1",
+        "description": "强相关，P70 截断 m3/m4",
+        "candidates": [
+            {
+                "_id": "m1",
+                "content": "用户偏好 Go 作为主要语言",
+                "rrfScore": 0.032,
+                "vectorScore": 0.82,
+                "category": "preference",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.9,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m2",
+                "content": "用户熟练掌握 Python 和 TypeScript",
+                "rrfScore": 0.03,
+                "vectorScore": 0.75,
+                "category": "skill",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.9,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m3",
+                "content": "用户认为 Rust 很有趣但还没深入",
+                "rrfScore": 0.028,
+                "vectorScore": 0.68,
+                "category": "fact",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.8,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m4",
+                "content": "用户用过 Java 但不喜欢",
+                "rrfScore": 0.026,
+                "vectorScore": 0.6,
+                "category": "preference",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.85,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            }
+        ],
+        "config": {},
+        "expected": {
+            "selectedCount": 1
+        }
+    },
+    {
+        "id": "T2",
+        "description": "中等相关，长尾截断 A0 通过 P70 保留 3 条",
+        "candidates": [
+            {
+                "_id": "m1",
+                "content": "用户有一只名叫小熊的孩子",
+                "rrfScore": 0.032,
+                "vectorScore": 0.91,
+                "category": "fact",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.9,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m2",
+                "content": "用户给小熊购买了专属床",
+                "rrfScore": 0.031,
+                "vectorScore": 0.85,
+                "category": "event",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.85,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m3",
+                "content": "用户计划带小熊去北京环球影城",
+                "rrfScore": 0.02,
+                "vectorScore": 0.62,
+                "category": "goal",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.8,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m4",
+                "content": "用户最近在学日语",
+                "rrfScore": 0.018,
+                "vectorScore": 0.15,
+                "category": "goal",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.7,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m5",
+                "content": "用户喜欢吃拉面",
+                "rrfScore": 0.016,
+                "vectorScore": 0.12,
+                "category": "preference",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.9,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m6",
+                "content": "用户住北京朝阳区",
+                "rrfScore": 0.014,
+                "vectorScore": 0.08,
+                "category": "personal_info",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.9,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m7",
+                "content": "用户习惯晚上学习",
+                "rrfScore": 0.012,
+                "vectorScore": 0.05,
+                "category": "behavior_pattern",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.8,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            }
+        ],
+        "config": {},
+        "expected": {
+            "selectedCount": 2
+        }
+    },
+    {
+        "id": "T3",
+        "description": "均匀噪声 A0 地板拦截 max=0.18<0.5",
+        "candidates": [
+            {
+                "_id": "m1",
+                "content": "用户偏好 Go",
+                "rrfScore": 0.02,
+                "vectorScore": 0.18,
+                "category": "preference",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.8,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m2",
+                "content": "用户住北京",
+                "rrfScore": 0.018,
+                "vectorScore": 0.15,
+                "category": "personal_info",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.9,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m3",
+                "content": "用户吃素",
+                "rrfScore": 0.016,
+                "vectorScore": 0.12,
+                "category": "diet",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.9,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            }
+        ],
+        "config": {},
+        "expected": {
+            "selectedCount": 0
+        }
+    },
+    {
+        "id": "T4",
+        "description": "弱相关但一条撞线 A0 集合级放行 ARCH NOTE",
+        "candidates": [
+            {
+                "_id": "m1",
+                "content": "用户上周吃了牛排",
+                "rrfScore": 0.025,
+                "vectorScore": 0.35,
+                "category": "event",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.8,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m2",
+                "content": "用户吃素",
+                "rrfScore": 0.022,
+                "vectorScore": 0.72,
+                "category": "diet",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.9,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m3",
+                "content": "用户喜欢意面",
+                "rrfScore": 0.02,
+                "vectorScore": 0.4,
+                "category": "preference",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.85,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            }
+        ],
+        "config": {},
+        "expected": {
+            "selectedCount": 1
+        }
+    },
+    {
+        "id": "T5-pass",
+        "description": "vectorScore 恰好 =0.50 通过 A0",
+        "candidates": [
+            {
+                "_id": "m1",
+                "content": "用户出差去过上海",
+                "rrfScore": 0.025,
+                "vectorScore": 0.5,
+                "category": "event",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.8,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            }
+        ],
+        "config": {},
+        "expected": {
+            "selectedCount": 1
+        }
+    },
+    {
+        "id": "T5-block",
+        "description": "vectorScore =0.4999 被 A0 拦截",
+        "candidates": [
+            {
+                "_id": "m1",
+                "content": "用户常住北京",
+                "rrfScore": 0.02,
+                "vectorScore": 0.4999,
+                "category": "personal_info",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.9,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            }
+        ],
+        "config": {},
+        "expected": {
+            "selectedCount": 0
+        }
+    },
+    {
+        "id": "T6",
+        "description": "纯 BM25 召回跳过 A0 P70 保留 m1",
+        "candidates": [
+            {
+                "_id": "m1",
+                "content": "用户有一只小熊",
+                "rrfScore": 0.018,
+                "category": "fact",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.9,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m2",
+                "content": "用户喜欢小熊饼干",
+                "rrfScore": 0.014,
+                "category": "preference",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.7,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            }
+        ],
+        "config": {},
+        "expected": {
+            "selectedCount": 1
+        }
+    },
+    {
+        "id": "T7",
+        "description": "高分密集 P70 threshold≈0.026 保留 m1-m6",
+        "candidates": [
+            {
+                "_id": "m1",
+                "content": "用户是后端工程师",
+                "rrfScore": 0.032,
+                "vectorScore": 0.88,
+                "category": "fact",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.9,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m2",
+                "content": "用户主要用 Go",
+                "rrfScore": 0.031,
+                "vectorScore": 0.85,
+                "category": "preference",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.9,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m3",
+                "content": "用户学过 Python 和 TS",
+                "rrfScore": 0.03,
+                "vectorScore": 0.82,
+                "category": "skill",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.85,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m4",
+                "content": "用户正在转型 AI 全栈",
+                "rrfScore": 0.029,
+                "vectorScore": 0.78,
+                "category": "goal",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.85,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m5",
+                "content": "用户计划学 Rust",
+                "rrfScore": 0.028,
+                "vectorScore": 0.75,
+                "category": "goal",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.8,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m6",
+                "content": "用户觉得 Java 太啰嗦",
+                "rrfScore": 0.027,
+                "vectorScore": 0.72,
+                "category": "preference",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.9,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m7",
+                "content": "用户看过 Transformer 论文",
+                "rrfScore": 0.026,
+                "vectorScore": 0.7,
+                "category": "event",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.8,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m8",
+                "content": "用户熟悉 Docker",
+                "rrfScore": 0.025,
+                "vectorScore": 0.68,
+                "category": "skill",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.85,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            }
+        ],
+        "config": {},
+        "expected": {
+            "selectedCount": 3
+        }
+    },
+    {
+        "id": "T8",
+        "description": "正常截断非空集 P70 threshold≈0.011 保留 m1+m2",
+        "candidates": [
+            {
+                "_id": "m1",
+                "content": "用户偏好蓝色",
+                "rrfScore": 0.02,
+                "vectorScore": 0.55,
+                "category": "preference",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.9,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m2",
+                "content": "用户常用深色主题",
+                "rrfScore": 0.018,
+                "vectorScore": 0.52,
+                "category": "preference",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.85,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m3",
+                "content": "用户觉得红色太刺眼",
+                "rrfScore": 0.01,
+                "vectorScore": 0.48,
+                "category": "preference",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.9,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m4",
+                "content": "用户所有设备开 dark mode",
+                "rrfScore": 0.008,
+                "vectorScore": 0.45,
+                "category": "behavior_pattern",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.85,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            }
+        ],
+        "config": {},
+        "expected": {
+            "selectedCount": 1
+        }
+    },
+    {
+        "id": "T9",
+        "description": "去重保留更长者 m1(短)被 m2(长)替换",
+        "candidates": [
+            {
+                "_id": "m1",
+                "content": "用户有一只小熊",
+                "rrfScore": 0.032,
+                "vectorScore": 0.9,
+                "category": "fact",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.9,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m2",
+                "content": "用户有一只叫做小熊的宠物",
+                "rrfScore": 0.03,
+                "vectorScore": 0.88,
+                "category": "fact",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.85,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m3",
+                "content": "用户每天遛小熊",
+                "rrfScore": 0.028,
+                "vectorScore": 0.82,
+                "category": "behavior_pattern",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.8,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m4",
+                "content": "用户吃素",
+                "rrfScore": 0.02,
+                "vectorScore": 0.15,
+                "category": "diet",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.9,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            }
+        ],
+        "_mockEmbeddings": {
+            "m1": [
+                0.8,
+                0.6
+            ],
+            "m2": [
+                0.81,
+                0.59
+            ],
+            "m3": [
+                0.1,
+                0.99
+            ],
+            "m4": [
+                0.3,
+                0.95
+            ]
+        },
+        "config": {},
+        "expected": {
+            "selectedCount": 1
+        }
+    },
+    {
+        "id": "T10",
+        "description": "不重复全部保留 m3 低 vectorScore 因集合级放行存活 ARCH NOTE",
+        "candidates": [
+            {
+                "_id": "m1",
+                "content": "用户有一只小熊",
+                "rrfScore": 0.032,
+                "vectorScore": 0.9,
+                "category": "fact",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.9,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m2",
+                "content": "用户每天遛小熊",
+                "rrfScore": 0.031,
+                "vectorScore": 0.82,
+                "category": "behavior_pattern",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.8,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m3",
+                "content": "用户喜欢吃小熊饼干",
+                "rrfScore": 0.03,
+                "vectorScore": 0.3,
+                "category": "preference",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.7,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m4",
+                "content": "用户上周去了动物园看熊",
+                "rrfScore": 0.028,
+                "vectorScore": 0.65,
+                "category": "event",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.8,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m5",
+                "content": "用户买了一只泰迪熊玩偶",
+                "rrfScore": 0.026,
+                "vectorScore": 0.6,
+                "category": "event",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.8,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            }
+        ],
+        "_mockEmbeddings": {
+            "m1": [
+                1,
+                0
+            ],
+            "m2": [
+                0,
+                1
+            ],
+            "m3": [
+                0.707,
+                0.707
+            ],
+            "m4": [
+                0.5,
+                0.866
+            ],
+            "m5": [
+                0.866,
+                0.5
+            ]
+        },
+        "config": {},
+        "expected": {
+            "selectedCount": 2
+        }
+    },
+    {
+        "id": "T11",
+        "description": "embedding 缺失降级 m2 直接保留 embeddingMissing=1",
+        "candidates": [
+            {
+                "_id": "m1",
+                "content": "用户有一只小熊",
+                "rrfScore": 0.032,
+                "vectorScore": 0.9,
+                "category": "fact",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.9,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m2",
+                "content": "用户有一只名为小熊的宠物",
+                "rrfScore": 0.028,
+                "vectorScore": 0.85,
+                "category": "fact",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.85,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m3",
+                "content": "用户喜欢小熊抱枕",
+                "rrfScore": 0.02,
+                "vectorScore": 0.3,
+                "category": "preference",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.7,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m4",
+                "content": "用户不爱社交",
+                "rrfScore": 0.015,
+                "vectorScore": 0.1,
+                "category": "preference",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.8,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            }
+        ],
+        "_mockEmbeddings": {
+            "m1": [
+                0.9,
+                0.44
+            ],
+            "m3": [
+                0.3,
+                0.95
+            ],
+            "m4": [
+                0.1,
+                0.99
+            ]
+        },
+        "_mockNullEmbeddings": [
+            "m2"
+        ],
+        "config": {},
+        "expected": {
+            "selectedCount": 1
+        }
+    },
+    {
+        "id": "T12",
+        "description": "硬上限触发 15条高分互不重复 A1保留约11条 硬上限截到8",
+        "candidates": [
+            {
+                "_id": "h1",
+                "content": "记忆1-用户是后端",
+                "rrfScore": 0.032,
+                "vectorScore": 0.9,
+                "category": "fact",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.9,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "h2",
+                "content": "记忆2-用 Go",
+                "rrfScore": 0.0315,
+                "vectorScore": 0.89,
+                "category": "preference",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.9,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "h3",
+                "content": "记忆3-学 Python",
+                "rrfScore": 0.031,
+                "vectorScore": 0.88,
+                "category": "skill",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.85,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "h4",
+                "content": "记忆4-转型 AI",
+                "rrfScore": 0.0305,
+                "vectorScore": 0.87,
+                "category": "goal",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.85,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "h5",
+                "content": "记忆5-学 Rust",
+                "rrfScore": 0.03,
+                "vectorScore": 0.86,
+                "category": "goal",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.8,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "h6",
+                "content": "记忆6-不喜欢 Java",
+                "rrfScore": 0.0295,
+                "vectorScore": 0.85,
+                "category": "preference",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.9,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "h7",
+                "content": "记忆7-看 Transformer",
+                "rrfScore": 0.029,
+                "vectorScore": 0.84,
+                "category": "event",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.8,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "h8",
+                "content": "记忆8-用 Docker",
+                "rrfScore": 0.0285,
+                "vectorScore": 0.83,
+                "category": "skill",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.85,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "h9",
+                "content": "记忆9-住北京",
+                "rrfScore": 0.028,
+                "vectorScore": 0.82,
+                "category": "personal_info",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.9,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "h10",
+                "content": "记忆10-晚上学习",
+                "rrfScore": 0.0275,
+                "vectorScore": 0.81,
+                "category": "behavior_pattern",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.8,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "h11",
+                "content": "记忆11-喜欢拉面",
+                "rrfScore": 0.027,
+                "vectorScore": 0.8,
+                "category": "preference",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.85,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "h12",
+                "content": "记忆12-用 VS Code",
+                "rrfScore": 0.0265,
+                "vectorScore": 0.79,
+                "category": "preference",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.9,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "h13",
+                "content": "记忆13-喜欢爬山",
+                "rrfScore": 0.026,
+                "vectorScore": 0.78,
+                "category": "behavior_pattern",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.8,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "h14",
+                "content": "记忆14-了解 K8s",
+                "rrfScore": 0.0255,
+                "vectorScore": 0.77,
+                "category": "skill",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.8,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "h15",
+                "content": "记忆15-使用 GitLab",
+                "rrfScore": 0.025,
+                "vectorScore": 0.76,
+                "category": "behavior_pattern",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.85,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            }
+        ],
+        "_mockEmbeddings": {
+            "h1": [
+                1,
+                0
+            ],
+            "h2": [
+                0,
+                1
+            ],
+            "h3": [
+                0.707,
+                0.707
+            ],
+            "h4": [
+                0.5,
+                0.866
+            ],
+            "h5": [
+                0.866,
+                0.5
+            ],
+            "h6": [
+                0.3,
+                0.95
+            ],
+            "h7": [
+                0.6,
+                0.8
+            ],
+            "h8": [
+                0.8,
+                0.6
+            ],
+            "h9": [
+                0.9,
+                0.44
+            ],
+            "h10": [
+                0.4,
+                0.92
+            ],
+            "h11": [
+                0.7,
+                0.71
+            ],
+            "h12": [
+                0.95,
+                0.3
+            ],
+            "h13": [
+                0.2,
+                0.98
+            ],
+            "h14": [
+                0.99,
+                0.14
+            ],
+            "h15": [
+                0.1,
+                0.99
+            ]
+        },
+        "config": {},
+        "expected": {
+            "selectedCount": 3
+        }
+    },
+    {
+        "id": "T13",
+        "description": "不触发硬上限 5条互不重复 <8",
+        "candidates": [
+            {
+                "_id": "h1",
+                "content": "记忆1-后端",
+                "rrfScore": 0.032,
+                "vectorScore": 0.9,
+                "category": "fact",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.9,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "h2",
+                "content": "记忆2-Go",
+                "rrfScore": 0.03,
+                "vectorScore": 0.85,
+                "category": "preference",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.9,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "h3",
+                "content": "记忆3-Python",
+                "rrfScore": 0.029,
+                "vectorScore": 0.82,
+                "category": "skill",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.85,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "h4",
+                "content": "记忆4-北京",
+                "rrfScore": 0.028,
+                "vectorScore": 0.8,
+                "category": "personal_info",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.9,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "h5",
+                "content": "记忆5-拉面",
+                "rrfScore": 0.027,
+                "vectorScore": 0.78,
+                "category": "preference",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.85,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            }
+        ],
+        "_mockEmbeddings": {
+            "h1": [
+                1,
+                0
+            ],
+            "h2": [
+                0,
+                1
+            ],
+            "h3": [
+                0.707,
+                0.707
+            ],
+            "h4": [
+                0.5,
+                0.866
+            ],
+            "h5": [
+                0.866,
+                0.5
+            ]
+        },
+        "config": {},
+        "expected": {
+            "selectedCount": 2
+        }
+    },
+    {
+        "id": "T14",
+        "description": "端到端全管道 m1-m2相似度0.93去重淘汰m2 m4用Go写CLI与m1不重复 sim=0.72",
+        "candidates": [
+            {
+                "_id": "m1",
+                "content": "用户偏好 Go 语言",
+                "rrfScore": 0.032,
+                "vectorScore": 0.88,
+                "category": "preference",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.9,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m2",
+                "content": "用户喜欢 Go",
+                "rrfScore": 0.031,
+                "vectorScore": 0.86,
+                "category": "preference",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.85,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m3",
+                "content": "用户熟练掌握 Python 和 TS",
+                "rrfScore": 0.03,
+                "vectorScore": 0.82,
+                "category": "skill",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.85,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m4",
+                "content": "用户用 Go 写了一个 CLI 工具",
+                "rrfScore": 0.029,
+                "vectorScore": 0.78,
+                "category": "skill",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.8,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m5",
+                "content": "用户常吃拉面",
+                "rrfScore": 0.02,
+                "vectorScore": 0.18,
+                "category": "preference",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.85,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m6",
+                "content": "用户周末喜欢爬山",
+                "rrfScore": 0.018,
+                "vectorScore": 0.12,
+                "category": "behavior_pattern",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.8,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m7",
+                "content": "用户住北京",
+                "rrfScore": 0.016,
+                "vectorScore": 0.08,
+                "category": "personal_info",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.9,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            }
+        ],
+        "_mockEmbeddings": {
+            "m1": [
+                0.8,
+                0.6
+            ],
+            "m2": [
+                0.81,
+                0.59
+            ],
+            "m3": [
+                0.1,
+                0.99
+            ],
+            "m4": [
+                0.3,
+                0.95
+            ],
+            "m5": [
+                0.6,
+                0.8
+            ],
+            "m6": [
+                0.9,
+                0.44
+            ],
+            "m7": [
+                0.5,
+                0.866
+            ]
+        },
+        "config": {},
+        "expected": {
+            "selectedCount": 1,
+            "droppedByDedup": [
+                "用户喜欢 Go"
+            ]
+        }
+    },
+    {
+        "id": "T16",
+        "description": "混合 vectorScore 3条有+2条undefined A0取有值的max=0.85放行 P70保留m1",
+        "candidates": [
+            {
+                "_id": "m1",
+                "content": "用户养小熊",
+                "rrfScore": 0.032,
+                "vectorScore": 0.85,
+                "category": "fact",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.9,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m2",
+                "content": "用户喜欢小熊",
+                "rrfScore": 0.02,
+                "category": "preference",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.8,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m3",
+                "content": "用户吃小熊饼干",
+                "rrfScore": 0.015,
+                "category": "event",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.7,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            }
+        ],
+        "config": {},
+        "expected": {
+            "selectedCount": 1
+        }
+    },
+    {
+        "id": "T17-079",
+        "description": "去重边界阈值=0.88 sim(m1-m2)=0.879 不触发去重",
+        "candidates": [
+            {
+                "_id": "m1",
+                "content": "用户主要用 Go 开发",
+                "rrfScore": 0.032,
+                "vectorScore": 0.85,
+                "category": "preference",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.9,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m2",
+                "content": "用户喜欢用 Go 语言",
+                "rrfScore": 0.031,
+                "vectorScore": 0.82,
+                "category": "preference",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.85,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m3",
+                "content": "用户也写 Python",
+                "rrfScore": 0.028,
+                "vectorScore": 0.78,
+                "category": "skill",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.9,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            }
+        ],
+        "_mockEmbeddings": {
+            "m1": [
+                1,
+                0
+            ],
+            "m2": [
+                0.879,
+                0.477
+            ],
+            "m3": [
+                0,
+                1
+            ]
+        },
+        "config": {},
+        "expected": {
+            "selectedCount": 1
+        }
+    },
+    {
+        "id": "T17-080",
+        "description": "去重边界阈值=0.88 sim(m1-m2)=0.880 触发去重保留m1",
+        "candidates": [
+            {
+                "_id": "m1",
+                "content": "用户主要用 Go 开发",
+                "rrfScore": 0.032,
+                "vectorScore": 0.85,
+                "category": "preference",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.9,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m2",
+                "content": "用户喜欢用 Go 语言",
+                "rrfScore": 0.031,
+                "vectorScore": 0.82,
+                "category": "preference",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.85,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m3",
+                "content": "用户也写 Python",
+                "rrfScore": 0.028,
+                "vectorScore": 0.78,
+                "category": "skill",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.9,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            }
+        ],
+        "_mockEmbeddings": {
+            "m1": [
+                1,
+                0
+            ],
+            "m2": [
+                0.88,
+                0.475
+            ],
+            "m3": [
+                0,
+                1
+            ]
+        },
+        "config": {},
+        "expected": {
+            "selectedCount": 1
+        }
+    },
+    {
+        "id": "T17-081",
+        "description": "去重边界阈值=0.88 sim(m1-m2)=0.881 触发去重保留m1",
+        "candidates": [
+            {
+                "_id": "m1",
+                "content": "用户主要用 Go 开发",
+                "rrfScore": 0.032,
+                "vectorScore": 0.85,
+                "category": "preference",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.9,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m2",
+                "content": "用户喜欢用 Go 语言",
+                "rrfScore": 0.031,
+                "vectorScore": 0.82,
+                "category": "preference",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.85,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            },
+            {
+                "_id": "m3",
+                "content": "用户也写 Python",
+                "rrfScore": 0.028,
+                "vectorScore": 0.78,
+                "category": "skill",
+                "type": "fact",
+                "userId": "u1",
+                "confidence": 0.9,
+                "sourceMessageIds": [],
+                "createdAt": "2026-08-01T00:00:00Z",
+                "updatedAt": "2026-08-01T00:00:00Z"
+            }
+        ],
+        "_mockEmbeddings": {
+            "m1": [
+                1,
+                0
+            ],
+            "m2": [
+                0.881,
+                0.473
+            ],
+            "m3": [
+                0,
+                1
+            ]
+        },
+        "config": {},
+        "expected": {
+            "selectedCount": 1
+        }
+    }
+]

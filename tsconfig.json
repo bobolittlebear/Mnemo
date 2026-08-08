@@ -10,6 +10,7 @@
         "paths": {
             "@/*": ["src/*"] // 这里的路径是相对于 baseUrl 的
         },
+        "resolveJsonModule": true,
 
         // Node 模块解析
         // "moduleResolution": "node",
