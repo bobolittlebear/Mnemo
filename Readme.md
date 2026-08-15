@@ -58,9 +58,13 @@ Mnemo 不只是一个笔记应用，而是一个具备**完整上下文管理能
 - 每次调用 LLM 时，从 STM 提取最近 N 轮历史对话注入 System Prompt
 - `safeGetRecentRounds` 带超时保护的安全读取，防止 Redis 阻塞挂起请求
 
-#### 2.2 会话溯源
+#### 2.2 会话管理（Session）✅
 
 - 每轮会话生成 `traceId`，便于长期记忆提取时溯源追踪
+- `Session` 数据模型（MongoDB）：`status` 三态生命周期——`active`（活跃）/ `archived`（归档）/ `deleted`（销毁），仅用户操作触发状态流转
+- `lastActiveAt` 最后活跃时间，会话列表排序依据
+- 新会话经 SSE `event: meta` 事件回传 `sessionId`，续聊前端携带 `sessionId` 于 body
+- 归档会话续聊时自动重激活为 `active`，销毁会话拒绝对话（403）
 
 #### 2.3 长期记忆（LTM — Long-Term Memory）✅ 主链路已跑通
 
@@ -71,6 +75,7 @@ Mnemo 不只是一个笔记应用，而是一个具备**完整上下文管理能
 - `MemoryExtractionService`：大模型提取服务，清洗 / 过滤闲聊 / 提炼事实
 - `ingestMemoryFacts`：contentHash 精确去重入库
 - `MemoryPipelineService`：基于**增量游标（cursor）**的完整提取管道——读游标 → 取增量消息 → LLM 提取 → 向量化 → 去重入库 → 前移游标，天然幂等不重提
+- **记忆版本管理**：LLM 输出 `action`（ADD/UPDATE/DELETE）+ `old_memory_id`，管道侧白名单校验 + 文本兜底；DELETE 软删（`deletedAt`）、UPDATE 原地更新旧记录
 
 **三层触发机制（✅ 已完成并通过联调 / 压测）**：
 
@@ -115,13 +120,30 @@ P3 短锁(<50ms)：获锁 → 二次校验终态 → 写终态 + cleanup → 清
 
 - MemoryFact 经 text-embedding-v4 向量化入库
 - MongoDB Atlas Vector Search + RRF 混合检索
-- 检索结果注入对话上下文（与提取侧联动持续完善中）
+- nodejieba 中文预分词，`searchText` 字段支撑 BM25 文本检索
+- 检索结果经记忆选择层注入对话上下文（见 2.5）
 
 **规划中**：
 
-- 长期记忆遗忘机制（Ebbinghaus 曲线 / 引用计数）
-- 版本冲突管理方案
+- 长期记忆遗忘机制（时间衰减 + 频率 + 重要性评分）
 - 会话终止后的写入闸门（ENDING 状态拒收新消息，产品打磨项）
+
+#### 2.5 记忆选择层（Memory Selection）✅
+
+对 RRF 融合后的候选记忆做后置过滤，四道防线：
+
+| 管道 | 作用 |
+| --- | --- |
+| A0 vectorScore 绝对地板 | 拦均匀噪声（候选集全部语义不相关） |
+| A1 百分位截断 | 拦长尾噪声（RRF 低分项） |
+| B 贪心语义去重 | 去重，保留 content 更长者 |
+| 硬上限 | 最终注入条数截断（默认 8 条） |
+
+输出含 `metadata`（各管道过滤数据），支撑遗忘策略调优与评测断言。
+
+#### 2.6 记忆评测集（Evals）✅
+
+`tests/evals/` 快照测试，覆盖记忆选择层 A0/A1/B/硬上限/降级路径，含 golden 数据集与边界用例（百分位算法一致性、去重阈值边界、embedding 缺失降级）。
 
 ---
 
@@ -171,8 +193,9 @@ P3 短锁(<50ms)：获锁 → 二次校验终态 → 写终态 + cleanup → 清
 | 长期记忆数据模型 & 提取服务      | ✅ 已实现                                          |
 | 长期记忆向量化 & 检索            | ✅ 已实现                                          |
 | **长期记忆三层触发机制**         | ✅ **已实现**（L1/L2/L3 + 三阶段锁 + cleanup 收敛）|
-| 检索注入对话上下文闭环           | 🔄 进行中                                          |
-| 笔记 RAG 向量化 & 混合检索       | 📋 规划中                                          |
+| 检索注入对话上下文闭环           | ✅ 已实现（记忆选择层 + XML 注入）                 |
+| Session 会话管理                 | ✅ 已实现（三态生命周期 + 列表/删除接口）          |
+| 笔记 RAG 向量化 & 混合检索       | 📋 规划中（第 1 周）                               |
 | 多模态 RAG（图片 / 视频 / 音频） | 📋 规划中                                          |
 | 笔记工具调用（AI 写入）          | 📋 规划中                                          |
 | 任务状态管理                     | 📋 规划中                                          |
@@ -205,7 +228,11 @@ src/
 │   └── memory/                     # 记忆服务
 │       ├── index.ts                # 组合根：createTriggerSystem 依赖注入
 │       ├── chatMessageSource.ts    # MessageSource 实现（读 STM 滑动窗口）
-│       ├── memorySearch.service.ts # 记忆混合检索
+│       ├── memorySearch.service.ts # 记忆混合检索（BM25 + Vector + RRF）
+│       ├── memorySelection.service.ts # 记忆选择层（A0/A1/B/硬上限）
+│       ├── memoryPipeline.service.ts  # 增量提取管道
+│       ├── memoryExtraction.service.ts # LLM 事实提取
+│       ├── memoryIngestion.service.ts  # contentHash 去重入库
 │       └── trigger/                # 三层触发纯模块（零外部依赖）
 │           ├── memoryTriggerCoordinator.ts   # 三阶段协调器
 │           ├── memoryTriggerConfig.ts        # 配置 + 不变式断言
@@ -277,6 +304,9 @@ pnpm start
 | POST   | `/stream/chat`         | AI 流式对话（SSE） |  ✅               |
 | GET    | `/stream/chat/history` | 获取会话历史消息   | ✅               |
 | DELETE | `/stream/chat/history` | 重置会话历史消息   | ✅               |
+| GET    | `/api/sessions`        | 获取会话列表       | ✅               |
+| DELETE | `/api/sessions/:id`    | 删除会话           | ✅               |
+| POST   | `/stream/session/end`  | 结束/归档会话      | ✅               |
 
 ---
 
@@ -284,10 +314,13 @@ pnpm start
 
 - [x] 长期记忆向量化存储与语义检索
 - [x] 长期记忆三层触发机制（L1/L2/L3 + 并发安全）
-- [ ] 检索注入对话上下文完整闭环
+- [x] 检索注入对话上下文完整闭环（记忆选择层 + XML 注入）
+- [x] Session 会话管理（三态生命周期 + 列表/删除）
+- [x] 记忆版本管理（ADD/UPDATE/DELETE + 软删除）
+- [x] 记忆评测集（tests/evals 快照测试）
 - [ ] 笔记 RAG 混合检索（向量 + BM25）
 - [ ] 多模态 RAG：支持图片、视频、音频等非文本笔记的向量化与检索
-- [ ] 记忆遗忘机制（Ebbinghaus 曲线 / 引用计数）
+- [ ] 记忆遗忘机制（时间衰减 + 频率 + 重要性评分）
 - [ ] Tool Calling：AI 直接操作笔记（写入、修改、删除）
 - [ ] Agent 任务状态管理模块（Tool Call 追踪 + 多轮上下文保持 + 后台异步任务）
 - [ ] 多人协作（可选）

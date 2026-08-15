@@ -122,11 +122,10 @@ describe('ExtractionService', () => {
         expect(result).not.toContain('\x7f');
     });
 
-    it('E9 - LLM 调用失败应抛出原始错误', async () => {
+    it('E9 - LLM 调用失败应返回空数组不抛异常（降级矩阵行为）', async () => {
         mockedCreateChat.mockRejectedValue(new Error('LLM API timeout'));
-        await expect(
-            service.extractFacts(fixtures.mockMessages),
-        ).rejects.toThrow('LLM API timeout');
+        const result = await service.extractFacts(fixtures.mockMessages);
+        expect(result).toEqual([]);
     });
 
     it('E10 - 字段类型错误的 fact 应被过滤', async () => {
@@ -161,10 +160,9 @@ describe('ExtractionService', () => {
 
     it('E12 - 传入 context 参数不影响正常提取流程', async () => {
         mockedCreateChat.mockResolvedValue(fixtures.llmNormalResponse);
-        const result = (await service.extractFacts(
-            fixtures.mockMessages,
-            { userId: 'user-123' },
-        )) as any;
+        const result = (await service.extractFacts(fixtures.mockMessages, {
+            userId: 'user-123',
+        })) as any;
         expect(result).toHaveLength(3);
         expect(mockedCreateChat).toHaveBeenCalledTimes(1);
     });
@@ -179,5 +177,58 @@ describe('ExtractionService', () => {
         expect(result[0].content).toBe('这段 内容 有 多余空白');
         // 第二条：控制字符已去除
         expect(result[1].content).toBe('带有控制字符的内容');
+    });
+
+    // ═══════════════════════════════════════
+    // U1-U4: LLM 降级矩阵
+    // ═══════════════════════════════════════
+
+    it('U1 - LLM 首次返回非法 JSON，重试后成功解析出 1 条事实', async () => {
+        let callCount = 0;
+        mockedCreateChat.mockImplementation(async () => {
+            callCount++;
+            if (callCount === 1) {
+                return { content: 'invalid json' };
+            }
+            return {
+                content: JSON.stringify({
+                    facts: [
+                        {
+                            action: 'ADD',
+                            content: '用户正在学习 TypeScript',
+                            confidence: 0.9,
+                            category: 'skill',
+                        },
+                    ],
+                }),
+            };
+        });
+        const result = await service.extractFacts(fixtures.mockMessages);
+        expect(result).toHaveLength(1);
+        expect(result[0]!.content).toBe('用户正在学习 TypeScript');
+        expect(mockedCreateChat).toHaveBeenCalledTimes(2);
+    });
+
+    it('U2 - LLM 两次均返回非法 JSON，返回空数组不抛异常', async () => {
+        mockedCreateChat.mockImplementation(async () => ({
+            content: 'not valid json at all',
+        }));
+        const result = await service.extractFacts(fixtures.mockMessages);
+        expect(result).toEqual([]);
+        expect(mockedCreateChat).toHaveBeenCalledTimes(2);
+    });
+
+    it('U3 - LLM 调用超时/5xx reject，返回空数组不抛异常', async () => {
+        mockedCreateChat.mockRejectedValue(new Error('ETIMEDOUT'));
+        const result = await service.extractFacts(fixtures.mockMessages);
+        expect(result).toEqual([]);
+    });
+
+    it('U4 - LLM 返回空 facts 数组，返回空数组不抛异常', async () => {
+        mockedCreateChat.mockResolvedValue({
+            content: JSON.stringify({ facts: [] }),
+        });
+        const result = await service.extractFacts(fixtures.mockMessages);
+        expect(result).toEqual([]);
     });
 });

@@ -178,7 +178,8 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-    await MemoryFact.deleteMany({});
+    // 按 userId 前缀清理（避免跨文件并发冲突）
+    await MemoryFact.deleteMany({ userId: { $regex: '^quick_note:session:' } });
     for (const sid of allTestSessionIds) {
         await STM.clearSession(sid);
         await redisClient.del(generateSessionKey(sid));
@@ -188,7 +189,8 @@ afterAll(async () => {
 
 beforeEach(async () => {
     // 每个用例前清理 MongoDB + Redis + 重置 Mock 调用记录
-    await MemoryFact.deleteMany({});
+    // 按 userId 前缀清理（避免跨文件并发冲突）
+    await MemoryFact.deleteMany({ userId: { $regex: '^quick_note:session:' } });
     for (const sid of allTestSessionIds) {
         await STM.clearSession(sid);
         await redisClient.del(generateSessionKey(sid));
@@ -384,8 +386,8 @@ describe('Pipeline 集成测试', () => {
         const lastId = await STM.getLastExtractedMsgId('nonsense-session');
         expect(lastId).toBe('nonsense-002');
 
-        // LLM 被调用了，且收到的是废话对话内容
-        expect(mockCreateChat).toHaveBeenCalledOnce();
+        // LLM 被调用了 2 次：首次解析为空 facts，retry 后仍为空
+        expect(mockCreateChat).toHaveBeenCalledTimes(2);
         const llmArgs = mockCreateChat.mock.calls[0]!;
         expect(llmArgs[0][0].content).toContain('嗯');
         expect(llmArgs[0][0].content).toContain('好的');
@@ -408,7 +410,8 @@ describe('Pipeline 集成测试', () => {
         });
 
         // 清除 Redis 标记（模拟标记过期或丢失）
-        await redisClient.del(generateSessionKey(testSessionId));
+        // 注意：游标键是 getCursorKey(sessionId)，与会话键不同
+        await STM.clearSession(testSessionId);
 
         // 第二次执行 — 幂等检查找不到已提取记录，应重新走全链路
         const result2 = await memoryPipeline.run(

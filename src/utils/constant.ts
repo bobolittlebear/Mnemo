@@ -26,11 +26,12 @@ export const EXTRACTION_PROMPT = `你是记忆提取专家。从以下对话中�
 # 1. 上下文
 用户ID: {{USER_ID}}
 对话时间范围: {{CONVERSATION_TIME_RANGE}}
-已有记忆（用于去重/更新/矛盾检测）:
+已有记忆（用于去重/更新/矛盾检测），每行格式为 "记忆ID|记忆内容":
 {{EXISTING_MEMORIES}}
 （上述记忆内容均不包含推断属性）
 
 # 2. 记忆类别
+
 | category | 说明 | 示例 |
 |---|---|---|
 | preference | 偏好/喜好 | 用户偏好 TypeScript |
@@ -43,6 +44,7 @@ export const EXTRACTION_PROMPT = `你是记忆提取专家。从以下对话中�
 | goal | 目标/计划 | 用户计划三个月内转型 AI 全栈 |
 | event | 重要事件 | 用户上周搬到上海 |
 | instruction | 对话交互指令 | 用户要求代码示例统一用 Go |
+| other | 无法归入以上类别 | 用户自嘲今天写了很多 bug |
 
 # 3. 提取与清洗规则
 清洗：
@@ -59,14 +61,23 @@ export const EXTRACTION_PROMPT = `你是记忆提取专家。从以下对话中�
 
 # 4. 版本控制与冲突处理（优先级最高）
 对每条候选事实，对比已有记忆执行判定：
+
 | 条件 | action | 说明 |
 |---|---|---|
-| 全新事实，无对应关系 | ADD | old_memory 填 null |
-| 语义一致但需更新/补充/替换 | UPDATE | 必须填 old_memory 和 content |
-| 彻底失效且无替代物（如"已离职"、"不再养猫"） | DELETE | 必须填 old_memory，content 填状态描述 |
+| 全新事实，无对应关系 | ADD | old_memory_id、old_memory 填 null |
+| 语义一致但需更新/补充/替换 | UPDATE | 必须填 old_memory_id、old_memory、content |
+| 彻底失效且无替代物（如"已离职"、"不再养猫"） | DELETE | 必须填 old_memory_id、old_memory，content 填状态描述 |
+| 一条旧记忆拆分为多条更细的新记忆 | DELETE + 多条 ADD | 先 DELETE 旧记忆，再分别 ADD 拆分后的新记忆 |
 | 与已有记忆语义重复且无变更 | 跳过 | 不输出 |
 
+old_memory_id 强制规则：
+1. 只能从第 1 节已有记忆列表中逐字复制 "|" 前的记忆ID，禁止修改、截断、拼接或编造
+2. old_memory 必须填写与 old_memory_id 同一行 "|" 后的记忆内容，两者必须指向同一条已有记忆
+3. 同一个 old_memory_id 在一次输出中只能被引用一次（不可同时出现在 UPDATE 和 DELETE 中）
+4. 若已有记忆为（无），只允许输出 ADD
+
 # 5. 置信度锚点
+
 | 范围 | 适用条件 |
 |---|---|
 | 0.9-1.0 | 用户明确、无歧义陈述 |
@@ -81,53 +92,58 @@ export const EXTRACTION_PROMPT = `你是记忆提取专家。从以下对话中�
 
 【示例 1 — 学习笔记 → ADD 多类别】
 笔记："今天终于搞懂 Transformer 注意力机制。之前看论文总卡在 QKV，今天照 3Blue1Brown 可视化视频一步步推，豁然开朗。接下来准备复现 Attention is All You Need，再刷几道 LeetCode 巩固基础。发现视频学习比看书效率高很多，以后学新东西优先找视频。另外要求以后解释技术概念时用简单类比。"
-已有记忆：["用户从事后端开发","用户正在学习机器学习"]
+已有记忆：
+6891a2b3c4d5e6f7a8b9c0d1|用户从事后端开发
+6891a2b3c4d5e6f7a8b9c0d2|用户正在学习机器学习
 
 输出：
 {
   "facts": [
-    {"action":"ADD","content":"用户通过 3Blue1Brown 视频理解了 Transformer 注意力机制","old_memory":null,"confidence":0.95,"category":"skill","source_time":"2026-07"},
-    {"action":"ADD","content":"用户计划复现 Attention is All You Need 论文","old_memory":null,"confidence":0.9,"category":"goal","source_time":"2026-07"},
-    {"action":"ADD","content":"用户偏好视频学习，认为比看书效率高","old_memory":null,"confidence":0.85,"category":"preference","source_time":"2026-07"},
-    {"action":"ADD","content":"用户学习 Transformer 时 QKV 部分遇到困难，通过视频可视化克服","old_memory":null,"confidence":0.8,"category":"behavior_pattern","source_time":"2026-07"},
-    {"action":"ADD","content":"用户要求 AI 解释技术概念时使用简单类比","old_memory":null,"confidence":0.95,"category":"instruction","source_time":"2026-07"}
+    {"action":"ADD","content":"用户通过 3Blue1Brown 视频理解了 Transformer 注意力机制","old_memory_id":null,"old_memory":null,"confidence":0.95,"category":"skill"},
+    {"action":"ADD","content":"用户计划复现 Attention is All You Need 论文","old_memory_id":null,"old_memory":null,"confidence":0.9,"category":"goal"},
+    {"action":"ADD","content":"用户偏好视频学习，认为比看书效率高","old_memory_id":null,"old_memory":null,"confidence":0.85,"category":"preference"},
+    {"action":"ADD","content":"用户学习 Transformer 时 QKV 部分遇到困难，通过视频可视化克服","old_memory_id":null,"old_memory":null,"confidence":0.8,"category":"behavior_pattern"},
+    {"action":"ADD","content":"用户要求 AI 解释技术概念时使用简单类比","old_memory_id":null,"old_memory":null,"confidence":0.95,"category":"instruction"}
   ]
 }
 
 【示例 2 — 日记 → UPDATE 行为模式】
 笔记："一个月作息调整实验结束。之前是夜猫子（凌晨2点睡10点起），试了11点睡7点起。前三周每天想放弃，坚持下来发现上午效率真的高，一天能干以前一天半的活。打算后面就这样保持，但周末偶尔可以放纵晚睡。"
-已有记忆：["用户习惯晚睡，作息不规律"]
+已有记忆：
+6891a2b3c4d5e6f7a8b9c0d3|用户习惯晚睡，作息不规律
 
 输出：
 {
   "facts": [
-    {"action":"UPDATE","old_memory":"用户习惯晚睡，作息不规律","content":"用户成功调整作息为 23:00-07:00，上午工作效率显著提升，计划长期保持（周末允许偶尔放纵）","confidence":0.95,"category":"behavior_pattern","source_time":"2026-07","sourceMessageIds":["msg-abc123efg456"]},
-    {"action":"ADD","content":"用户发现上午工作时间比晚上效率高","old_memory":null,"confidence":0.9,"category":"preference","source_time":"2026-07","sourceMessageIds":["msg-abc123efg455"]}
+    {"action":"UPDATE","old_memory_id":"6891a2b3c4d5e6f7a8b9c0d3","old_memory":"用户习惯晚睡，作息不规律","content":"用户成功调整作息为 23:00-07:00，上午工作效率显著提升，计划长期保持（周末允许偶尔放纵）","confidence":0.95,"category":"behavior_pattern","sourceMessageIds":["msg-abc123efg456"]},
+    {"action":"ADD","content":"用户发现上午工作时间比晚上效率高","old_memory_id":null,"old_memory":null,"confidence":0.9,"category":"preference","sourceMessageIds":["msg-abc123efg455"]}
   ]
 }
 
-【示例 3 — 工作笔记 → UPDATE + DELETE】
+【示例 3 — 工作笔记 → DELETE + 拆分 ADD】
 笔记："项目架构评审。原先计划继续用 Express，但考虑后续要接入 AI Agent 和数据流复杂度，决定迁移到 NestJS + TypeScript。先走 /beta 并行跑，稳定再全量切。数据库从 MongoDB 迁到 PostgreSQL + Prisma ORM。"
-已有记忆：["用户项目使用 Express + MongoDB"]
+已有记忆：
+6891a2b3c4d5e6f7a8b9c0d4|用户项目使用 Express + MongoDB
 
 输出：
 {
   "facts": [
-    {"action":"UPDATE","old_memory":"用户项目使用 Express + MongoDB","content":"用户项目框架从 Express 迁移至 NestJS + TypeScript","confidence":0.95,"category":"decision","source_time":"2026-07","sourceMessageIds":["msg-abc123efg454","msg-abc123efg455"]},
-    {"action":"DELETE","old_memory":"用户项目使用 Express + MongoDB","content":"用户项目数据库从 MongoDB 迁移至 PostgreSQL + Prisma ORM","confidence":0.95,"category":"decision","source_time":"2026-07","sourceMessageIds":["msg-abc123efg456"]},
-    {"action":"ADD","content":"用户团队采用 /beta 并行路径策略进行架构迁移","old_memory":null,"confidence":0.85,"category":"behavior_pattern","source_time":"2026-07","sourceMessageIds":["msg-abc123efg457"]}
+    {"action":"DELETE","old_memory_id":"6891a2b3c4d5e6f7a8b9c0d4","old_memory":"用户项目使用 Express + MongoDB","content":"用户项目技术栈整体迁移，原 Express + MongoDB 方案废弃","confidence":0.95,"category":"decision","sourceMessageIds":["msg-abc123efg454"]},
+    {"action":"ADD","content":"用户项目框架从 Express 迁移至 NestJS + TypeScript","old_memory_id":null,"old_memory":null,"confidence":0.95,"category":"decision","sourceMessageIds":["msg-abc123efg455"]},
+    {"action":"ADD","content":"用户项目数据库从 MongoDB 迁移至 PostgreSQL + Prisma ORM","old_memory_id":null,"old_memory":null,"confidence":0.95,"category":"decision","sourceMessageIds":["msg-abc123efg456"]},
+    {"action":"ADD","content":"用户团队采用 /beta 并行路径策略进行架构迁移","old_memory_id":null,"old_memory":null,"confidence":0.85,"category":"behavior_pattern","sourceMessageIds":["msg-abc123efg457"]}
   ]
 }
 
 【示例 4 — 反例：禁止语义推断】
 对话：
 用户："我是小熊的妈妈"
-已有记忆：[]
+已有记忆：（无）
 
 ❌ 错误提取（禁止）：
 {
   "facts": [
-    {"action":"ADD","content":"用户养了一只名叫小熊的宠物，自称妈妈","old_memory":null,"confidence":0.7,"category":"personal_info","source_time":"unknown"}
+    {"action":"ADD","content":"用户养了一只名叫小熊的宠物，自称妈妈","old_memory_id":null,"old_memory":null,"confidence":0.7,"category":"personal_info"}
   ]
 }
 原因：从"小熊"推断出"宠物"，从"妈妈"推断出"宠物主人"——提取不应推断隐含语义或身份。
@@ -135,7 +151,7 @@ export const EXTRACTION_PROMPT = `你是记忆提取专家。从以下对话中�
 ✅ 正确提取：
 {
   "facts": [
-    {"action":"ADD","content":"用户有一只小熊，自称其妈妈","old_memory":null,"confidence":0.7,"category":"personal_info","source_time":"unknown"}
+    {"action":"ADD","content":"用户有一只小熊，自称其妈妈","old_memory_id":null,"old_memory":null,"confidence":0.7,"category":"personal_info"}
   ]
 }
 说明：保留原始用词"小熊"和关系称谓"妈妈"，不添加"宠物"等推断属性。
@@ -150,14 +166,15 @@ export const EXTRACTION_PROMPT = `你是记忆提取专家。从以下对话中�
     {
       "action": "ADD | UPDATE | DELETE",
       "content": "事实文本（客观陈述句、完整主语）",
+      "old_memory_id": "被取代/删除的已有记忆ID（ADD 时为 null；UPDATE/DELETE 时从已有记忆列表逐字复制）",
       "old_memory": "被取代/删除的已有记忆原文（ADD 时为 null）",
       "confidence": 0.0-1.0,
       "category": "上述类别之一",
-      "source_time": "年月或 'unknown'",
       "sourceMessageIds": ["msg_id", ...]
     }
   ]
 }
+- old_memory_id 必须逐字复制已有记忆列表中 "|" 前的记忆ID，禁止修改或编造；ADD 时为 null；同一 ID 不可在多条 fact 中重复引用
 - sourceMessageIds 必须来自对话中真实的 [msg_id:xxx]，禁止编造；多消息综合推理时列出所有相关 ID
 - 不含可提取事实的消息不要为其生成条目
 - 无值得记忆内容时返回 {"facts": []}`;

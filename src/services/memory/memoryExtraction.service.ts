@@ -37,7 +37,7 @@ class MemoryExtractionService {
         messages: RawMessage[],
         context?: {
             userId?: string;
-            existingMemories?: RawFact[];
+            existingMemories?: { _id: string; content: string }[];
         },
     ): Promise<RawFact[]> {
         if (!messages.length) return [];
@@ -58,14 +58,51 @@ class MemoryExtractionService {
 
         // 2. 调用 LLM 提取
         let rawFacts: RawFact[] = [];
+        let llmContent: string | null = null;
+
         try {
             const llmResponse = await createChat([
                 { content: prompt, role: 'system' },
             ]);
-            rawFacts = this.parseFacts(llmResponse?.content);
-        } catch (error) {
-            logger.error('LLM extraction failed', { error });
-            throw error;
+            llmContent = llmResponse?.content ?? null;
+        } catch (error: any) {
+            // 超时或 5xx → 不重试，跳过本批
+            logger.error('LLM extraction failed, skipping batch', {
+                error: error?.message,
+                messagesCount: messages.length,
+            });
+            return [];
+        }
+
+        if (llmContent) {
+            rawFacts = this.parseFacts(llmContent);
+        }
+
+        // JSON 解析失败（API 返回了内容但格式不合规）→ 重试一次
+        if (rawFacts.length === 0 && llmContent) {
+            logger.warn('JSON parse failed, retrying with temperature=0');
+            try {
+                const retryResponse = await createChat(
+                    [{ content: prompt, role: 'system' }],
+                    { temperature: 0 },
+                );
+                rawFacts = this.parseFacts(retryResponse?.content ?? '');
+            } catch (error: any) {
+                logger.error(
+                    'LLM extraction retry failed, skipping batch',
+                    { error: error?.message, messagesCount: messages.length },
+                );
+                return [];
+            }
+
+            // 重试后仍无法解析出有效 facts
+            if (rawFacts.length === 0) {
+                logger.error(
+                    'LLM extraction retry still produced unparseable output, skipping batch',
+                    { messagesCount: messages.length },
+                );
+                return [];
+            }
         }
 
         // 3. 清洗 + 过滤

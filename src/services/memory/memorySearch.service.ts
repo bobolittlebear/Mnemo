@@ -210,7 +210,7 @@ class MemorySearchService {
         type?: string,
     ): Promise<RankedDoc[]> {
         // 构建 $vectorSearch filter
-        const filter: Record<string, { $eq: string }> = {
+        const filter: Record<string, { $eq: string | null }> = {
             userId: { $eq: userId },
         };
         if (notebookId) filter.notebookId = { $eq: notebookId };
@@ -232,6 +232,7 @@ class MemorySearchService {
                     vectorScore: { $meta: 'vectorSearchScore' },
                 },
             },
+            { $match: { deletedAt: { $exists: false } } },
             {
                 $project: {
                     _id: 1,
@@ -292,6 +293,7 @@ class MemorySearchService {
         const scalarFilter: Record<string, unknown> = { userId };
         if (notebookId) scalarFilter.notebookId = notebookId;
         if (type) scalarFilter.type = type;
+        scalarFilter.deletedAt = { $exists: false };
 
         const pipeline = [
             { $match: { $text: { $search: tokenizedQuery } } }, // 第一步：分词查询走文本索引

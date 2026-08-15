@@ -7,7 +7,7 @@ import chatRoute from './chat.route';
 const routes: Record<string, Router> = {
     '/': rootRoute,
     '/auth': authRoute,
-    '/api/v1': apiRoute,
+    '/api': apiRoute,
     '/stream': chatRoute,
 };
 export default routes;

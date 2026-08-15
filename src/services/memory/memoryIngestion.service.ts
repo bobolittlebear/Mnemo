@@ -64,11 +64,6 @@ export async function ingestMemoryFacts(
                             contentHash,
                             createdAt: new Date(),
                         },
-                        // $addToSet: {
-                        //     sourceMessageIds: {
-                        //         $each: context.sourceMessageIds,
-                        //     },
-                        // },
                     },
                     upsert: true,
                 },

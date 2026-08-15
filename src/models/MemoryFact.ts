@@ -33,7 +33,19 @@ const MemoryFactSchema = new Schema<RawMemoryFact>(
         },
         category: {
             type: String,
-            enum: ['preference', 'personal_info', 'decision', 'behavior_pattern', 'relationship', 'diet', 'skill', 'goal', 'event', 'instruction'],
+            enum: [
+                'preference',
+                'personal_info',
+                'decision',
+                'behavior_pattern',
+                'relationship',
+                'diet',
+                'skill',
+                'goal',
+                'event',
+                'instruction',
+                'other',
+            ],
             required: true,
         },
         contentHash: { type: String, required: true },
@@ -45,6 +57,8 @@ const MemoryFactSchema = new Schema<RawMemoryFact>(
             enum: ['image', 'audio', 'video'],
             default: null,
         },
+
+        deletedAt: { type: Date },
     },
     {
         timestamps: true,

@@ -1,5 +1,4 @@
 import { RawMessage } from '@/types/chat';
-import { RawFact } from '@/types/memory';
 import { EXTRACTION_PROMPT } from '@/utils/constant';
 import { formatDateTime } from '@/utils/tool';
 
@@ -63,11 +62,9 @@ export function formatConversationText(messages: RawMessage[]): string {
     );
 }
 
-export function formatExistingMemoriesText(facts: RawFact[]): string {
-    return facts
-        .map(
-            (f, index) =>
-                `${index}.[sourceMessageIds: ${f.sourceMessageIds.join(',')}](${f.category})[confidence: ${f.confidence}]${f.content}`,
-        )
-        .join(';');
+export function formatExistingMemoriesText(
+    facts: { _id: string; content: string }[],
+): string {
+    if (facts.length === 0) return '（无）';
+    return facts.map((f) => `${f._id}|${f.content}`).join('\n');
 }

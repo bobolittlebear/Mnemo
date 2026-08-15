@@ -21,7 +21,7 @@ export const memoryMiddleware = (
     res: Response,
     next: NextFunction,
 ) => {
-    let sessionId: string = req.body?.sessionId || req.query?.sessionId;
+    let sessionId: string = req.body?.session_id || req.query?.session_id;
 
     req.meta = { sessionId };
 

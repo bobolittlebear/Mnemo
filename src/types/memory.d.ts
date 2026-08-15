@@ -6,6 +6,12 @@ export interface RawFact {
     confidence: number;
     category?: string;
     sourceMessageIds: string[];
+    /** LLM 输出的版本动作，缺省视为 ADD */
+    action?: 'ADD' | 'UPDATE' | 'DELETE';
+    /** UPDATE/DELETE 时指向已有记忆的 _id，ADD 时为 null 或不传 */
+    old_memory?: string;
+    /** UPDATE/DELETE 指向已有记忆的 _id，ADD 为 null 或不传 */
+    old_memory_id?: string;
 }
 
 /**

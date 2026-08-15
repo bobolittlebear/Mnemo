@@ -86,4 +86,7 @@ export interface MemoryFact extends Document {
 
     // 语义类型
     category?: MemoryCategory;
+
+    // 软删除
+    deletedAt?: Date;
 }
