@@ -1,4 +1,22 @@
 import NoteModel from '@/models/Note';
+import type { Note } from '@/types/models';
+import type { HydratedDocument } from 'mongoose';
+
+// Note 接口是纯类型且未声明 timestamps，本地用 HydratedDocument 补齐 _id/__v 与时间戳字段
+// （createUser/updateUser 存的是 userId）
+type NoteDoc = HydratedDocument<Note> & { createdAt: Date; updatedAt: Date };
+
+// 私有 DTO 映射：Mongoose document → 纯对象，_id 归一化为 id，notebookId 转为 string
+const toNoteDTO = (doc: NoteDoc) => ({
+    id: doc._id.toString(),
+    notebookId: String(doc.notebookId),
+    title: doc.title,
+    content: doc.content,
+    createUser: doc.createUser,
+    updateUser: doc.updateUser,
+    createdAt: doc.createdAt,
+    updatedAt: doc.updatedAt,
+});
 
 const createNote = async (
     notebookId: string,
@@ -13,8 +31,8 @@ const createNote = async (
         createUser: user,
         updateUser: user,
     });
-    await note.save();
-    return note;
+    const saved = await note.save();
+    return toNoteDTO(saved as NoteDoc);
 };
 
 const getNotes = async (
@@ -34,7 +52,7 @@ const getNotes = async (
         .sort({ createdAt: -1 }) // 按创建时间倒序排列
         .select('-isDeleted'); // 不返回软删除标志;
 
-    return notes;
+    return notes.map((note) => toNoteDTO(note as NoteDoc));
 };
 
 const getNoteById = async (noteId: string, user: string) => {
@@ -46,7 +64,7 @@ const getNoteById = async (noteId: string, user: string) => {
     if (!note) {
         throw new Error('笔记不存在');
     }
-    return note;
+    return toNoteDTO(note as NoteDoc);
 };
 
 const updateNote = async (
@@ -63,7 +81,7 @@ const updateNote = async (
     if (!note) {
         throw new Error('笔记不存在或无权更新');
     }
-    return note;
+    return toNoteDTO(note as NoteDoc);
 };
 
 const deleteNote = async (noteId: string, user: string) => {
@@ -75,7 +93,7 @@ const deleteNote = async (noteId: string, user: string) => {
     if (!note) {
         throw new Error('笔记不存在或无权删除');
     }
-    return note;
+    return toNoteDTO(note as NoteDoc);
 };
 
 export default {

@@ -1,4 +1,19 @@
 import NotebookModel from '@/models/Notebook';
+import type { Notebook } from '@/types/models';
+import type { HydratedDocument } from 'mongoose';
+
+// Notebook 接口未声明 timestamps 字段，这里本地补齐（createUser/updateUser 存的是 userId）
+type NotebookDoc = HydratedDocument<Notebook> & { createdAt: Date; updatedAt: Date };
+
+// 私有 DTO 映射：Mongoose document → 纯对象，_id 归一化为 id（不保留 _id）
+const toNotebookDTO = (doc: NotebookDoc) => ({
+    id: doc._id.toString(),
+    title: doc.title,
+    createUser: doc.createUser,
+    updateUser: doc.updateUser,
+    createdAt: doc.createdAt,
+    updatedAt: doc.updatedAt,
+});
 
 const createNotebook = async (user: string, title: string) => {
     // 防止同一用户重复创建同名笔记本
@@ -15,7 +30,8 @@ const createNotebook = async (user: string, title: string) => {
         createUser: user,
         updateUser: user,
     });
-    return await newNotebook.save();
+    const saved = await newNotebook.save();
+    return toNotebookDTO(saved as NotebookDoc);
 };
 
 // 获取用户的笔记本列表，支持分页
@@ -34,7 +50,7 @@ const getNotebooks = async (
         .sort({ createdAt: -1 }) // 按创建时间倒序排列
         .select('-isDeleted'); // 不返回软删除标志;
 
-    return notebooks;
+    return notebooks.map((notebook) => toNotebookDTO(notebook as NotebookDoc));
 };
 
 const getNotebookById = async (notebookId: string, user: string) => {
@@ -46,7 +62,7 @@ const getNotebookById = async (notebookId: string, user: string) => {
     if (!notebook) {
         throw new Error('笔记本不存在');
     }
-    return notebook;
+    return toNotebookDTO(notebook as NotebookDoc);
 };
 
 const updateNotebook = async (
@@ -62,7 +78,7 @@ const updateNotebook = async (
     if (!notebook) {
         throw new Error('笔记本不存在或无权更新');
     }
-    return notebook;
+    return toNotebookDTO(notebook as NotebookDoc);
 };
 
 // 软删除笔记本
@@ -75,7 +91,7 @@ const deleteNotebook = async (notebookId: string, user: string) => {
     if (!notebook) {
         throw new Error('笔记本不存在或无权更新');
     }
-    return notebook;
+    return toNotebookDTO(notebook as NotebookDoc);
 };
 
 export default {

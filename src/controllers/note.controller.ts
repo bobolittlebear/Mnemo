@@ -5,12 +5,12 @@ import { UNKNOWN_ERROR } from '@/utils/constant';
 
 const createNote = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { title, content, user, notebookId } = req.body;
+        const { title, content, notebookId } = req.body;
         const note = await noteService.createNote(
             notebookId,
             title,
             content,
-            user,
+            req.user.userId!,
         );
         res.json(ApiResponse.success(note));
     } catch (error) {
@@ -24,10 +24,10 @@ const createNote = async (req: Request, res: Response, next: NextFunction) => {
 
 const getNotes = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { notebookId, user, page = 1, limit = 20 } = req.query;
+        const { notebookId, page = 1, limit = 20 } = req.query;
         const notes = await noteService.getNotes(
             String(notebookId),
-            String(user),
+            req.user.userId!,
             Number(page),
             Number(limit),
         );
@@ -44,8 +44,7 @@ const getNotes = async (req: Request, res: Response, next: NextFunction) => {
 const getNoteById = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { id } = req.params;
-        const { user } = req.query;
-        const note = await noteService.getNoteById(String(id), String(user));
+        const note = await noteService.getNoteById(String(id), req.user.userId!);
         res.json(ApiResponse.success(note));
     } catch (error) {
         res.json(
@@ -59,10 +58,10 @@ const getNoteById = async (req: Request, res: Response, next: NextFunction) => {
 const updateNote = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { id } = req.params;
-        const { title, content, user } = req.body;
+        const { title, content } = req.body;
         const note = await noteService.updateNote(
             String(id),
-            String(user),
+            req.user.userId!,
             title,
             content,
         );
@@ -79,8 +78,7 @@ const updateNote = async (req: Request, res: Response, next: NextFunction) => {
 const deleteNote = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { id } = req.params;
-        const { user } = req.query;
-        const note = await noteService.deleteNote(String(id), String(user));
+        const note = await noteService.deleteNote(String(id), req.user.userId!);
         res.json(ApiResponse.success(note));
     } catch (error) {
         res.json(

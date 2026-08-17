@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import ApiResponse from '@/utils/apiResponse';
+import { COOKIE_TOKEN_MAX_AGE } from '@/utils/constant';
 import { generateToken, isTokenExpiringSoon, verifyToken } from '@/utils/jwt';
 
 // 扩展Express的Request类型，添加userId属性
@@ -32,10 +33,17 @@ export const authMiddleware = (
                 .json(new ApiResponse(false, null, '令牌失效，请重新登录'));
         }
 
-        // 如果令牌即将过期，提示前端刷新令牌
+        // 令牌即将过期时直接续期：把新 token 写回 httpOnly cookie（与 auth.controller 的 cookie 选项一致）。
+        // 不能只设响应头——httpOnly cookie 前端无法读取也无法回写，续期必须由服务端写 cookie 完成
         if (isTokenExpiringSoon(decoded.exp * 1000)) {
-            const newToken = generateToken(req.user.userId!);
-            res.setHeader('X-New-Token', newToken);
+            const newToken = generateToken(decoded.id);
+            res.cookie('token', newToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'strict',
+                maxAge: COOKIE_TOKEN_MAX_AGE,
+                path: '/',
+            });
         }
 
         // 将解析出的用户信息挂在req.user上，供后续中间件和路由处理函数使用

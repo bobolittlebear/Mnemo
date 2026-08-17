@@ -9,8 +9,11 @@ export const createNotebook = async (
     next: NextFunction,
 ) => {
     try {
-        const { title, user } = req.body;
-        const notebook = await notebookService.createNotebook(user, title);
+        const { title } = req.body;
+        const notebook = await notebookService.createNotebook(
+            req.user.userId!,
+            title,
+        );
         res.json(ApiResponse.success(notebook));
     } catch (error) {
         res.json(
@@ -27,9 +30,9 @@ export const getNotebooks = async (
     next: NextFunction,
 ) => {
     try {
-        const { user, page = 1, limit = 20 } = req.query;
+        const { page = 1, limit = 20 } = req.query;
         const notebooks = await notebookService.getNotebooks(
-            String(user),
+            req.user.userId!,
             Number(page),
             Number(limit),
         );
@@ -50,10 +53,9 @@ const getNotebookById = async (
 ) => {
     try {
         const { id } = req.params;
-        const { user } = req.query;
         const notebook = await notebookService.getNotebookById(
             String(id),
-            String(user),
+            req.user.userId!,
         );
         res.json(ApiResponse.success(notebook));
     } catch (error) {
@@ -72,10 +74,10 @@ const updateNotebook = async (
 ) => {
     try {
         const { id } = req.params;
-        const { title, user } = req.body;
+        const { title } = req.body;
         const notebook = await notebookService.updateNotebook(
             String(id),
-            String(user),
+            req.user.userId!,
             title,
         );
         res.json(ApiResponse.success(notebook));
@@ -95,10 +97,9 @@ const deleteNotebook = async (
 ) => {
     try {
         const { id } = req.params;
-        const { user } = req.query;
         const notebook = await notebookService.deleteNotebook(
             String(id),
-            String(user),
+            req.user.userId!,
         );
         res.json(ApiResponse.success(notebook));
     } catch (error) {
