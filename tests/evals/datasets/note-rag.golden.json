@@ -1,0 +1,400 @@
+[
+    {
+        "id": "C1",
+        "kind": "chunk",
+        "description": "两章节各自独立成 parent，child 指向正确 parent",
+        "markdown": "## 安装说明\n\n安装前请确认环境依赖已就绪，按照步骤完成安装。安装前请确认环境依赖已就绪，按照步骤完成安装。安装前请确认环境依赖已就绪，按照步骤完成安装。\n\n## 使用说明\n\n使用前请阅读常用命令与配置说明，快速上手。使用前请阅读常用命令与配置说明，快速上手。使用前请阅读常用命令与配置说明，快速上手。使用前请阅读常用命令与配置说明，快速上手。",
+        "expected": {
+            "parentCount": 2,
+            "childCount": 2,
+            "sectionPaths": [
+                [
+                    "安装说明"
+                ],
+                [
+                    "使用说明"
+                ]
+            ],
+            "childSectionPaths": [
+                [
+                    "安装说明"
+                ],
+                [
+                    "使用说明"
+                ]
+            ],
+            "forcedSplitCount": 0
+        }
+    },
+    {
+        "id": "C2",
+        "kind": "chunk",
+        "description": "代码块与表格各自整体成 child，不被切断",
+        "markdown": "## 代码与表格\n\n```typescript\nfunction add(a: number, b: number): number {\n  const sum = a + b;\n  return sum;\n}\nfunction sub(a: number, b: number): number {\n  const diff = a - b;\n  return diff;\n}\nfunction add(a: number, b: number): number {\n  const sum = a + b;\n  return sum;\n}\nfunction sub(a: number, b: number): number {\n  const diff = a - b;\n  return diff;\n}\nfunction add(a: number, b: number): number {\n  const sum = a + b;\n  return sum;\n}\nfunction sub(a: number, b: number): number {\n  const diff = a - b;\n  return diff;\n}\nfunction add(a: number, b: number): number {\n  const sum = a + b;\n  return sum;\n}\nfunction sub(a: number, b: number): number {\n  const diff = a - b;\n  return diff;\n}\n```\n\n| 名称 | 路径 | 说明 |\n|------|------|------|\n| 项2 | /usr/local/mnemo/2 | 说明2 |\n| 项3 | /usr/local/mnemo/3 | 说明3 |\n| 项4 | /usr/local/mnemo/4 | 说明4 |\n| 项5 | /usr/local/mnemo/5 | 说明5 |\n| 项6 | /usr/local/mnemo/6 | 说明6 |\n| 项7 | /usr/local/mnemo/7 | 说明7 |\n| 项8 | /usr/local/mnemo/8 | 说明8 |\n| 项9 | /usr/local/mnemo/9 | 说明9 |\n| 项10 | /usr/local/mnemo/10 | 说明10 |",
+        "expected": {
+            "parentCount": 1,
+            "childCount": 2,
+            "sectionPaths": [
+                [
+                    "代码与表格"
+                ]
+            ],
+            "childSectionPaths": [
+                [
+                    "代码与表格"
+                ],
+                [
+                    "代码与表格"
+                ]
+            ],
+            "forcedSplitCount": 0,
+            "contains": [
+                "```typescript",
+                "function add",
+                "| 名称 |",
+                "/usr/local/mnemo"
+            ],
+            "notContains": [
+                "�"
+            ]
+        }
+    },
+    {
+        "id": "C3",
+        "kind": "chunk",
+        "description": "嵌套标题 sectionPath 逐级（3 层 parent + 多层 child）",
+        "markdown": "## A\n\nA 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。\n\n### A.1\n\nA.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。\n\n#### A.1.1\n\nA.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。",
+        "expected": {
+            "parentCount": 3,
+            "childCount": 7,
+            "sectionPaths": [
+                [
+                    "A"
+                ],
+                [
+                    "A",
+                    "A.1"
+                ],
+                [
+                    "A",
+                    "A.1",
+                    "A.1.1"
+                ]
+            ],
+            "childSectionPaths": [
+                [
+                    "A"
+                ],
+                [
+                    "A",
+                    "A.1"
+                ],
+                [
+                    "A",
+                    "A.1"
+                ],
+                [
+                    "A",
+                    "A.1"
+                ],
+                [
+                    "A",
+                    "A.1",
+                    "A.1.1"
+                ],
+                [
+                    "A",
+                    "A.1",
+                    "A.1.1"
+                ],
+                [
+                    "A",
+                    "A.1",
+                    "A.1.1"
+                ]
+            ],
+            "forcedSplitCount": 2
+        }
+    },
+    {
+        "id": "C4",
+        "kind": "chunk",
+        "description": "超长单段按句子边界切分 forcedSplitCount=1",
+        "markdown": "## 长段落\n\n这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。",
+        "expected": {
+            "parentCount": 1,
+            "childCount": 3,
+            "sectionPaths": [
+                [
+                    "长段落"
+                ]
+            ],
+            "childSectionPaths": [
+                [
+                    "长段落"
+                ],
+                [
+                    "长段落"
+                ],
+                [
+                    "长段落"
+                ]
+            ],
+            "forcedSplitCount": 1,
+            "notContains": [
+                "�"
+            ]
+        }
+    },
+    {
+        "id": "C5",
+        "kind": "chunk",
+        "description": "超短多段合并为一个 child，不丢弃",
+        "markdown": "短段落一，内容很少。\n\n短段落二，内容很少。\n\n短段落三，内容很少。\n\n短段落四，内容很少。",
+        "expected": {
+            "parentCount": 1,
+            "childCount": 1,
+            "sectionPaths": [
+                []
+            ],
+            "childSectionPaths": [
+                []
+            ],
+            "forcedSplitCount": 0
+        }
+    },
+    {
+        "id": "C6",
+        "kind": "chunk",
+        "description": "无标题纯文本按 token 阈值切分为多 parent",
+        "markdown": "这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。",
+        "expected": {
+            "parentCount": 2,
+            "childCount": 8,
+            "sectionPaths": [
+                [],
+                []
+            ],
+            "childSectionPaths": [
+                [],
+                [],
+                [],
+                [],
+                [],
+                [],
+                [],
+                []
+            ],
+            "forcedSplitCount": 2,
+            "notContains": [
+                "�"
+            ]
+        }
+    },
+    {
+        "id": "C7",
+        "kind": "chunk",
+        "description": "混合中英文 token 精确计数无乱码",
+        "markdown": "## 混合内容\n\nEnglish sentence with 中文词语 and numbers 123.\n\n更多中文内容，包含标点符号！ Plus English tail.",
+        "expected": {
+            "parentCount": 1,
+            "childCount": 1,
+            "sectionPaths": [
+                [
+                    "混合内容"
+                ]
+            ],
+            "childSectionPaths": [
+                [
+                    "混合内容"
+                ]
+            ],
+            "forcedSplitCount": 0,
+            "contains": [
+                "English sentence",
+                "中文词语"
+            ],
+            "notContains": [
+                "�"
+            ]
+        }
+    },
+    {
+        "id": "R1",
+        "kind": "reindex",
+        "description": "增量 diff：只改一段 → 仅变化的 child 被 re-embed，未变 child 复用不重算",
+        "initialMarkdown": "## 安装说明\n\n安装的详细步骤说明，请按照以下顺序操作。安装的详细步骤说明，请按照以下顺序操作。安装的详细步骤说明，请按照以下顺序操作。安装的详细步骤说明，请按照以下顺序操作。\n\n## 使用说明\n\n使用的详细说明，涵盖常用命令与注意事项。使用的详细说明，涵盖常用命令与注意事项。使用的详细说明，涵盖常用命令与注意事项。使用的详细说明，涵盖常用命令与注意事项。",
+        "updatedMarkdown": "## 安装说明\n\n安装步骤已更新，新增了容器化部署方式。安装步骤已更新，新增了容器化部署方式。安装步骤已更新，新增了容器化部署方式。安装步骤已更新，新增了容器化部署方式。安装步骤已更新，新增了容器化部署方式。\n\n## 使用说明\n\n使用的详细说明，涵盖常用命令与注意事项。使用的详细说明，涵盖常用命令与注意事项。使用的详细说明，涵盖常用命令与注意事项。使用的详细说明，涵盖常用命令与注意事项。",
+        "expectedFirst": {
+            "parentsInserted": 2,
+            "parentsDeleted": 0,
+            "childrenInserted": 2,
+            "childrenDeleted": 0,
+            "childrenReParented": 0,
+            "unchanged": 0,
+            "embeddingTokensGt": true
+        },
+        "expectedAfterUpdate": {
+            "parentsInserted": 1,
+            "parentsDeleted": 1,
+            "childrenInserted": 1,
+            "childrenDeleted": 1,
+            "childrenReParented": 0,
+            "unchanged": 1,
+            "embeddingTokensGt": true
+        }
+    },
+    {
+        "id": "R2",
+        "kind": "reindex",
+        "description": "章节重命名：旧 parent 删 + 新 parent 增，子块仅 reParent 不 re-embed（embeddingTokens=0）",
+        "initialMarkdown": "## 安装说明\n\n安装流程第一步是准备环境，检查依赖版本是否满足要求，然后执行安装脚本完成部署，最后验证服务是否正常启动。安装流程第一步是准备环境，检查依赖版本是否满足要求，然后执行安装脚本完成部署，最后验证服务是否正常启动。安装流程第一步是准备环境，检查依赖版本是否满足要求，然后执行安装脚本完成部署，最后验证服务是否正常启动。安装流程第一步是准备环境，检查依赖版本是否满足要求，然后执行安装脚本完成部署，最后验证服务是否正常启动。\n\n安装流程第二步是配置参数，包括端口号与数据目录，修改完成后重启服务使配置生效，并进行连通性测试确认无误。安装流程第二步是配置参数，包括端口号与数据目录，修改完成后重启服务使配置生效，并进行连通性测试确认无误。安装流程第二步是配置参数，包括端口号与数据目录，修改完成后重启服务使配置生效，并进行连通性测试确认无误。安装流程第二步是配置参数，包括端口号与数据目录，修改完成后重启服务使配置生效，并进行连通性测试确认无误。安装流程第二步是配置参数，包括端口号与数据目录，修改完成后重启服务使配置生效，并进行连通性测试确认无误。",
+        "updatedMarkdown": "## 安装指南\n\n安装流程第一步是准备环境，检查依赖版本是否满足要求，然后执行安装脚本完成部署，最后验证服务是否正常启动。安装流程第一步是准备环境，检查依赖版本是否满足要求，然后执行安装脚本完成部署，最后验证服务是否正常启动。安装流程第一步是准备环境，检查依赖版本是否满足要求，然后执行安装脚本完成部署，最后验证服务是否正常启动。安装流程第一步是准备环境，检查依赖版本是否满足要求，然后执行安装脚本完成部署，最后验证服务是否正常启动。\n\n安装流程第二步是配置参数，包括端口号与数据目录，修改完成后重启服务使配置生效，并进行连通性测试确认无误。安装流程第二步是配置参数，包括端口号与数据目录，修改完成后重启服务使配置生效，并进行连通性测试确认无误。安装流程第二步是配置参数，包括端口号与数据目录，修改完成后重启服务使配置生效，并进行连通性测试确认无误。安装流程第二步是配置参数，包括端口号与数据目录，修改完成后重启服务使配置生效，并进行连通性测试确认无误。安装流程第二步是配置参数，包括端口号与数据目录，修改完成后重启服务使配置生效，并进行连通性测试确认无误。",
+        "expectedFirst": {
+            "parentsInserted": 1,
+            "parentsDeleted": 0,
+            "childrenInserted": 2,
+            "childrenDeleted": 0,
+            "childrenReParented": 0,
+            "unchanged": 0,
+            "embeddingTokensGt": true
+        },
+        "expectedAfterUpdate": {
+            "parentsInserted": 1,
+            "parentsDeleted": 1,
+            "childrenInserted": 0,
+            "childrenDeleted": 0,
+            "childrenReParented": 2,
+            "unchanged": 0,
+            "embeddingTokensGt": false
+        }
+    },
+    {
+        "id": "R3",
+        "kind": "reindex",
+        "noteMissing": true,
+        "description": "笔记不存在（软删/不存在）→ skipReason=NOTE_NOT_FOUND 且不落库",
+        "expectedAfterUpdate": {
+            "parentsInserted": 0,
+            "parentsDeleted": 0,
+            "childrenInserted": 0,
+            "childrenDeleted": 0,
+            "childrenReParented": 0,
+            "unchanged": 0,
+            "embeddingTokensGt": false,
+            "skipReason": "NOTE_NOT_FOUND"
+        }
+    },
+    {
+        "id": "R4",
+        "kind": "reindex",
+        "invalidNoteId": true,
+        "description": "noteId 非法 → skipReason=INVALID_ID 且不落库",
+        "expectedAfterUpdate": {
+            "parentsInserted": 0,
+            "parentsDeleted": 0,
+            "childrenInserted": 0,
+            "childrenDeleted": 0,
+            "childrenReParented": 0,
+            "unchanged": 0,
+            "embeddingTokensGt": false,
+            "skipReason": "INVALID_ID"
+        }
+    },
+    {
+        "id": "S1",
+        "kind": "search",
+        "description": "notebookId 过滤严格隔离：只返回指定笔记本的块",
+        "query": "部署指南",
+        "searchParams": {
+            "notebookId": "000000000000000000000001",
+            "topK": 4
+        },
+        "seedChunks": [
+            {
+                "_id": "s1a",
+                "chunkType": "child",
+                "noteId": "note-1",
+                "notebookId": "000000000000000000000001",
+                "title": "部署指南",
+                "sectionPath": [
+                    "部署"
+                ],
+                "chunkIndex": 0,
+                "content": "安装部署的命令与步骤说明",
+                "parentId": "p1a"
+            },
+            {
+                "_id": "s1b",
+                "chunkType": "child",
+                "noteId": "note-1",
+                "notebookId": "000000000000000000000001",
+                "title": "部署指南",
+                "sectionPath": [
+                    "部署"
+                ],
+                "chunkIndex": 1,
+                "content": "环境配置与依赖检查说明",
+                "parentId": "p1b"
+            },
+            {
+                "_id": "s2a",
+                "chunkType": "child",
+                "noteId": "note-2",
+                "notebookId": "000000000000000000000002",
+                "title": "其他笔记",
+                "sectionPath": [
+                    "其他"
+                ],
+                "chunkIndex": 0,
+                "content": "与部署无关的占位内容",
+                "parentId": "p2a"
+            }
+        ],
+        "expected": {
+            "resultsCount": 2,
+            "allMatchNotebookId": true
+        }
+    },
+    {
+        "id": "S2",
+        "kind": "search",
+        "description": "父子回填：child 命中 query → parentContext 非空且包含父块全文",
+        "query": "docker compose 部署流程",
+        "searchParams": {
+            "topK": 3
+        },
+        "seedChunks": [
+            {
+                "_id": "c1",
+                "chunkType": "child",
+                "noteId": "note-1",
+                "notebookId": "000000000000000000000001",
+                "title": "部署指南",
+                "sectionPath": [
+                    "部署"
+                ],
+                "chunkIndex": 0,
+                "content": "docker compose 部署流程说明",
+                "parentId": "p1"
+            },
+            {
+                "_id": "p1",
+                "chunkType": "parent",
+                "noteId": "note-1",
+                "notebookId": "000000000000000000000001",
+                "title": "部署指南",
+                "sectionPath": [
+                    "部署"
+                ],
+                "chunkIndex": 0,
+                "content": "## 部署\n\n本节介绍 docker compose 部署流程与常用命令。"
+            }
+        ],
+        "expected": {
+            "resultsCount": 1,
+            "topHasParentContext": true,
+            "parentContextContains": "部署流程"
+        }
+    }
+]

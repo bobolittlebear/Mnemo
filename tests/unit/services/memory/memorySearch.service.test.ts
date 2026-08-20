@@ -558,11 +558,15 @@ describe('MemorySearchService.vectorSearch', () => {
             $meta: 'vectorSearchScore',
         });
 
-        // 阶段 3: $project
-        expect(pipeline[2].$project).toBeDefined();
-        expect(pipeline[2].$project.vectorScore).toBe(1);
-        expect(pipeline[2].$project.content).toBe(1);
-        expect(pipeline[2].$project.userId).toBe(1);
+        // 阶段 3: match
+        // { $match: { deletedAt: { $exists: false } } },
+        expect(pipeline[2].$match).toBeDefined();
+
+        // 阶段 4: $project
+        expect(pipeline[3].$project).toBeDefined();
+        expect(pipeline[3].$project.vectorScore).toBe(1);
+        expect(pipeline[3].$project.content).toBe(1);
+        expect(pipeline[3].$project.userId).toBe(1);
     });
 
     it('S15: userId 必选过滤', async () => {
@@ -773,8 +777,10 @@ describe('MemorySearchService.textSearch', () => {
 
         await (memorySearchService as any).textSearch('my-key', '搜索词', 20);
 
-        const textMatch = (MemoryFact.aggregate as any).mock.calls[0]![0][0].$match;
-        const filterMatch = (MemoryFact.aggregate as any).mock.calls[0]![0][2].$match;
+        const textMatch = (MemoryFact.aggregate as any).mock.calls[0]![0][0]
+            .$match;
+        const filterMatch = (MemoryFact.aggregate as any).mock.calls[0]![0][2]
+            .$match;
 
         expect(textMatch.$text).toEqual({ $search: '搜索词' });
         expect(filterMatch.userId).toBe('my-key');
@@ -858,7 +864,8 @@ describe('MemorySearchService.textSearch', () => {
             'fact',
         );
 
-        const filterMatch = (MemoryFact.aggregate as any).mock.calls[0]![0][2].$match;
+        const filterMatch = (MemoryFact.aggregate as any).mock.calls[0]![0][2]
+            .$match;
 
         expect(filterMatch.notebookId).toBe('nb1');
         expect(filterMatch.type).toBe('fact');

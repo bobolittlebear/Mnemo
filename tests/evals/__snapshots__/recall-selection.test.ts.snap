@@ -329,7 +329,7 @@ exports[`T15: batchGet 异常降级 (dedupSkipped=true) > batchGet 抛 Error 时
   "hardMaxApplied": false,
   "hardMaxDropped": 0,
   "percentileThreshold": 0.0288,
-  "selectionLatencyMs": 5,
+  "selectionLatencyMs": 7,
   "totalCandidates": 3,
 }
 `;

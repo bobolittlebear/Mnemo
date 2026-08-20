@@ -74,55 +74,58 @@ beforeEach(() => {
 
 // ── 数据驱动测试 ───────────────────────────────────────────────
 
-describe.each(dataset as EvalEntry[])('Memory Selection Eval', (entry) => {
-    it(`${entry.id}: ${entry.description}`, async () => {
-        const candidates = asCandidates(
-            entry.candidates as Record<string, unknown>[],
-        );
-
-        // 若有 embedding mock 数据，注入 Provider
-        if (entry._mockEmbeddings || entry._mockNullEmbeddings) {
-            const provider = makeEmbeddingProvider(
-                entry._mockEmbeddings,
-                entry._mockNullEmbeddings,
+describe.each(dataset as any as EvalEntry[])(
+    'Memory Selection Eval',
+    (entry) => {
+        it(`${entry.id}: ${entry.description}`, async () => {
+            const candidates = asCandidates(
+                entry.candidates as any as Record<string, unknown>[],
             );
-            // 通过 Di 入口注入 (构造函数参数)
-            (memorySelectionService as any).embeddingProvider = provider;
-        }
 
-        const result = await memorySelectionService.select(
-            candidates,
-            entry.config as any,
-        );
+            // 若有 embedding mock 数据，注入 Provider
+            if (entry._mockEmbeddings || entry._mockNullEmbeddings) {
+                const provider = makeEmbeddingProvider(
+                    entry._mockEmbeddings,
+                    entry._mockNullEmbeddings,
+                );
+                // 通过 Di 入口注入 (构造函数参数)
+                (memorySelectionService as any).embeddingProvider = provider;
+            }
 
-        // 精确断言
-        expect(
-            result.selected.length,
-            `selectedCount expected ${entry.expected.selectedCount}, got ${result.selected.length}`,
-        ).toBe(entry.expected.selectedCount);
-
-        if (entry.expected.droppedByDedup !== undefined) {
-            expect(result.metadata.droppedByDedup).toEqual(
-                entry.expected.droppedByDedup,
+            const result = await memorySelectionService.select(
+                candidates,
+                entry.config as any,
             );
-        }
-        if (entry.expected.embeddingMissing !== undefined) {
-            expect(result.metadata.embeddingMissing).toBe(
-                entry.expected.embeddingMissing,
-            );
-        }
-        if (entry.expected.hardMaxApplied !== undefined) {
-            expect(result.metadata.hardMaxApplied).toBe(
-                entry.expected.hardMaxApplied,
-            );
-        }
 
-        // Snapshot 快照（metadata 自动生成到 snapshots/）
-        const { selectionLatencyMs, ...snapshotMetadata } = result.metadata;
-        expect(selectionLatencyMs).toBeGreaterThanOrEqual(0);
-        expect(snapshotMetadata).toMatchSnapshot();
-    });
-});
+            // 精确断言
+            expect(
+                result.selected.length,
+                `selectedCount expected ${entry.expected.selectedCount}, got ${result.selected.length}`,
+            ).toBe(entry.expected.selectedCount);
+
+            if (entry.expected.droppedByDedup !== undefined) {
+                expect(result.metadata.droppedByDedup).toEqual(
+                    entry.expected.droppedByDedup,
+                );
+            }
+            if (entry.expected.embeddingMissing !== undefined) {
+                expect(result.metadata.embeddingMissing).toBe(
+                    entry.expected.embeddingMissing,
+                );
+            }
+            if (entry.expected.hardMaxApplied !== undefined) {
+                expect(result.metadata.hardMaxApplied).toBe(
+                    entry.expected.hardMaxApplied,
+                );
+            }
+
+            // Snapshot 快照（metadata 自动生成到 snapshots/）
+            const { selectionLatencyMs, ...snapshotMetadata } = result.metadata;
+            expect(selectionLatencyMs).toBeGreaterThanOrEqual(0);
+            expect(snapshotMetadata).toMatchSnapshot();
+        });
+    },
+);
 
 // ── Mock 驱动测试：T8b 百分位截断兜底 ─────────────────────────
 

@@ -55,7 +55,7 @@ beforeEach(() => {
 describe('memoryMiddleware', () => {
     it('A1: body 有 sessionId → req.meta.sessionId 取 body 值', () => {
         const { req, res, next } = makeMocks({
-            body: { sessionId: 'sid_in_body' },
+            body: { session_id: 'sid_in_body' },
         });
 
         memoryMiddleware(req, res, next);
@@ -66,7 +66,7 @@ describe('memoryMiddleware', () => {
 
     it('A2: 仅 query 有 sessionId → req.meta.sessionId 取 query 值', () => {
         const { req, res, next } = makeMocks({
-            query: { sessionId: 'sid_in_query' },
+            query: { session_id: 'sid_in_query' },
         });
 
         memoryMiddleware(req, res, next);
@@ -77,8 +77,8 @@ describe('memoryMiddleware', () => {
 
     it('A3: body 和 query 都有 sessionId → body 值生效', () => {
         const { req, res, next } = makeMocks({
-            body: { sessionId: 'body_wins' },
-            query: { sessionId: 'query_loses' },
+            body: { session_id: 'body_wins' },
+            query: { session_id: 'query_loses' },
         });
 
         memoryMiddleware(req, res, next);
@@ -98,7 +98,7 @@ describe('memoryMiddleware', () => {
 
     it('A5: 任意请求 → res.cookie 未被调用', () => {
         const { req, res, next } = makeMocks({
-            body: { sessionId: 'some-id' },
+            body: { session_id: 'some-id' },
         });
 
         memoryMiddleware(req, res, next);

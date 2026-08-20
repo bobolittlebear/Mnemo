@@ -30,7 +30,7 @@ vi.mock('@/utils/constant', () => ({
 // ── 引入被测模块（在 Mock 之后）──
 import { createChat } from '@/services/ai.service';
 import MemoryExtractionService from '@/services/memory/memoryExtraction.service';
-import * as fixtures from '../../helpers/fixtures';
+import * as fixtures from '../../../helpers/fixtures';
 
 const mockedCreateChat = vi.mocked(createChat);
 const service = MemoryExtractionService;

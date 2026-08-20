@@ -33,7 +33,7 @@ vi.mock('@/utils/tool', () => ({
 // ── 引入被测模块 ──
 import { MemoryFact } from '@/models/MemoryFact';
 import { ingestMemoryFacts } from '@/services/memory/memoryIngestion.service';
-import * as fixtures from '../../helpers/fixtures';
+import * as fixtures from '../../../helpers/fixtures';
 import type { EmbeddedFact, IngestionContext } from '@/types/memory';
 
 const mockedBulkWrite = vi.mocked(MemoryFact.bulkWrite);

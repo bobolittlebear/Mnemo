@@ -138,8 +138,8 @@ class MemoryPipelineService {
         let rawFacts = await memoryExtractionService.extractFacts(newMessages, {
             userId,
             existingMemories: existingMemories.map((m) => ({
-                _id: m._id.toString(),
-                content: m.content,
+                _id: m?._id?.toString?.(),
+                content: m?.content,
             })),
         });
         logger.debug('提取的事实：', {
