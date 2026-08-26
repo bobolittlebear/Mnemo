@@ -12,6 +12,7 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import indexRouter from './routes';
 import connectDB from './db';
+import { startNoteReindexWorker } from '@/services/notebook/noteReindex.service';
 
 const app: Application = express();
 
@@ -25,6 +26,9 @@ app.use(
 
 // 连接数据库
 connectDB();
+
+// 笔记 RAG 增量重建后台 worker（幂等启动；MongoDB 未就绪时自动跳过本轮）
+startNoteReindexWorker();
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));

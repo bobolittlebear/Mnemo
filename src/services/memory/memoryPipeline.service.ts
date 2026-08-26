@@ -149,7 +149,7 @@ class MemoryPipelineService {
         // ── 2.5 分流处理：DELETE / UPDATE / ADD ──
         // 白名单：本批次传入的已有记忆 _id 集合（最严格式约束）
         const existingIds = new Set(
-            existingMemories.map((m) => m._id.toString()),
+            existingMemories.map((m) => m?._id?.toString?.()),
         );
 
         // 解析 UPDATE/DELETE 目标 _id：优先 old_memory_id（白名单校验），

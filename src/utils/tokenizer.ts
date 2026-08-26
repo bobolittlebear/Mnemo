@@ -7,7 +7,7 @@ let encoder: Tiktoken | null = null;
 /**
  * 获取单例 encoder，避免重复加载 WASM 模块
  */
-function getEncoder(): Tiktoken {
+export function getEncoder(): Tiktoken {
     if (!encoder) {
         encoder = get_encoding('cl100k_base');
     }

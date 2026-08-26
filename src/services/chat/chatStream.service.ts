@@ -8,6 +8,7 @@ import Session from '@/models/Session';
 import { messageCounter, sessionMemoryLifecycle } from '@/services/memory';
 import memorySearchService from '@/services/memory/memorySearch.service';
 import memorySelectionService from '@/services/memory/memorySelection.service';
+import { injectNotesIntoSystemPrompt } from '@/services/notebook/noteInjection.service';
 import type { ChatCompletionChunk } from 'openai/resources/chat/completions';
 import type { RawMessage } from '@/types/chat';
 import { generateMessageId } from '@/utils/tool';
@@ -100,7 +101,7 @@ class ChatStreamService {
 ${memsXml}
 </user_memory>`;
 
-                logger.info('记忆注入成功', {
+                logger.info('会话记忆注入成功', {
                     totalCandidates: metadata.totalCandidates,
                     afterPercentile: metadata.afterPercentile,
                     afterDedup: metadata.afterDedup,
@@ -111,6 +112,18 @@ ${memsXml}
         } catch (error) {
             logger.warn('记忆注入失败，对话照常继续', { error });
             systemPrompt = undefined;
+        }
+        // 笔记 RAG 注入：在记忆注入之后追加 <note_context> 块。检索异常等由注入层内部降级，
+        // 此处兜底不打断对话；抛错时 systemPrompt 保留已拼好的记忆 prompt。
+        try {
+            systemPrompt = await injectNotesIntoSystemPrompt({
+                userId,
+                query: latestUserMsg.content as string,
+                systemPrompt: systemPrompt ?? '',
+                // notebookId: 当前流式对话未绑定笔记本，暂不限定检索范围
+            });
+        } catch (error) {
+            logger.warn('笔记注入失败，对话照常继续', { error });
         }
 
         const assistantMsgId = generateMessageId();

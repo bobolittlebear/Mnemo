@@ -62,8 +62,6 @@ const MemoryFactSchema = new Schema<RawMemoryFact>(
     },
     {
         timestamps: true,
-        toJSON: { virtuals: true },
-        toObject: { virtuals: true },
     },
 );
 

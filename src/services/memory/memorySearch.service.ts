@@ -123,16 +123,17 @@ class MemorySearchService {
             ),
             this.textSearch(userId, trimmedQuery, textTopK, notebookId, type),
         ]);
-        logger.info('检索结果', {
-            userId,
-            vectorResult,
-            textResult,
-        });
 
         const vectorDocs =
             vectorResult.status === 'fulfilled' ? vectorResult.value : [];
         const textDocs =
             textResult.status === 'fulfilled' ? textResult.value : [];
+
+        logger.info('检索结果', {
+            userId,
+            vectorDocs: vectorDocs.map((v) => v.content),
+            textDocs: textDocs.map((v) => v.content),
+        });
 
         // ── 3. 降级判定 ──
         const vectorFailed = vectorResult.status === 'rejected';
@@ -184,7 +185,7 @@ class MemorySearchService {
             vectorCount: vectorDocs.length,
             textCount: textDocs.length,
             fusedCount: fused.length,
-            fused,
+            fused: fused.map((f) => f.content),
         });
 
         return {

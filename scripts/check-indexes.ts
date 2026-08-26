@@ -3,9 +3,10 @@ import mongoose from 'mongoose';
 import '../src/models/MemoryFact'; // 触发 Schema 注册
 
 async function checkIndexes() {
-    await mongoose.connect(
-        'mongodb+srv://982639718_db_user:SQO1RAlU4Z66BrcO@aiquicknote-cluster.xyvlui8.mongodb.net/?appName=aiquicknote-cluster',
-    );
+    const MONGO_URI =
+        process.env.MONGODB_URI || 'mongodb://localhost:27017/ltm_test';
+
+    await mongoose.connect(MONGO_URI);
 
     const indexes = await mongoose.connection.db
         ?.collection('memoryfacts')

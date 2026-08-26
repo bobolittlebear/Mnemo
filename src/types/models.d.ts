@@ -90,3 +90,21 @@ export interface MemoryFact extends Document {
     // 软删除
     deletedAt?: Date;
 }
+
+/** 笔记分块（父子块，独立于 MemoryFact 的集合） */
+export interface NoteChunk extends Document {
+    noteId: mongoose.Types.ObjectId; // 所属笔记
+    notebookId: mongoose.Types.ObjectId; // 所属笔记本
+    userId: string;
+    title: string; // 块标题（取自最近的标题层级）
+    chunkType: 'parent' | 'child'; // parent=标题父块，child=正文子块
+    parentId?: mongoose.Types.ObjectId; // 自引用 NoteChunk（child → parent）
+    sectionPath: string[]; // 标题层级路径
+    chunkIndex: number; // 0-based 全局顺序
+    content: string; // 块正文
+    embedding?: number[]; // 向量（仅 child 块生成）
+    searchText: string; // 分词后的搜索文本，用于中文全文检索
+    contentHash: string; // 内容指纹，用于去重
+    createdAt: Date;
+    updatedAt: Date;
+}

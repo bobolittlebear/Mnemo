@@ -294,4 +294,34 @@ describe('noteChunker', () => {
             generateContentHash(content),
         );
     });
+
+    describe('packPieces 子章节归属和边界测试', () => {
+        const packPiecesGoldenCase =
+            '## 📌 今日知识点：Redis 分布式锁\n\n### 一、基础概念：它解决什么问题\n\n单机时代一把 `mutex`（进程内互斥锁）就够了——因为只有一个进程在跑。但服务一上多实例（Node 集群、K8s 多副本），每个实例各自持有自己的锁，\\*\\*互不感知\\*\\*，两个实例可能同时执行同一段代码（比如扣库存、跑定时任务）。\n\n分布式锁 = 一把所有实例都认的锁，保证「同一时刻只有一个实例能拿到」。\n\nRedis 能当锁的原因：\\*\\*单线程执行命令\\*\\*，天然原子，多个客户端同时 SET 只有一个能成功——这就是互斥的本质。\n\n### 二、三代演进：为什么不能照抄网上老代码\n\n#### **v1 ·** `SETNX` **+** `EXPIRE`**（两个命令）**\n\n```\nSETNX lock:order 1     # 抢锁\nEXPIRE lock:order 30   # 设过期防死锁\n```\n\n坑：两步不原子。第一步成功、第二步前进程崩了 → 锁永不过期 → \\*\\*死锁\\*\\*。\n\n#### v2 · `SET lock:order 1 NX EX 30`（一条命令）\n\nSET 的 `NX`（不存在才设置）+ `EX`（过期时间）合成单命令，原子性解决，锁会自动过期。\n\n新坑：\\*\\*误删他人锁\\*\\*。A 的业务跑了 40s 超过 30s 锁过期了，B 抢到锁；A 执行完执行 `DEL`，把 B 的锁删了 → 两个实例同时进入临界区，锁形同虚设。\n\n#### v3 · 唯一标识 + Lua 脚本（生产可用版）\n\n```\n# value 存唯一随机标识（如 UUID），删除前先比对，防止误删\n\nif redis.call("get", KEYS[1]) == ARGV[1] then\n\n  return redis.call("del", KEYS[1])\n\nelse\n\n  return 0\n\nend\n```\n\n「判断 + 删除」两步也在 Lua 里原子执行，比对通过才删。**这是面试手写题的满分答案。**\n\n### 三、进阶追问（面试高频）\n\n- **锁过期了业务还没跑完怎么办？** → 看门狗（Watchdog）：Redisson 等客户端会自动续期，业务没结束锁就不会过期；业务结束主动释放。\n- **主从切换丢锁怎么办？** → Redlock：向 N 个独立 Redis 节点都加锁，过半成功才算拿到。争议很大（存在时钟漂移等理论缺陷），国内多数场景单节点 + 看门狗够用，别为了装逼引入复杂度。\n- **还有别的实现吗？** → ZooKeeper / etcd 的临时顺序节点锁（强一致，适合对一致性要求极高的场景），以及 MySQL 悲观锁 `SELECT ... FOR UPDATE`。\n\n### 四、应用场景 & 和你 Mnemo 的关联\n\n- 秒杀/库存扣减：防止超卖\n- **定时任务：多实例部署时保证\\*\\*只有一个实例\\*\\*执行（比如每天凌晨的记忆压缩任务）**\n- **防重复提交 / 幂等控制：同一条消息只处理一次**\n\n落到 Mnemo 上：你当前是单实例，如果以后多实例部署，\\*\\*L2 记忆提取、定时归档这类任务\\*\\*就得靠分布式锁抢执行权，避免重复提取同一批消息产生重复记忆。另外你之前学过的缓存三大难题里「击穿」的解法——互斥锁，本质也是这个。\n\n---\n\n**一句话记住**：`SETNX` 是玩具，`SET NX EX` 能防死锁，\\*\\*唯一标识 + Lua 原子校验\\*\\*才是生产级，再加看门狗续期防业务超时。';
+
+        it('C1 - 当相邻 piece 的 sectionPath 不同时不允许合并', () => {
+            const result = chunkMarkdown(packPiecesGoldenCase);
+            for (const child of result.children) {
+                // 解析 content 中不应出现其他 section 的标志性内容
+                const paths = new Set(child.sectionPath.map((p) => p));
+                expect(paths.size).toBe(child.sectionPath.length); // 无重复
+            }
+        });
+
+        it('C2 - 两个标题的层级相同时，正文内容不允许跨 section 缝合（v3 Lua 脚本不应出现在 v2 child中）', () => {
+            const result = chunkMarkdown(packPiecesGoldenCase);
+            const v2Child = result.children.find((c) => c.title.includes('v2'));
+            expect(v2Child?.content).not.toContain('redis.call');
+            expect(v2Child?.content).not.toContain('UUID');
+        });
+
+        it('C3 - 子层级的正文不允许合并到父层级中（v1 代码块不能出现在 基础概念 child中）', () => {
+            const result = chunkMarkdown(packPiecesGoldenCase);
+            const basicChild = result.children.find((c) =>
+                c.title.includes('基础概念'),
+            );
+            expect(basicChild?.content).not.toContain('SETNX lock:order');
+            expect(basicChild?.content).not.toContain('EXPIRE lock:order');
+        });
+    });
 });

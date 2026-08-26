@@ -381,13 +381,42 @@ describe('noteSearch.searchNotes', () => {
         expect(NoteChunk.aggregate).not.toHaveBeenCalled();
     });
 
-    it('P4: 向量检索 DB 异常向上抛错', async () => {
-        (NoteChunk.aggregate as any).mockRejectedValueOnce(
-            new Error('Atlas 连接超时'),
-        );
+    // ────────────────────── 单路降级（Promise.allSettled）──────────────────────
 
-        await expect(
-            searchNotes({ userId: 'u1', query: '部署指南' }),
-        ).rejects.toThrow('Atlas 连接超时');
+    it('P4: 向量路异常降级，不抛错且仍可返回 BM25 结果', async () => {
+        // 第一次 aggregate（向量路）reject，第二次（BM25）正常返回
+        (NoteChunk.aggregate as any)
+            .mockRejectedValueOnce(new Error('Atlas 连接超时'))
+            .mockResolvedValueOnce([makeChunk('A')]);
+
+        const results = await searchNotes({ userId: 'u1',  query: '部署指南' });
+
+        // 不抛错，降级为仅 BM25 路生效
+        expect(results.length).toBe(1);
+        expect(results[0]!.noteId).toBe('note-A');
+        // 两路都被调用（向量失败后 BM25 仍执行）
+        expect(NoteChunk.aggregate).toHaveBeenCalledTimes( 2);
+    });
+
+    it('P5: BM25 路异常降级，不抛错且仍可返回向量结果', async () => {
+        (NoteChunk.aggregate as any)
+            .mockResolvedValueOnce([makeChunk('A')]) // 向量正常
+            .mockRejectedValueOnce(new Error('text index 未建'));
+
+        const results = await searchNotes({ userId: 'u1',  query: '部署指南' });
+
+        expect(results.length).toBe(1);
+        expect(results[0]!.noteId).toBe('note-A');
+        expect(NoteChunk.aggregate).toHaveBeenCalledTimes(2);
+    });
+
+    it('P6: 两路都异常，返回 [] 不抛错（由注入层兜底）', async () => {
+        (NoteChunk.aggregate as any)
+            .mockRejectedValueOnce(new Error('vector down'))
+            .mockRejectedValueOnce(new Error('text down'));
+
+        const results = await searchNotes({ userId: 'u1',  query: '部署指南' });
+
+        expect(results).toEqual([]);
     });
 });

@@ -8,8 +8,9 @@
         "dev": "cross-env NODE_ENV=development nodemon",
         "test": "vitest run",
         "test:watch": "vitest",
-        "test:unit": "vitest run --exclude tests/integration/**",
+        "test:unit": "vitest run --dir tests/unit",
         "test:integration": "vitest run --dir tests/integration",
+        "test:snapshot": "vitest run --dir tests/evals",
         "test:coverage": "vitest run --coverage"
     },
     "dependencies": {
@@ -29,7 +30,10 @@
         "p-limit": "^7.3.0",
         "pug": "2.0.0-beta11",
         "redis": "^6.0.0",
+        "remark-gfm": "^4.0.1",
+        "remark-parse": "^11.0.0",
         "tiktoken": "^1.0.22",
+        "unified": "^11.0.5",
         "uuid": "^14.0.1",
         "winston": "^3.19.0"
     },
@@ -40,6 +44,7 @@
         "@types/express": "^5.0.6",
         "@types/http-errors": "^2.0.5",
         "@types/jsonwebtoken": "^9.0.10",
+        "@types/mdast": "^4.0.4",
         "@types/node": "^25.7.0",
         "@typescript-eslint/eslint-plugin": "^8.59.3",
         "@typescript-eslint/parser": "^8.59.3",

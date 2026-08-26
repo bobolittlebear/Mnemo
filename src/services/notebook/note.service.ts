@@ -1,6 +1,10 @@
 import NoteModel from '@/models/Note';
 import type { Note } from '@/types/models';
 import type { HydratedDocument } from 'mongoose';
+import { createLogger } from '@/lib/logger';
+import { markNoteDirty, removeNoteIndex } from './noteReindex.service';
+
+const log = createLogger('rag');
 
 // Note 接口是纯类型且未声明 timestamps，本地用 HydratedDocument 补齐 _id/__v 与时间戳字段
 // （createUser/updateUser 存的是 userId）
@@ -32,6 +36,10 @@ const createNote = async (
         updateUser: user,
     });
     const saved = await note.save();
+    if (saved?._id?.toString) {
+        // RAG 增量重建脏标记（fire-and-forget，不阻塞响应）
+        markNoteDirty(saved._id.toString());
+    }
     return toNoteDTO(saved as NoteDoc);
 };
 
@@ -81,6 +89,10 @@ const updateNote = async (
     if (!note) {
         throw new Error('笔记不存在或无权更新');
     }
+    if (note?._id?.toString) {
+        // RAG 增量重建脏标记（fire-and-forget，不阻塞响应）
+        markNoteDirty(note._id.toString());
+    }
     return toNoteDTO(note as NoteDoc);
 };
 
@@ -93,6 +105,10 @@ const deleteNote = async (noteId: string, user: string) => {
     if (!note) {
         throw new Error('笔记不存在或无权删除');
     }
+    // 软删 Note 后硬删派生 chunk + 清理脏标记（fire-and-forget，不阻塞删除响应）
+    removeNoteIndex(noteId).catch((error) => {
+        log.error('删除笔记后清理 RAG 索引失败', error as Error, { noteId });
+    });
     return toNoteDTO(note as NoteDoc);
 };
 
