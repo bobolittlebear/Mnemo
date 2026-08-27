@@ -24,12 +24,12 @@ const log = createLogger('rag');
 /* Redis 脏标记队列 Key                                                */
 /* ------------------------------------------------------------------ */
 
-const PENDING_KEY = 'note:reindex:pending'; // Set：待重建的 noteId
-const DEAD_KEY = 'note:reindex:dead'; // Set：连续失败移入的死信 noteId
-const FAIL_KEY_PREFIX = 'note:reindex:fail:'; // 计数：note:reindex:fail:{noteId}
+export const PENDING_KEY = 'note:reindex:pending'; // Set：待重建的 noteId
+export const DEAD_KEY = 'note:reindex:dead'; // Set：连续失败移入的死信 noteId
+export const FAIL_KEY_PREFIX = 'note:reindex:fail:'; // 计数：note:reindex:fail:{noteId}
 
 /** 单条笔记 reindex 失败重试上限，超过进入死信（防 embedding 永久失败死循环） */
-const MAX_FAILS = 3;
+export const MAX_FAILS = 3;
 /** worker 轮询间隔（ms）。用递归 setTimeout 而非 setInterval，天然避免重叠执行 */
 const POLL_INTERVAL_MS = 20000;
 
@@ -422,10 +422,23 @@ async function processOne(noteId: string): Promise<void> {
     try {
         await incrementalReindex(noteId);
     } catch (error) {
-        // 失败：计数 +1，超过上限移入死信停止重试（不 SREM，保留现场便于排查）
+        // 失败：计数 +1，超过上限移出 pending 停止重试，并清理失败计数键
         const failCount = await redisClient.incr(failKey);
         if (failCount > MAX_FAILS) {
             await redisClient.sAdd(DEAD_KEY, noteId);
+            // 移出活跃队列 + 清失败计数：下轮 pollOnce 不再读到；运维手动重新入队时从 0 开始。
+            // Redis 瞬时故障仅告警不阻塞 worker（死信已标记，下轮不会再次处理）
+            try {
+                await Promise.all([
+                    redisClient.sRem(PENDING_KEY, noteId),
+                    redisClient.del(failKey),
+                ]);
+            } catch (cleanupError) {
+                log.error('移入死信后清理标记失败', cleanupError as Error, {
+                    noteId,
+                    failCount,
+                });
+            }
             log.warn(`reindex 连续失败超过 ${MAX_FAILS} 次，移入死信停止重试`, {
                 noteId,
                 failCount,

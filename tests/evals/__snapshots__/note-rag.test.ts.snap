@@ -1,616 +1,152 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`Note RAG Eval > C1: 两章节各自独立成 parent，child 指向正确 parent 1`] = `
+exports[`Note RAG Eval > chunk-basic: 两个 H2 章节：顶层 H1 整节成 parent，不同 section 的段落各成 child 1`] = `
 {
   "children": [
     {
       "chunkIndex": 0,
-      "content": "安装前请确认环境依赖已就绪，按照步骤完成安装。安装前请确认环境依赖已就绪，按照步骤完成安装。安装前请确认环境依赖已就绪，按照步骤完成安装。",
-      "contentHash": "80139983fa6855c16481ac3922ec00ea183991db5d019bf0ce25654eab5a5c5d",
+      "content": "先装 Node 18，再执行 npm install。",
+      "contentHash": "a1d70bbc29d27e56c2cd6e4dce2f13791458060ed5f2c5f37243d93a5ddfd857",
       "parentIndex": 0,
       "sectionPath": [
-        "安装说明",
+        "部署指南",
+        "安装",
       ],
-      "title": "安装说明",
+      "title": "安装",
     },
     {
       "chunkIndex": 1,
-      "content": "使用前请阅读常用命令与配置说明，快速上手。使用前请阅读常用命令与配置说明，快速上手。使用前请阅读常用命令与配置说明，快速上手。使用前请阅读常用命令与配置说明，快速上手。",
-      "contentHash": "db763e43870dc6981c88f39de1cf66e7d826e0b7aaa5bc12f686dd5706079a7a",
-      "parentIndex": 1,
+      "content": "修改 config.yaml 设置端口。
+
+数据库连接用 MongoDB。",
+      "contentHash": "30e44682b0c7e332a794a092ef34a2f3d19aab55bcf49b23b598ae7cbc079956",
+      "parentIndex": 0,
       "sectionPath": [
-        "使用说明",
+        "部署指南",
+        "配置",
       ],
-      "title": "使用说明",
+      "title": "配置",
     },
   ],
   "parents": [
     {
       "chunkIndex": 0,
-      "content": "## 安装说明
+      "content": "# 部署指南
 
-安装前请确认环境依赖已就绪，按照步骤完成安装。安装前请确认环境依赖已就绪，按照步骤完成安装。安装前请确认环境依赖已就绪，按照步骤完成安装。",
-      "contentHash": "01be747290976cccbca21e24571896c44d176c4eadd13e518e2d53ae8f552446",
-      "sectionPath": [
-        "安装说明",
-      ],
-      "title": "安装说明",
-    },
-    {
-      "chunkIndex": 1,
-      "content": "## 使用说明
+## 安装
 
-使用前请阅读常用命令与配置说明，快速上手。使用前请阅读常用命令与配置说明，快速上手。使用前请阅读常用命令与配置说明，快速上手。使用前请阅读常用命令与配置说明，快速上手。",
-      "contentHash": "d6dd17dce7c8945ef9b1631904f4318626fdab83caaf5f6159c755aaf20c6c3a",
+先装 Node 18，再执行 npm install。
+
+## 配置
+
+修改 config.yaml 设置端口。
+
+数据库连接用 MongoDB。",
+      "contentHash": "ef1ba376ad712967c8d78d04c3ece6bf50ea0ff7325e917700b66d1578ae0575",
       "sectionPath": [
-        "使用说明",
+        "部署指南",
       ],
-      "title": "使用说明",
+      "title": "部署指南",
     },
   ],
   "stats": {
-    "avgChildTokens": 84,
+    "avgChildTokens": 12,
     "childCount": 2,
     "forcedSplitCount": 0,
-    "maxChildTokens": 84,
-    "minChildTokens": 84,
-    "parentCount": 2,
-  },
-}
-`;
-
-exports[`Note RAG Eval > C2: 代码块与表格各自整体成 child，不被切断 1`] = `
-{
-  "children": [
-    {
-      "chunkIndex": 0,
-      "content": "\`\`\`typescript
-function add(a: number, b: number): number {
-  const sum = a + b;
-  return sum;
-}
-function sub(a: number, b: number): number {
-  const diff = a - b;
-  return diff;
-}
-function add(a: number, b: number): number {
-  const sum = a + b;
-  return sum;
-}
-function sub(a: number, b: number): number {
-  const diff = a - b;
-  return diff;
-}
-function add(a: number, b: number): number {
-  const sum = a + b;
-  return sum;
-}
-function sub(a: number, b: number): number {
-  const diff = a - b;
-  return diff;
-}
-function add(a: number, b: number): number {
-  const sum = a + b;
-  return sum;
-}
-function sub(a: number, b: number): number {
-  const diff = a - b;
-  return diff;
-}
-\`\`\`",
-      "contentHash": "164ab7412b617e59b1bd28b01d2dd98e6222d4c61d5149e43af28bd78a35697c",
-      "parentIndex": 0,
-      "sectionPath": [
-        "代码与表格",
-      ],
-      "title": "代码与表格",
-    },
-    {
-      "chunkIndex": 1,
-      "content": "| 名称 | 路径 | 说明 |
-| --- | --- | --- |
-| 项2 | /usr/local/mnemo/2 | 说明2 |
-| 项3 | /usr/local/mnemo/3 | 说明3 |
-| 项4 | /usr/local/mnemo/4 | 说明4 |
-| 项5 | /usr/local/mnemo/5 | 说明5 |
-| 项6 | /usr/local/mnemo/6 | 说明6 |
-| 项7 | /usr/local/mnemo/7 | 说明7 |
-| 项8 | /usr/local/mnemo/8 | 说明8 |
-| 项9 | /usr/local/mnemo/9 | 说明9 |
-| 项10 | /usr/local/mnemo/10 | 说明10 |",
-      "contentHash": "3c7a812e65500fcb04f5cf82029ab69d5b0db1aac9b921fee16dd6ecb6d0b3c7",
-      "parentIndex": 0,
-      "sectionPath": [
-        "代码与表格",
-      ],
-      "title": "代码与表格",
-    },
-  ],
-  "parents": [
-    {
-      "chunkIndex": 0,
-      "content": "## 代码与表格
-
-\`\`\`typescript
-function add(a: number, b: number): number {
-  const sum = a + b;
-  return sum;
-}
-function sub(a: number, b: number): number {
-  const diff = a - b;
-  return diff;
-}
-function add(a: number, b: number): number {
-  const sum = a + b;
-  return sum;
-}
-function sub(a: number, b: number): number {
-  const diff = a - b;
-  return diff;
-}
-function add(a: number, b: number): number {
-  const sum = a + b;
-  return sum;
-}
-function sub(a: number, b: number): number {
-  const diff = a - b;
-  return diff;
-}
-function add(a: number, b: number): number {
-  const sum = a + b;
-  return sum;
-}
-function sub(a: number, b: number): number {
-  const diff = a - b;
-  return diff;
-}
-\`\`\`
-
-| 名称 | 路径 | 说明 |
-| --- | --- | --- |
-| 项2 | /usr/local/mnemo/2 | 说明2 |
-| 项3 | /usr/local/mnemo/3 | 说明3 |
-| 项4 | /usr/local/mnemo/4 | 说明4 |
-| 项5 | /usr/local/mnemo/5 | 说明5 |
-| 项6 | /usr/local/mnemo/6 | 说明6 |
-| 项7 | /usr/local/mnemo/7 | 说明7 |
-| 项8 | /usr/local/mnemo/8 | 说明8 |
-| 项9 | /usr/local/mnemo/9 | 说明9 |
-| 项10 | /usr/local/mnemo/10 | 说明10 |",
-      "contentHash": "2303619a85fd1348377975e3837f1cd5e04d7f5706294d0425ee90ded1cbaae6",
-      "sectionPath": [
-        "代码与表格",
-      ],
-      "title": "代码与表格",
-    },
-  ],
-  "stats": {
-    "avgChildTokens": 193,
-    "childCount": 2,
-    "forcedSplitCount": 0,
-    "maxChildTokens": 204,
-    "minChildTokens": 181,
+    "maxChildTokens": 12,
+    "minChildTokens": 11,
     "parentCount": 1,
   },
 }
 `;
 
-exports[`Note RAG Eval > C3: 嵌套标题 sectionPath 逐级（3 层 parent + 多层 child） 1`] = `
+exports[`Note RAG Eval > chunk-multibyte: CJK + emoji + 韩文 + 泰语：同 section 短段落合并为单 child，多字节字符不被切断 1`] = `
 {
   "children": [
     {
       "chunkIndex": 0,
-      "content": "A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。",
-      "contentHash": "234a4b86fba984e4eb7da933c31a1712c585d2e68eaaf839be3db960c3c7d522",
+      "content": "这是一段中文内容，包含 emoji 🚀 与韩文 안녕 与泰语 สวัสดี。
+
+第二段纯中文，验证切分不破坏字符。",
+      "contentHash": "14b2efef838864392bf23c962e06198b40a827e2164322280211e29ba5f7bbf5",
       "parentIndex": 0,
       "sectionPath": [
-        "A",
+        "多字节测试",
       ],
-      "title": "A",
-    },
-    {
-      "chunkIndex": 1,
-      "content": "A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。",
-      "contentHash": "3d83361f3ee465540ac2ef59c6591c784aa0e08f2d55a6a6193f111fb56eb5ae",
-      "parentIndex": 1,
-      "sectionPath": [
-        "A",
-        "A.1",
-      ],
-      "title": "A.1",
-    },
-    {
-      "chunkIndex": 2,
-      "content": "A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。",
-      "contentHash": "3d83361f3ee465540ac2ef59c6591c784aa0e08f2d55a6a6193f111fb56eb5ae",
-      "parentIndex": 1,
-      "sectionPath": [
-        "A",
-        "A.1",
-      ],
-      "title": "A.1",
-    },
-    {
-      "chunkIndex": 3,
-      "content": "A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。",
-      "contentHash": "ae44ec4090e64bc289ee63a0250aff30d45f2e4e241684c1b6157ea3adea2a0e",
-      "parentIndex": 1,
-      "sectionPath": [
-        "A",
-        "A.1",
-      ],
-      "title": "A.1",
-    },
-    {
-      "chunkIndex": 4,
-      "content": "A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。",
-      "contentHash": "89326f2ff8ceda010ec933b189c747e58b4a8895b0fb14f64ba1ce3f3f89fa96",
-      "parentIndex": 2,
-      "sectionPath": [
-        "A",
-        "A.1",
-        "A.1.1",
-      ],
-      "title": "A.1.1",
-    },
-    {
-      "chunkIndex": 5,
-      "content": "A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。",
-      "contentHash": "89326f2ff8ceda010ec933b189c747e58b4a8895b0fb14f64ba1ce3f3f89fa96",
-      "parentIndex": 2,
-      "sectionPath": [
-        "A",
-        "A.1",
-        "A.1.1",
-      ],
-      "title": "A.1.1",
-    },
-    {
-      "chunkIndex": 6,
-      "content": "A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。",
-      "contentHash": "42d255c966962e94eaf058e76a059eee748214bda85d17b71b179a99a84888ff",
-      "parentIndex": 2,
-      "sectionPath": [
-        "A",
-        "A.1",
-        "A.1.1",
-      ],
-      "title": "A.1.1",
+      "title": "多字节测试",
     },
   ],
   "parents": [
     {
       "chunkIndex": 0,
-      "content": "## A
+      "content": "# 多字节测试
 
-A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。A 章节自身的介绍内容。",
-      "contentHash": "d4d8f56e79ab32378bfcd80a14d4172ec9bf8615f1257b30ed5782b74e05bab4",
-      "sectionPath": [
-        "A",
-      ],
-      "title": "A",
-    },
-    {
-      "chunkIndex": 1,
-      "content": "### A.1
+这是一段中文内容，包含 emoji 🚀 与韩文 안녕 与泰语 สวัสดี。
 
-A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。A.1 小节的详细说明内容。",
-      "contentHash": "eaffb825f1b466530ce3e4ac757d84760cdd52335f05f55cda5d7d0289d6896d",
+第二段纯中文，验证切分不破坏字符。",
+      "contentHash": "bcafe083281fae68ea5a7816963406e7e3e850d24281256786554d5970282578",
       "sectionPath": [
-        "A",
-        "A.1",
+        "多字节测试",
       ],
-      "title": "A.1",
-    },
-    {
-      "chunkIndex": 2,
-      "content": "#### A.1.1
-
-A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。A.1.1 小节的具体实现细节。",
-      "contentHash": "98c2a881fd203386fcc50a4ebbe3cda76ac4caf179b597434962a540d64682f5",
-      "sectionPath": [
-        "A",
-        "A.1",
-        "A.1.1",
-      ],
-      "title": "A.1.1",
+      "title": "多字节测试",
     },
   ],
   "stats": {
-    "avgChildTokens": 269,
-    "childCount": 7,
-    "forcedSplitCount": 2,
-    "maxChildTokens": 299,
-    "minChildTokens": 208,
-    "parentCount": 3,
-  },
-}
-`;
-
-exports[`Note RAG Eval > C4: 超长单段按句子边界切分 forcedSplitCount=1 1`] = `
-{
-  "children": [
-    {
-      "chunkIndex": 0,
-      "content": "这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。",
-      "contentHash": "2715b9f8136f5828acf61173aceec02eed4c9c782cd99100b18b71b5484cecc9",
-      "parentIndex": 0,
-      "sectionPath": [
-        "长段落",
-      ],
-      "title": "长段落",
-    },
-    {
-      "chunkIndex": 1,
-      "content": "这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。",
-      "contentHash": "2715b9f8136f5828acf61173aceec02eed4c9c782cd99100b18b71b5484cecc9",
-      "parentIndex": 0,
-      "sectionPath": [
-        "长段落",
-      ],
-      "title": "长段落",
-    },
-    {
-      "chunkIndex": 2,
-      "content": "这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。",
-      "contentHash": "2715b9f8136f5828acf61173aceec02eed4c9c782cd99100b18b71b5484cecc9",
-      "parentIndex": 0,
-      "sectionPath": [
-        "长段落",
-      ],
-      "title": "长段落",
-    },
-  ],
-  "parents": [
-    {
-      "chunkIndex": 0,
-      "content": "## 长段落
-
-这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。这是用于验证超长段落按句子边界切分的测试句子，句子之间用句号分隔。",
-      "contentHash": "36f1938a8b60259b390daa59452a978431f36a87eceb1a3a3dd8aae0117e176e",
-      "sectionPath": [
-        "长段落",
-      ],
-      "title": "长段落",
-    },
-  ],
-  "stats": {
-    "avgChildTokens": 273,
-    "childCount": 3,
-    "forcedSplitCount": 1,
-    "maxChildTokens": 273,
-    "minChildTokens": 273,
-    "parentCount": 1,
-  },
-}
-`;
-
-exports[`Note RAG Eval > C5: 超短多段合并为一个 child，不丢弃 1`] = `
-{
-  "children": [
-    {
-      "chunkIndex": 0,
-      "content": "短段落一，内容很少。
-
-短段落二，内容很少。
-
-短段落三，内容很少。
-
-短段落四，内容很少。",
-      "contentHash": "2971615a04e747f307095503ae66999a7caaa27b9b2fa0c29616b8d252eab615",
-      "parentIndex": 0,
-      "sectionPath": [],
-      "title": "",
-    },
-  ],
-  "parents": [
-    {
-      "chunkIndex": 0,
-      "content": "短段落一，内容很少。
-
-短段落二，内容很少。
-
-短段落三，内容很少。
-
-短段落四，内容很少。",
-      "contentHash": "2971615a04e747f307095503ae66999a7caaa27b9b2fa0c29616b8d252eab615",
-      "sectionPath": [],
-      "title": "",
-    },
-  ],
-  "stats": {
-    "avgChildTokens": 52,
+    "avgChildTokens": 56,
     "childCount": 1,
     "forcedSplitCount": 0,
-    "maxChildTokens": 52,
-    "minChildTokens": 52,
+    "maxChildTokens": 56,
+    "minChildTokens": 56,
     "parentCount": 1,
   },
 }
 `;
 
-exports[`Note RAG Eval > C6: 无标题纯文本按 token 阈值切分为多 parent 1`] = `
-{
-  "children": [
-    {
-      "chunkIndex": 0,
-      "content": "这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。",
-      "contentHash": "045a44b42fa87b3b82f15e25f98b431789a99b470db561872b38aed773512132",
-      "parentIndex": 0,
-      "sectionPath": [],
-      "title": "",
-    },
-    {
-      "chunkIndex": 1,
-      "content": "这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。",
-      "contentHash": "045a44b42fa87b3b82f15e25f98b431789a99b470db561872b38aed773512132",
-      "parentIndex": 0,
-      "sectionPath": [],
-      "title": "",
-    },
-    {
-      "chunkIndex": 2,
-      "content": "这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。",
-      "contentHash": "045a44b42fa87b3b82f15e25f98b431789a99b470db561872b38aed773512132",
-      "parentIndex": 0,
-      "sectionPath": [],
-      "title": "",
-    },
-    {
-      "chunkIndex": 3,
-      "content": "这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。",
-      "contentHash": "045a44b42fa87b3b82f15e25f98b431789a99b470db561872b38aed773512132",
-      "parentIndex": 0,
-      "sectionPath": [],
-      "title": "",
-    },
-    {
-      "chunkIndex": 4,
-      "content": "这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。",
-      "contentHash": "045a44b42fa87b3b82f15e25f98b431789a99b470db561872b38aed773512132",
-      "parentIndex": 0,
-      "sectionPath": [],
-      "title": "",
-    },
-    {
-      "chunkIndex": 5,
-      "content": "这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。",
-      "contentHash": "75fa62262a5775351f3e41975baa2e4a15a3e44c9e31f781f7cf2b8d9af2bde6",
-      "parentIndex": 0,
-      "sectionPath": [],
-      "title": "",
-    },
-    {
-      "chunkIndex": 6,
-      "content": "这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。",
-      "contentHash": "045a44b42fa87b3b82f15e25f98b431789a99b470db561872b38aed773512132",
-      "parentIndex": 1,
-      "sectionPath": [],
-      "title": "",
-    },
-    {
-      "chunkIndex": 7,
-      "content": "这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。",
-      "contentHash": "6b2958a151227997f95587de13cdf39c0266454a69cff62e2d4ddb4813c5292c",
-      "parentIndex": 1,
-      "sectionPath": [],
-      "title": "",
-    },
-  ],
-  "parents": [
-    {
-      "chunkIndex": 0,
-      "content": "这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。",
-      "contentHash": "9d01b530b51b237befdf18414b97f2c81adc5d0e7f0ff653c9823d1e14f38062",
-      "sectionPath": [],
-      "title": "",
-    },
-    {
-      "chunkIndex": 1,
-      "content": "这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。这是无标题文档中的正文内容，用于验证纯文本按 token 阈值切分，句子之间用句号分隔。",
-      "contentHash": "9a3dbac72e68198779cf8506db762e1857b004c25ae608aa5a59dcda411bce5f",
-      "sectionPath": [],
-      "title": "",
-    },
-  ],
-  "stats": {
-    "avgChildTokens": 226,
-    "childCount": 8,
-    "forcedSplitCount": 2,
-    "maxChildTokens": 258,
-    "minChildTokens": 86,
-    "parentCount": 2,
-  },
-}
-`;
-
-exports[`Note RAG Eval > C7: 混合中英文 token 精确计数无乱码 1`] = `
-{
-  "children": [
-    {
-      "chunkIndex": 0,
-      "content": "English sentence with 中文词语 and numbers 123.
-
-更多中文内容，包含标点符号！ Plus English tail.",
-      "contentHash": "a4011c21e3f76cc0a584727f7f289b92d82971d3b86628dcca6b73ab223e4739",
-      "parentIndex": 0,
-      "sectionPath": [
-        "混合内容",
-      ],
-      "title": "混合内容",
-    },
-  ],
-  "parents": [
-    {
-      "chunkIndex": 0,
-      "content": "## 混合内容
-
-English sentence with 中文词语 and numbers 123.
-
-更多中文内容，包含标点符号！ Plus English tail.",
-      "contentHash": "2bcbf1bd37f8fba65f2e909d82afe07cbe43b15a9cd38af038a76dae343724ac",
-      "sectionPath": [
-        "混合内容",
-      ],
-      "title": "混合内容",
-    },
-  ],
-  "stats": {
-    "avgChildTokens": 30,
-    "childCount": 1,
-    "forcedSplitCount": 0,
-    "maxChildTokens": 30,
-    "minChildTokens": 30,
-    "parentCount": 1,
-  },
-}
-`;
-
-exports[`Note RAG Eval > R1: 增量 diff：只改一段 → 仅变化的 child 被 re-embed，未变 child 复用不重算 1`] = `
+exports[`Note RAG Eval > reindex-delete: 删除一个章节 → 父块替换、保留段 reParent、删除段 childrenDeleted=1、不 re-embed 1`] = `
 {
   "childrenDeleted": 0,
   "childrenInserted": 2,
   "childrenReParented": 0,
-  "embeddingTokens": 168,
+  "embeddingTokens": 8,
   "noteId": "66f2c4f2a1b2c3d4e5f6a7b8",
   "parentsDeleted": 0,
-  "parentsInserted": 2,
+  "parentsInserted": 1,
   "unchanged": 0,
 }
 `;
 
-exports[`Note RAG Eval > R1: 增量 diff：只改一段 → 仅变化的 child 被 re-embed，未变 child 复用不重算 2`] = `
+exports[`Note RAG Eval > reindex-delete: 删除一个章节 → 父块替换、保留段 reParent、删除段 childrenDeleted=1、不 re-embed 2`] = `
+{
+  "childrenDeleted": 1,
+  "childrenInserted": 0,
+  "childrenReParented": 1,
+  "embeddingTokens": 0,
+  "noteId": "66f2c4f2a1b2c3d4e5f6a7b8",
+  "parentsDeleted": 1,
+  "parentsInserted": 1,
+  "unchanged": 0,
+}
+`;
+
+exports[`Note RAG Eval > reindex-full-to-diff: 首次全量（parentsInserted=1, childrenInserted=2）；二次改第二段→父块替换、第一段 reParent（不 re-embed）、第二段 re-embed 1`] = `
+{
+  "childrenDeleted": 0,
+  "childrenInserted": 2,
+  "childrenReParented": 0,
+  "embeddingTokens": 27,
+  "noteId": "66f2c4f2a1b2c3d4e5f6a7b8",
+  "parentsDeleted": 0,
+  "parentsInserted": 1,
+  "unchanged": 0,
+}
+`;
+
+exports[`Note RAG Eval > reindex-full-to-diff: 首次全量（parentsInserted=1, childrenInserted=2）；二次改第二段→父块替换、第一段 reParent（不 re-embed）、第二段 re-embed 2`] = `
 {
   "childrenDeleted": 1,
   "childrenInserted": 1,
-  "childrenReParented": 0,
-  "embeddingTokens": 95,
-  "noteId": "66f2c4f2a1b2c3d4e5f6a7b8",
-  "parentsDeleted": 1,
-  "parentsInserted": 1,
-  "unchanged": 1,
-}
-`;
-
-exports[`Note RAG Eval > R2: 章节重命名：旧 parent 删 + 新 parent 增，子块仅 reParent 不 re-embed（embeddingTokens=0） 1`] = `
-{
-  "childrenDeleted": 0,
-  "childrenInserted": 2,
-  "childrenReParented": 0,
-  "embeddingTokens": 426,
-  "noteId": "66f2c4f2a1b2c3d4e5f6a7b8",
-  "parentsDeleted": 0,
-  "parentsInserted": 1,
-  "unchanged": 0,
-}
-`;
-
-exports[`Note RAG Eval > R2: 章节重命名：旧 parent 删 + 新 parent 增，子块仅 reParent 不 re-embed（embeddingTokens=0） 2`] = `
-{
-  "childrenDeleted": 0,
-  "childrenInserted": 0,
-  "childrenReParented": 2,
-  "embeddingTokens": 0,
+  "childrenReParented": 1,
+  "embeddingTokens": 23,
   "noteId": "66f2c4f2a1b2c3d4e5f6a7b8",
   "parentsDeleted": 1,
   "parentsInserted": 1,
@@ -618,21 +154,7 @@ exports[`Note RAG Eval > R2: 章节重命名：旧 parent 删 + 新 parent 增�
 }
 `;
 
-exports[`Note RAG Eval > R3: 笔记不存在（软删/不存在）→ skipReason=NOTE_NOT_FOUND 且不落库 1`] = `
-{
-  "childrenDeleted": 0,
-  "childrenInserted": 0,
-  "childrenReParented": 0,
-  "embeddingTokens": 0,
-  "noteId": "66f2c4f2a1b2c3d4e5f6a7b8",
-  "parentsDeleted": 0,
-  "parentsInserted": 0,
-  "skipReason": "NOTE_NOT_FOUND",
-  "unchanged": 0,
-}
-`;
-
-exports[`Note RAG Eval > R4: noteId 非法 → skipReason=INVALID_ID 且不落库 1`] = `
+exports[`Note RAG Eval > reindex-invalid-id: 非法 noteId → 前置校验短路，skipReason INVALID_ID 1`] = `
 {
   "childrenDeleted": 0,
   "childrenInserted": 0,
@@ -646,50 +168,80 @@ exports[`Note RAG Eval > R4: noteId 非法 → skipReason=INVALID_ID 且不落�
 }
 `;
 
-exports[`Note RAG Eval > S1: notebookId 过滤严格隔离：只返回指定笔记本的块 1`] = `
+exports[`Note RAG Eval > reindex-missing: 笔记不存在（findOne=null）→ skipReason NOTE_NOT_FOUND，不触 DB 1`] = `
+{
+  "childrenDeleted": 0,
+  "childrenInserted": 0,
+  "childrenReParented": 0,
+  "embeddingTokens": 0,
+  "noteId": "66f2c4f2a1b2c3d4e5f6a7b8",
+  "parentsDeleted": 0,
+  "parentsInserted": 0,
+  "skipReason": "NOTE_NOT_FOUND",
+  "unchanged": 0,
+}
+`;
+
+exports[`Note RAG Eval > reindex-reparent: 改章节标题（子块 content 不变）→ 父块替换、子块 reParent（仅更新引用，不 re-embed）→ embeddingTokensGt=false 1`] = `
+{
+  "childrenDeleted": 0,
+  "childrenInserted": 2,
+  "childrenReParented": 0,
+  "embeddingTokens": 14,
+  "noteId": "66f2c4f2a1b2c3d4e5f6a7b8",
+  "parentsDeleted": 0,
+  "parentsInserted": 1,
+  "unchanged": 0,
+}
+`;
+
+exports[`Note RAG Eval > reindex-reparent: 改章节标题（子块 content 不变）→ 父块替换、子块 reParent（仅更新引用，不 re-embed）→ embeddingTokensGt=false 2`] = `
+{
+  "childrenDeleted": 0,
+  "childrenInserted": 0,
+  "childrenReParented": 2,
+  "embeddingTokens": 0,
+  "noteId": "66f2c4f2a1b2c3d4e5f6a7b8",
+  "parentsDeleted": 1,
+  "parentsInserted": 1,
+  "unchanged": 0,
+}
+`;
+
+exports[`Note RAG Eval > search-notebook-filter: 跨笔记本 seed（nb1/nb2 混合）→ 传 notebookId=nb1 只返回该笔记本结果 1`] = `
 [
   {
     "chunkIndex": 0,
-    "content": "安装部署的命令与步骤说明",
-    "noteId": "note-1",
-    "notebookId": "000000000000000000000001",
-    "parentContext": "",
+    "content": "如何部署服务以及启动命令",
+    "noteId": "6a8eadce1a1bd4286ad0baa3",
+    "notebookId": "6a8eadce1a1bd4286ad0baa8",
+    "parentContext": "# 部署
+
+如何部署服务以及启动命令与配置说明",
     "score": 0.03333333333333333,
     "sectionPath": [
       "部署",
     ],
-    "title": "部署指南",
-  },
-  {
-    "chunkIndex": 1,
-    "content": "环境配置与依赖检查说明",
-    "noteId": "note-1",
-    "notebookId": "000000000000000000000001",
-    "parentContext": "",
-    "score": 0.03278688524590164,
-    "sectionPath": [
-      "部署",
-    ],
-    "title": "部署指南",
+    "title": "部署",
   },
 ]
 `;
 
-exports[`Note RAG Eval > S2: 父子回填：child 命中 query → parentContext 非空且包含父块全文 1`] = `
+exports[`Note RAG Eval > search-parent-backfill: 命中 child → 回填 parent 全文进 parentContext，且仅限 notebookId 过滤范围内的父块 1`] = `
 [
   {
     "chunkIndex": 0,
-    "content": "docker compose 部署流程说明",
-    "noteId": "note-1",
-    "notebookId": "000000000000000000000001",
-    "parentContext": "## 部署
+    "content": "如何部署服务以及启动命令",
+    "noteId": "6a8eadce1a1bd4286ad0baa3",
+    "notebookId": "6a8eadce1a1bd4286ad0baa8",
+    "parentContext": "# 部署
 
-本节介绍 docker compose 部署流程与常用命令。",
+如何部署服务以及启动命令与配置说明",
     "score": 0.03333333333333333,
     "sectionPath": [
       "部署",
     ],
-    "title": "部署指南",
+    "title": "部署",
   },
 ]
 `;

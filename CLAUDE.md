@@ -168,6 +168,15 @@ import Note from '@/models/Note';
 import { MemoryFact } from '@/models/MemoryFact';
 ```
 
+### 索引管理
+
+索引创建分两条路径，避免部署后检索报错：
+
+- **普通索引 + text index**：`autoIndex` 全局关闭（有意为之，避免启动期隐式建索引锁），统一由 `pnpm setup:indexes`（Mongoose `syncIndexes`，覆盖 `MemoryFact` + `NoteChunk`）在部署后显式创建/对账。
+- **Atlas Vector Search `vector_index`** 需在 Atlas 控制台手动创建（字段 `embedding`、维度 1536、similarity cosine、filter 含 userId/chunkType/notebookId）。
+
+> 注意：`NODE_ENV=production` 启动不会自动建索引，**首次部署/迁移后务必运行 `pnpm setup:indexes`**。
+
 ## 环境变量
 
 ```

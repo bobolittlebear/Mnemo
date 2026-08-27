@@ -1,4 +1,9 @@
 // 在项目根目录执行：npx ts-node scripts/check-indexes.ts
+import dotenv from 'dotenv';
+// 加载 .env 中的 AI_API_KEY / MONGODB_URI / EMBEDDING_DIMENSIONS
+dotenv.config({
+    path: `.env.${process.env.NODE_ENV || 'development'}`,
+});
 import mongoose from 'mongoose';
 import '../src/models/MemoryFact'; // 触发 Schema 注册
 

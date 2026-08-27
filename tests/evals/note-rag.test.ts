@@ -1,5 +1,6 @@
 /**
  * 笔记 RAG 端到端 Snapshot 评测
+ * 只验证结构正确性，如：过滤/父子回填/增量 diff，不评估 RAG 质量
  *
  * 读取 datasets/note-rag.golden.json 中的评测集，按 kind 分支执行：
  * - chunk   ：复用真实 chunkMarkdown，精确断言切分结果 + 整图 snapshot
@@ -27,6 +28,7 @@ vi.mock('@/models/NoteChunk', () => ({
         bulkWrite: vi.fn(),
         deleteMany: vi.fn(),
         updateMany: vi.fn(),
+        exists: vi.fn().mockResolvedValue(null),
         aggregate: vi.fn(),
     },
 }));
@@ -207,15 +209,13 @@ function resetFakeDb(): void {
         modifiedCount: 0,
     });
 
-    (generateEmbeddings as any).mockImplementation(
-        async (input: string[]) => ({
-            embeddings: input.map(() => [...EMB_VECTOR]),
-            totalTokens: input.reduce(
-                (sum: number, text: string) => sum + countTokens(text),
-                0,
-            ),
-        }),
-    );
+    (generateEmbeddings as any).mockImplementation(async (input: string[]) => ({
+        embeddings: input.map(() => [...EMB_VECTOR]),
+        totalTokens: input.reduce(
+            (sum: number, text: string) => sum + countTokens(text),
+            0,
+        ),
+    }));
 }
 
 /** mock NoteModel.findOne(...).select(...) 返回指定内容（null 表示笔记不存在） */
@@ -235,7 +235,10 @@ function mockNoteContent(content: string | null): void {
 }
 
 /** 强断言 ReindexResult 与 golden expected 的每个字段 */
-function assertReindexExpected(result: ReindexResult, exp: ReindexExpected): void {
+function assertReindexExpected(
+    result: ReindexResult,
+    exp: ReindexExpected,
+): void {
     expect(result.parentsInserted).toBe(exp.parentsInserted ?? 0);
     expect(result.parentsDeleted).toBe(exp.parentsDeleted ?? 0);
     expect(result.childrenInserted).toBe(exp.childrenInserted ?? 0);
@@ -253,7 +256,9 @@ function assertReindexExpected(result: ReindexResult, exp: ReindexExpected): voi
 }
 
 /** 剥离非确定性 durationMs 后返回可 snapshot 的对象 */
-function stripDuration(result: ReindexResult): Omit<ReindexResult, 'durationMs'> {
+function stripDuration(
+    result: ReindexResult,
+): Omit<ReindexResult, 'durationMs'> {
     const { durationMs, ...rest } = result;
     expect(durationMs).toBeGreaterThanOrEqual(0);
     return rest;
@@ -439,8 +444,7 @@ describe.each(dataset as EvalEntry[])('Note RAG Eval', (entry) => {
             if (exp.allMatchNotebookId) {
                 expect(
                     results.every(
-                        (r) =>
-                            r.notebookId === entry.searchParams!.notebookId,
+                        (r) => r.notebookId === entry.searchParams!.notebookId,
                     ),
                 ).toBe(true);
             }
