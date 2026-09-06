@@ -57,7 +57,7 @@
   {
     "id": "reindex-reparent",
     "kind": "reindex",
-    "description": "改章节标题（子块 content 不变）→ 父块替换、子块 reParent（仅更新引用，不 re-embed）→ embeddingTokensGt=false",
+    "description": "改章节标题（子块 content 不变）→ D2 章节路径入哈希，受影响子块 chunkId 失效走 新增+删除 重 embed；未变段因父块替换 reParent",
     "initialMarkdown": "# 书籍\n\n## 第一章\n\n内容A保持不变。\n\n## 第二章\n\n内容B保持不变。",
     "updatedMarkdown": "# 书籍\n\n## 第一章（修订）\n\n内容A保持不变。\n\n## 第二章\n\n内容B保持不变。",
     "expectedFirst": {
@@ -72,11 +72,39 @@
     "expectedAfterUpdate": {
       "parentsInserted": 1,
       "parentsDeleted": 1,
+      "childrenInserted": 1,
+      "childrenDeleted": 1,
+      "childrenReParented": 1,
+      "unchanged": 0,
+      "embeddingTokensGt": true
+    }
+  },
+  {
+    "id": "reindex-title-change",
+    "kind": "reindex",
+    "description": "改笔记标题（正文/章节不变）→ 子块 contentHash 不含标题故 old 命中；标题变更就地重 embed（保留 _id 不漂移 chunkId）→ childrenReParented=2 + embeddingTokensGt=true",
+    "initialMarkdown": "# 文档\n\n## 章节甲\n\n甲内容。\n\n## 章节乙\n\n乙内容。",
+    "updatedMarkdown": "# 文档\n\n## 章节甲\n\n甲内容。\n\n## 章节乙\n\n乙内容。",
+    "initialTitle": "旧标题",
+    "updatedTitle": "Mnemo RAG 使用手册",
+    "expectedFirst": {
+      "parentsInserted": 1,
+      "parentsDeleted": 0,
+      "childrenInserted": 2,
+      "childrenDeleted": 0,
+      "childrenReParented": 0,
+      "unchanged": 0,
+      "embeddingTokensGt": true
+    },
+    "expectedAfterUpdate": {
+      "parentsInserted": 0,
+      "parentsDeleted": 0,
       "childrenInserted": 0,
       "childrenDeleted": 0,
       "childrenReParented": 2,
       "unchanged": 0,
-      "embeddingTokensGt": false
+      "embeddingTokensGt": true,
+      "reParentEmbed": true
     }
   },
   {

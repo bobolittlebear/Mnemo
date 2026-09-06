@@ -10,7 +10,7 @@
 import mongoose from 'mongoose';
 import { NoteChunk } from '@/models/NoteChunk';
 import NoteModel from '@/models/Note';
-import { chunkMarkdown } from '@/utils/noteChunker';
+import { chunkMarkdown, buildRetrievalText } from '@/utils/noteChunker';
 import type { ChildChunk } from '@/types/noteChunk';
 import { generateEmbeddings } from '@/lib/embedding';
 import { tokenize } from '@/utils/tokenizer';
@@ -57,6 +57,21 @@ interface LeanChunk {
     contentHash: string;
     parentId?: mongoose.Types.ObjectId | null;
     sectionPath: string[];
+    /** 上次入库时的笔记标题（用于检测标题变更 → 就地重 embed 检索表示） */
+    title: string;
+}
+
+/**
+ * child 检索表示源文本 = 笔记标题 + 章节路径 + 正文。
+ * sectionPath 只含 markdown 标题链、不含笔记标题，故此处显式拼 note.title（完整 breadcrumb）。
+ * 仅用于 embedding 源文本与 BM25 searchText；入库 content 字段仍只存纯正文。
+ */
+function buildChildRetrievalSource(
+    noteTitle: string,
+    sectionPath: string[],
+    content: string,
+): string {
+    return buildRetrievalText([noteTitle, ...sectionPath], content);
 }
 
 /* ------------------------------------------------------------------ */
@@ -103,7 +118,7 @@ export async function incrementalReindex(
 
     // 旧分块（按 chunkType 拆 parent / child）
     const oldChunks = await NoteChunk.find({ noteId })
-        .select('chunkType contentHash parentId sectionPath')
+        .select('chunkType contentHash parentId sectionPath title')
         .lean<LeanChunk[]>();
     const oldParents = oldChunks.filter(
         (c): c is LeanChunk & { chunkType: 'parent' } =>
@@ -167,6 +182,9 @@ export async function incrementalReindex(
         id: mongoose.Types.ObjectId;
         parentId: mongoose.Types.ObjectId;
         sectionPath: string[];
+        /** 笔记标题已变更 → 需就地重 embed 检索表示（contentHash 不含标题，标题变更不漂移 chunkId） */
+        titleChanged: boolean;
+        content: string;
     }> = [];
     let unchanged = 0;
 
@@ -177,17 +195,21 @@ export async function incrementalReindex(
         if (!parentId) continue; // 防御：所有新 parent 均已入库或复用旧块
         const old = oldChildByHash.get(child.contentHash);
         if (old) {
-            // contentHash 相同 → 内容未变，不 re-embed；父块或标题路径变了才更新引用
+            // contentHash 相同 → 章节路径 + 正文未变（标题不哈入希）；
+            // 父块/章节路径/笔记标题变了才更新引用；仅标题变更需就地重 embed（检索源含标题）
             const parentChanged =
                 old.parentId?.toString() !== parentId.toString();
             const pathChanged =
                 JSON.stringify(old.sectionPath) !==
                 JSON.stringify(child.sectionPath);
-            if (parentChanged || pathChanged) {
+            const titleChanged = old.title !== note.title;
+            if (parentChanged || pathChanged || titleChanged) {
                 toReParent.push({
                     id: old._id,
                     parentId,
                     sectionPath: child.sectionPath,
+                    titleChanged,
+                    content: child.content,
                 });
             } else {
                 unchanged++;
@@ -197,33 +219,77 @@ export async function incrementalReindex(
         }
     }
 
+    /* 3. child 就地在位更新 / 新增：都注入 标题 + 章节路径 + 正文 到检索表示 */
+    let childrenInserted = 0;
+    let embeddingTokens = 0;
+
     let childrenReParented = 0;
     if (toReParent.length > 0) {
-        await NoteChunk.bulkWrite(
-            toReParent.map((r) => ({
+        // 标题变更子块：就地重 embed（保留 _id 不新建，避免 chunkId 漂移、eval 标注失效）。
+        // 纯父块引用更新（父块边界变化而自身标题/章节/正文未变）→ 检索源未变，仅更新引用不烧 embedding。
+        const reEmbedEntries = toReParent.filter((r) => r.titleChanged);
+        const embeddingByChunkId = new Map<string, number[]>();
+        if (reEmbedEntries.length > 0) {
+            const sources = reEmbedEntries.map((r) =>
+                buildChildRetrievalSource(note.title, r.sectionPath, r.content),
+            );
+            const { embeddings, totalTokens } =
+                await generateEmbeddings(sources);
+            embeddingTokens += totalTokens;
+            if (embeddings.length !== reEmbedEntries.length) {
+                log.warn('re-embed 数量与待更新 child 不一致，按最小长度对齐', {
+                    noteId,
+                    expected: reEmbedEntries.length,
+                    actual: embeddings.length,
+                });
+            }
+            reEmbedEntries.forEach((r, i) => {
+                const embedding = embeddings[i];
+                if (embedding)
+                    embeddingByChunkId.set(r.id.toString(), embedding);
+            });
+        }
+        const updateOps = toReParent.map((r) => {
+            const embedding = embeddingByChunkId.get(r.id.toString());
+            const $set: Record<string, unknown> = {
+                parentId: r.parentId,
+                sectionPath: r.sectionPath,
+                title: note.title,
+            };
+            if (embedding) {
+                $set.embedding = embedding;
+                $set.searchText = tokenize(
+                    buildChildRetrievalSource(
+                        note.title,
+                        r.sectionPath,
+                        r.content,
+                    ),
+                );
+            }
+            return {
                 updateOne: {
                     filter: { _id: r.id },
-                    update: {
-                        $set: {
-                            parentId: r.parentId,
-                            sectionPath: r.sectionPath,
-                        },
-                    },
+                    update: { $set },
                 },
-            })),
-            { ordered: false },
-        );
+            };
+        });
+        await NoteChunk.bulkWrite(updateOps, { ordered: false });
         childrenReParented = toReParent.length;
     }
 
-    /* 3. 新增 child：批量向量化后 bulkWrite 入库 */
-    let childrenInserted = 0;
-    let embeddingTokens = 0;
     if (toInsert.length > 0) {
-        const { embeddings, totalTokens } = await generateEmbeddings(
-            toInsert.map(({ child }) => child.content),
+        // embedding 源文本与 BM25 searchText 均为检索表示（标题 + 章节路径 + 正文），
+        // 根治「笔记标题含关键词但 chunk 正文不含」的漏召回；content 展示字段保持纯正文。
+        const retrievalTexts = toInsert.map(({ child }) =>
+            buildChildRetrievalSource(
+                note.title,
+                child.sectionPath,
+                child.content,
+            ),
         );
-        embeddingTokens = totalTokens;
+        const { embeddings, totalTokens } =
+            await generateEmbeddings(retrievalTexts);
+        embeddingTokens += totalTokens;
         if (embeddings.length !== toInsert.length) {
             log.warn(
                 'embedding 返回数量与待入库 child 不一致，按最小长度对齐',
@@ -247,7 +313,7 @@ export async function incrementalReindex(
                     chunkIndex: child.chunkIndex,
                     content: child.content,
                     embedding: embeddings[i], // 对齐异常时缺失向量，仅可用 BM25
-                    searchText: tokenize(child.content),
+                    searchText: tokenize(retrievalTexts[i]!),
                     contentHash: child.contentHash,
                 },
             },
@@ -276,7 +342,8 @@ export async function incrementalReindex(
         parentsDeleted = res.deletedCount || 0;
     }
 
-    /* 5. title 同步：仅标题变更（内容未变）时批量更新，不触发 embedding */
+    /* 5. title 同步：标题展示字段兜底同步（父块不进 child diff；子块标题已就地更新）。
+          此块不再承担 re-embed——标题变更的子块已按新检索表示就地重 embed。 */
     // 仅标题实际变化才同步，避免每轮无谓写
     const titleMismatch = await NoteChunk.exists({
         noteId,

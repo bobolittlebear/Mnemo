@@ -6,7 +6,7 @@ exports[`Note RAG Eval > chunk-basic: 两个 H2 章节：顶层 H1 整节成 par
     {
       "chunkIndex": 0,
       "content": "先装 Node 18，再执行 npm install。",
-      "contentHash": "a1d70bbc29d27e56c2cd6e4dce2f13791458060ed5f2c5f37243d93a5ddfd857",
+      "contentHash": "4871fe5cffda2adda6d6653ad709731b0e705f537cb8f468173239d2b597c044",
       "parentIndex": 0,
       "sectionPath": [
         "部署指南",
@@ -19,7 +19,7 @@ exports[`Note RAG Eval > chunk-basic: 两个 H2 章节：顶层 H1 整节成 par
       "content": "修改 config.yaml 设置端口。
 
 数据库连接用 MongoDB。",
-      "contentHash": "30e44682b0c7e332a794a092ef34a2f3d19aab55bcf49b23b598ae7cbc079956",
+      "contentHash": "fc5bfe08ef7d1a0eb874ef7d33e00769f8959be50e93f3200885689b6a509036",
       "parentIndex": 0,
       "sectionPath": [
         "部署指南",
@@ -68,7 +68,7 @@ exports[`Note RAG Eval > chunk-multibyte: CJK + emoji + 韩文 + 泰语：同 se
       "content": "这是一段中文内容，包含 emoji 🚀 与韩文 안녕 与泰语 สวัสดี。
 
 第二段纯中文，验证切分不破坏字符。",
-      "contentHash": "14b2efef838864392bf23c962e06198b40a827e2164322280211e29ba5f7bbf5",
+      "contentHash": "1d4fb20902c3b792dd7f4a2bb76f1cc336c782097491953aa982d3870a4c8315",
       "parentIndex": 0,
       "sectionPath": [
         "多字节测试",
@@ -107,7 +107,7 @@ exports[`Note RAG Eval > reindex-delete: 删除一个章节 → 父块替换、�
   "childrenDeleted": 0,
   "childrenInserted": 2,
   "childrenReParented": 0,
-  "embeddingTokens": 8,
+  "embeddingTokens": 44,
   "noteId": "66f2c4f2a1b2c3d4e5f6a7b8",
   "parentsDeleted": 0,
   "parentsInserted": 1,
@@ -133,7 +133,7 @@ exports[`Note RAG Eval > reindex-full-to-diff: 首次全量（parentsInserted=1,
   "childrenDeleted": 0,
   "childrenInserted": 2,
   "childrenReParented": 0,
-  "embeddingTokens": 27,
+  "embeddingTokens": 61,
   "noteId": "66f2c4f2a1b2c3d4e5f6a7b8",
   "parentsDeleted": 0,
   "parentsInserted": 1,
@@ -146,7 +146,7 @@ exports[`Note RAG Eval > reindex-full-to-diff: 首次全量（parentsInserted=1,
   "childrenDeleted": 1,
   "childrenInserted": 1,
   "childrenReParented": 1,
-  "embeddingTokens": 23,
+  "embeddingTokens": 40,
   "noteId": "66f2c4f2a1b2c3d4e5f6a7b8",
   "parentsDeleted": 1,
   "parentsInserted": 1,
@@ -182,12 +182,12 @@ exports[`Note RAG Eval > reindex-missing: 笔记不存在（findOne=null）→ s
 }
 `;
 
-exports[`Note RAG Eval > reindex-reparent: 改章节标题（子块 content 不变）→ 父块替换、子块 reParent（仅更新引用，不 re-embed）→ embeddingTokensGt=false 1`] = `
+exports[`Note RAG Eval > reindex-reparent: 改章节标题（子块 content 不变）→ D2 章节路径入哈希，受影响子块 chunkId 失效走 新增+删除 重 embed；未变段因父块替换 reParent 1`] = `
 {
   "childrenDeleted": 0,
   "childrenInserted": 2,
   "childrenReParented": 0,
-  "embeddingTokens": 14,
+  "embeddingTokens": 48,
   "noteId": "66f2c4f2a1b2c3d4e5f6a7b8",
   "parentsDeleted": 0,
   "parentsInserted": 1,
@@ -195,12 +195,12 @@ exports[`Note RAG Eval > reindex-reparent: 改章节标题（子块 content 不�
 }
 `;
 
-exports[`Note RAG Eval > reindex-reparent: 改章节标题（子块 content 不变）→ 父块替换、子块 reParent（仅更新引用，不 re-embed）→ embeddingTokensGt=false 2`] = `
+exports[`Note RAG Eval > reindex-reparent: 改章节标题（子块 content 不变）→ D2 章节路径入哈希，受影响子块 chunkId 失效走 新增+删除 重 embed；未变段因父块替换 reParent 2`] = `
 {
-  "childrenDeleted": 0,
-  "childrenInserted": 0,
-  "childrenReParented": 2,
-  "embeddingTokens": 0,
+  "childrenDeleted": 1,
+  "childrenInserted": 1,
+  "childrenReParented": 1,
+  "embeddingTokens": 29,
   "noteId": "66f2c4f2a1b2c3d4e5f6a7b8",
   "parentsDeleted": 1,
   "parentsInserted": 1,
@@ -208,9 +208,36 @@ exports[`Note RAG Eval > reindex-reparent: 改章节标题（子块 content 不�
 }
 `;
 
+exports[`Note RAG Eval > reindex-title-change: 改笔记标题（正文/章节不变）→ 子块 contentHash 不含标题故 old 命中；标题变更就地重 embed（保留 _id 不漂移 chunkId）→ childrenReParented=2 + embeddingTokensGt=true 1`] = `
+{
+  "childrenDeleted": 0,
+  "childrenInserted": 2,
+  "childrenReParented": 0,
+  "embeddingTokens": 40,
+  "noteId": "66f2c4f2a1b2c3d4e5f6a7b8",
+  "parentsDeleted": 0,
+  "parentsInserted": 1,
+  "unchanged": 0,
+}
+`;
+
+exports[`Note RAG Eval > reindex-title-change: 改笔记标题（正文/章节不变）→ 子块 contentHash 不含标题故 old 命中；标题变更就地重 embed（保留 _id 不漂移 chunkId）→ childrenReParented=2 + embeddingTokensGt=true 2`] = `
+{
+  "childrenDeleted": 0,
+  "childrenInserted": 0,
+  "childrenReParented": 2,
+  "embeddingTokens": 50,
+  "noteId": "66f2c4f2a1b2c3d4e5f6a7b8",
+  "parentsDeleted": 0,
+  "parentsInserted": 0,
+  "unchanged": 0,
+}
+`;
+
 exports[`Note RAG Eval > search-notebook-filter: 跨笔记本 seed（nb1/nb2 混合）→ 传 notebookId=nb1 只返回该笔记本结果 1`] = `
 [
   {
+    "chunkId": "6a8eadce1a1bd4286ad0baa1",
     "chunkIndex": 0,
     "content": "如何部署服务以及启动命令",
     "noteId": "6a8eadce1a1bd4286ad0baa3",
@@ -230,6 +257,7 @@ exports[`Note RAG Eval > search-notebook-filter: 跨笔记本 seed（nb1/nb2 混
 exports[`Note RAG Eval > search-parent-backfill: 命中 child → 回填 parent 全文进 parentContext，且仅限 notebookId 过滤范围内的父块 1`] = `
 [
   {
+    "chunkId": "6a8eadce1a1bd4286ad0baa1",
     "chunkIndex": 0,
     "content": "如何部署服务以及启动命令",
     "noteId": "6a8eadce1a1bd4286ad0baa3",

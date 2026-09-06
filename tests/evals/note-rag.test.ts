@@ -12,7 +12,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import mongoose from 'mongoose';
-import { chunkMarkdown } from '@/utils/noteChunker';
+import { chunkMarkdown, buildRetrievalText } from '@/utils/noteChunker';
 import { countTokens } from '@/utils/tokenizer';
 import { generateContentHash } from '@/utils/tool';
 import type { ReindexResult } from '@/services/notebook/noteReindex.service';
@@ -83,6 +83,8 @@ interface ReindexExpected {
     unchanged?: number;
     embeddingTokensGt?: boolean;
     skipReason?: string;
+    /** 标题变更场景：re-parent 就地重 embed（childrenReParented 对应子块带 embedding/searchText） */
+    reParentEmbed?: boolean;
 }
 
 interface SearchExpected {
@@ -111,6 +113,9 @@ interface EvalEntry {
     markdown?: string;
     initialMarkdown?: string;
     updatedMarkdown?: string;
+    /** 首次 reindex 时笔记标题（默认 '部署指南'；标题变更场景与 updatedTitle 区分以驱动就地重 embed） */
+    initialTitle?: string;
+    updatedTitle?: string;
     noteMissing?: boolean;
     invalidNoteId?: boolean;
     query?: string;
@@ -136,6 +141,8 @@ interface FakeChunk {
     contentHash: string;
     parentId?: mongoose.Types.ObjectId | null;
     sectionPath: string[];
+    /** 入库时的笔记标题（reindex diff 用它检测标题变更 → 就地重 embed） */
+    title: string;
 }
 
 let fakeDb: FakeChunk[] = [];
@@ -154,6 +161,7 @@ function resetFakeDb(): void {
                         contentHash: c.contentHash,
                         parentId: c.parentId,
                         sectionPath: c.sectionPath,
+                        title: c.title,
                     })),
                 ),
         }),
@@ -167,6 +175,7 @@ function resetFakeDb(): void {
                 contentHash: d.contentHash,
                 parentId: d.parentId,
                 sectionPath: d.sectionPath,
+                title: d.title,
             })),
         );
         return docs;
@@ -183,6 +192,7 @@ function resetFakeDb(): void {
                     contentHash: d.contentHash,
                     parentId: d.parentId,
                     sectionPath: d.sectionPath,
+                    title: d.title,
                 });
                 insertedCount++;
             } else if (op.updateOne) {
@@ -190,8 +200,10 @@ function resetFakeDb(): void {
                     c._id.equals(op.updateOne.filter._id),
                 );
                 if (rec) {
-                    rec.parentId = op.updateOne.update.$set.parentId;
-                    rec.sectionPath = op.updateOne.update.$set.sectionPath;
+                    const set = op.updateOne.update.$set;
+                    rec.parentId = set.parentId;
+                    rec.sectionPath = set.sectionPath;
+                    if (set.title !== undefined) rec.title = set.title;
                 }
             }
         }
@@ -219,13 +231,13 @@ function resetFakeDb(): void {
 }
 
 /** mock NoteModel.findOne(...).select(...) 返回指定内容（null 表示笔记不存在） */
-function mockNoteContent(content: string | null): void {
+function mockNoteContent(content: string | null, title = '部署指南'): void {
     const doc = content
         ? {
               _id: new mongoose.Types.ObjectId(),
               notebookId: new mongoose.Types.ObjectId(),
               createUser: USER_ID,
-              title: '部署指南',
+              title,
               content,
           }
         : null;
@@ -301,11 +313,16 @@ describe.each(dataset as EvalEntry[])('Note RAG Eval', (entry) => {
             }
 
             // 自审：contentHash 与独立 generateContentHash 交叉校验
+            // D2：父块哈希=纯 content；child 哈希纳入章节路径（检索表示不含笔记标题）
             for (const p of result.parents) {
                 expect(p.contentHash).toBe(generateContentHash(p.content));
             }
             for (const c of result.children) {
-                expect(c.contentHash).toBe(generateContentHash(c.content));
+                expect(c.contentHash).toBe(
+                    generateContentHash(
+                        buildRetrievalText(c.sectionPath, c.content),
+                    ),
+                );
             }
 
             // 整图 snapshot（parents + children + stats 全为确定性字段）
@@ -339,20 +356,23 @@ describe.each(dataset as EvalEntry[])('Note RAG Eval', (entry) => {
             }
 
             // 首次全量 + 二次增量
-            mockNoteContent(entry.initialMarkdown!);
+            mockNoteContent(entry.initialMarkdown!, entry.initialTitle);
             const first = await incrementalReindex(NOTE_ID);
             assertReindexExpected(first, entry.expectedFirst!);
             expect(stripDuration(first)).toMatchSnapshot();
 
             // 清调用记录但保留 fakeDB 状态与 mock 实现 → 二次 reindex 基于首次落库结果
             vi.clearAllMocks();
-            mockNoteContent(entry.updatedMarkdown!);
+            mockNoteContent(entry.updatedMarkdown!, entry.updatedTitle);
             const second = await incrementalReindex(NOTE_ID);
             assertReindexExpected(second, expAfter);
             expect(stripDuration(second)).toMatchSnapshot();
 
-            // 自审：embedding / 落库 spy 调用次数与入参
-            if ((expAfter.childrenInserted ?? 0) > 0) {
+            // 自审：embedding / 落库 spy 调用次数与入参。
+            // embedding 来源有二：① 新增 child（contentHash miss）；② 标题变更的已有 child 就地重 embed（reParentEmbed）
+            const insertEmbed = (expAfter.childrenInserted ?? 0) > 0;
+            const reParentEmbed = expAfter.reParentEmbed === true;
+            if (insertEmbed || reParentEmbed) {
                 expect(generateEmbeddings).toHaveBeenCalledTimes(1);
             } else {
                 expect(generateEmbeddings).not.toHaveBeenCalled();
@@ -361,14 +381,26 @@ describe.each(dataset as EvalEntry[])('Note RAG Eval', (entry) => {
                 const ops = (NoteChunk.bulkWrite as any).mock.calls[0]![0];
                 const updateOps = ops.filter((op: any) => op.updateOne);
                 expect(updateOps.length).toBe(expAfter.childrenReParented);
-                // 仅更新 parentId + sectionPath，不触碰 contentHash（未 re-embed）
-                expect(
-                    updateOps.every(
-                        (op: any) =>
-                            op.updateOne.update.$set.parentId &&
-                            op.updateOne.update.$set.sectionPath,
-                    ),
-                ).toBe(true);
+                // 就地更新 parentId + sectionPath + title，保留 _id 不新建。
+                // 检索源未变（标题/章节/正文未变）的纯引用更新不触碰 embedding/searchText；
+                // 标题变更场景（reParentEmbed）则就地重 embed，update ops 携带 embedding + searchText
+                const titleAfter = entry.updatedTitle ?? '部署指南';
+                for (const op of updateOps) {
+                    const set = op.updateOne.update.$set;
+                    expect(set.parentId).toBeInstanceOf(
+                        mongoose.Types.ObjectId,
+                    );
+                    expect(Array.isArray(set.sectionPath)).toBe(true);
+                    expect(set.title).toBe(titleAfter);
+                    if (expAfter.reParentEmbed) {
+                        expect(Array.isArray(set.embedding)).toBe(true);
+                        expect(typeof set.searchText).toBe('string');
+                        expect(set.searchText.length).toBeGreaterThan(0);
+                    } else {
+                        expect(set.embedding).toBeUndefined();
+                        expect(set.searchText).toBeUndefined();
+                    }
+                }
             }
             if (
                 (expAfter.childrenDeleted ?? 0) +

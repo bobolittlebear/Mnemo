@@ -6,7 +6,11 @@
  * 不测：remark 库自身解析正确性（库职责）、空输入行为（实现决定，不强行断言）
  */
 import { describe, it, expect } from 'vitest';
-import { chunkMarkdown, DEFAULT_CHUNK_CONFIG } from '@/utils/noteChunker';
+import {
+    chunkMarkdown,
+    DEFAULT_CHUNK_CONFIG,
+    buildRetrievalText,
+} from '@/utils/noteChunker';
 import { countTokens } from '@/utils/tokenizer';
 import { generateContentHash } from '@/utils/tool';
 
@@ -70,11 +74,16 @@ describe('noteChunker', () => {
         expect(result.children.map((c) => c.chunkIndex)).toEqual([0, 1]);
 
         // contentHash 与独立计算一致
+        // D2：父块哈希=纯 content；child 哈希纳入章节路径（不含笔记标题，切分器无笔记标题可拼）
         for (const p of result.parents) {
             expect(p.contentHash).toBe(generateContentHash(p.content));
         }
         for (const c of result.children) {
-            expect(c.contentHash).toBe(generateContentHash(c.content));
+            expect(c.contentHash).toBe(
+                generateContentHash(
+                    buildRetrievalText(c.sectionPath, c.content),
+                ),
+            );
         }
 
         // stats 数值正确
@@ -289,9 +298,14 @@ describe('noteChunker', () => {
         expect(content).toContain('更多中文内容');
         expect(content).not.toContain('�'); // 无替换符/乱码
         expect(countTokens(content)).toBeGreaterThan(0);
-        // contentHash 与独立计算一致
+        // contentHash 与独立计算一致（D2：child 哈希纳入章节路径）
         expect(result.children[0]!.contentHash).toBe(
-            generateContentHash(content),
+            generateContentHash(
+                buildRetrievalText(
+                    result.children[0]!.sectionPath,
+                    content,
+                ),
+            ),
         );
     });
 
@@ -323,5 +337,42 @@ describe('noteChunker', () => {
             expect(basicChild?.content).not.toContain('SETNX lock:order');
             expect(basicChild?.content).not.toContain('EXPIRE lock:order');
         });
+    });
+});
+
+describe('buildRetrievalText（检索表示 = breadcrumb + 正文）', () => {
+    it('R1 - 空 sectionPath：无前缀时原样返回正文', () => {
+        const text = buildRetrievalText([], '纯正文内容。');
+        expect(text).toBe('纯正文内容。');
+        expect(text).toMatchSnapshot();
+    });
+
+    it('R2 - 多层 sectionPath：按 ` / ` 逐级拼接前缀再拼正文', () => {
+        const text = buildRetrievalText(
+            ['Mnemo RAG', '章节A', '小节A.1'],
+            '报告格式要求。',
+        );
+        expect(text).toBe('Mnemo RAG / 章节A / 小节A.1 / 报告格式要求。');
+        expect(text).toMatchSnapshot();
+    });
+
+    it('R3 - ` / ` 拼接分隔符唯一且稳定（对齐 jieba 分词 / BM25 searchText）', () => {
+        // 单层前缀也应走 `前缀 / 正文`，分隔符两侧各一空格
+        const single = buildRetrievalText(['标题'], '正文');
+        expect(single).toBe('标题 / 正文');
+        // 多层前缀不会出现重复 / 或粘连
+        const multi = buildRetrievalText(['A', 'B'], 'C');
+        expect(multi).toBe('A / B / C');
+        // 空白前缀被过滤，不产生空段
+        const blank = buildRetrievalText(['A', '', 'B'], 'C');
+        expect(blank).toBe('A / B / C');
+        expect(multi).toMatchSnapshot();
+    });
+
+    it('R4 - content 为空边界：保留 breadcrumb，不产生尾部 `/ ` 残片', () => {
+        expect(buildRetrievalText(['A', 'B'], '')).toBe('A / B');
+        // 前缀与正文皆空
+        expect(buildRetrievalText([], '')).toBe('');
+        expect(buildRetrievalText(['A', 'B'], '')).toMatchSnapshot();
     });
 });

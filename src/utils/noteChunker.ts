@@ -21,6 +21,30 @@ export const DEFAULT_CHUNK_CONFIG: ChunkConfig = {
     minChildTokens: 50,
 };
 
+// 检索表示层级分隔符（对齐 jieba 分词 / BM25 searchText 的可检索性）
+const RETRIEVAL_SEP = ' / ';
+
+/**
+ * 拼接 child 的检索表示：breadcrumb（标题/章节路径）+ 正文。
+ *
+ * 定位：child 的 embedding 源文本与 BM25 searchText 注入父标题 + 完整章节路径，
+ * 使「笔记标题/章节含关键词但 chunk 正文不含」的目标块也能被召回（如标题含 rag/mnemo、
+ * 内容仅「报告格式」的块）。展示字段 content 始终只存纯正文，检索表示与展示文本解耦。
+ *
+ * 纯函数：不涉及 DB / embedding。
+ *
+ * @param prefixParts 检索前缀（笔记标题 + sectionPath；sectionPath 不含笔记标题，由调用方显式拼）
+ * @param content     纯正文
+ * @returns 有前缀时 `前缀 / 正文`，否则原样返回正文
+ */
+export function buildRetrievalText(
+    prefixParts: string[],
+    content: string,
+): string {
+    const parts = [...prefixParts.filter(Boolean), content].filter(Boolean);
+    return parts.length > 1 ? parts.join(RETRIEVAL_SEP) : parts[0] ?? '';
+}
+
 type BlockType = 'code' | 'list' | 'table' | 'quote' | 'paragraph';
 
 /** 结构单元：代码块 > 列表 > 表格 > 引用块 > 段落 */
@@ -733,7 +757,12 @@ export function chunkMarkdown(
                 title: sectionPath[sectionPath.length - 1] ?? '',
                 parentIndex,
                 content: chunk.text,
-                contentHash: generateContentHash(chunk.text),
+                // D2：哈希纳入章节路径（标题不入哈希）——章节改名触发 chunk 重 embed，
+                // 而笔记标题变更不引发 chunkId 漂移（重 embed 在 reindex diff 内就地完成）。
+                // 父块 contentHash 保持原样（父块不向量化，避免无谓 churn）。
+                contentHash: generateContentHash(
+                    buildRetrievalText(sectionPath, chunk.text),
+                ),
                 chunkIndex: children.length,
             });
         }
