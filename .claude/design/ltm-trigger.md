@@ -54,7 +54,7 @@
 | ----- | ---------- | ----- | ----- | ----- |
 | **L1 显性** | 前端「结束/删除会话」按钮 → `endSession` API | 是（不可逆） | 增量收尾 | 实时关闭记忆窗口 |
 | **L2 超时** | 周期扫描 `last_active_at` 超时（进程内 setInterval 驱动，见 §2.2） | 是（不可逆） | 增量收尾 | 兜底安全网 |
-| **L3 兜底** | 消息累积达阈值（如 20 条消息，每条 user/assistant 落库 +1） | **否**  | 增量提取 | 阶段性存档，会话可继续 |
+| **L3 阈值** | 消息累积达阈值（如 20 条消息，每条 user/assistant 落库 +1） | **否**  | 增量提取 | 阶段性存档，会话可继续 |
 
 > **术语澄清**：L1/L2/L3 都调用 `pipeline.run(sessionId)`，提取范围由 cursor 决定，三者等价。区别仅在 Phase 3 是否写 `extracted` 终态标记。「增量收尾」= 提取 cursor 之后的全部剩余消息 + 写终态，不是「全量重提」。
 
@@ -105,7 +105,7 @@ L2 由 `SessionTimeoutScanner` 周期性调用 `scanOnce()` 实现；`scanOnce()
 | Key | 用途 | TTL | 何时创建 | 何时更新 | 何时删除/过期 |
 | ----- | ----- | ----- | ----- | ----- | ----- |
 | `memory:session:{sid}:lock` | 分布式锁 | 10s | P1/P3 获锁时 `SET NX PX` | 不更新 | P1/P3 主动 `DEL`；崩溃则 10s 自动过期防死锁 |
-| `memory:session:{sid}:processing` | 防并发标记 | **300s** | P1 步骤4 `SET NX PX` | **不更新** | P3 主动 `DEL`；P2 finally 块兜底 `DEL`；崩溃则 300s 自动过期 |
+| `memory:session:{sid}:processing` | 防并发标记 | **300s** | P1 步骤4 `SET NX PX` | **不更新** | P2 结束时 finally 块主动 `DEL`（成功/失败路径均执行，**主清除点**）；P3 步骤4 防御性冗余 `DEL`；崩溃则 300s 自动过期 |
 | `memory:session:{sid}:extracted` | 终态标记（不可逆） | = Session TTL | L1/L2 在 P3 步骤3 `SET`  | 永不更新 | Session 销毁 / 同 sessionId 续聊重置时 `DEL`；生命周期内不删 |
 | `memory:session:{sid}:cursor` | 增量游标（已有） | = Session TTL | 首次提取前由 STM 创建 | P2 期间由 Pipeline 通过 `STM.setLastExtractedMsgId` 更新 | Session 销毁 / 同 sessionId 续聊重置时 `DEL` |
 
@@ -117,16 +117,14 @@ L2 由 `SessionTimeoutScanner` 周期性调用 `scanOnce()` 实现；`scanOnce()
 时间轴 ──────────────────────────────────────────────────────────►
 
 lock        ┌─P1获锁(10s)─┐                    ┌─P3获锁(10s)─┐
-            │             │                    │             │
             └────DEL──────┘                    └────DEL──────┘
             <50ms                              <50ms
 
-processing        ┌─SET(300s)─────────────────────────DEL────┐
-                  │                                          │
-                  │      （横跨 P2 无锁期，期间不续期）            │
-                  │                                          │
-                  └────────── 横跨P2无锁期 ──────────────────┘
-                  P1设置                                      P3/finally清除
+processing        ┌─SET(300s)──────────DEL────┐
+                  │ 横跨 P2 无锁期（不续期）    │
+                  └── P2结束时 finally 清除 ──┘
+                  P1设置      ← P2→P3窗口 →    P3获锁重试(≤3s)后写终态
+                  （窗口内 processing/extracted 均不存在，见 §3.3）
 
 extracted                                                       ┌─SET(不可逆)─
                                                                 │
@@ -139,10 +137,11 @@ cursor          ┌─已有─────────────────�
 
 ### 3.3 关键设计洞察
 
-**`processing` 横跨 P1→P2→P3 全程，比 `lock` 活得久。**
+**`processing` 横跨 P1→P2，比 `lock` 活得久，但不横跨 P3。**
 
 - `lock` 只在临界区短暂存在（P1 和 P3 各 <50ms），保护「读终态→写终态」的原子性
 - Phase 2 的 LLM 提取耗时 10-30s 是**无锁**的——这段时间里，`processing` 标记替代了锁的防并发作用
+- **P2→P3 窗口**（P2 结束 finally 清 processing 后 → P3 写终态前，最长 ≈3s 获锁重试）：期间 processing/extracted 均不存在，其他触发器（典型：L1 重试链）可进入自己的 P2。该窗口由 Pipeline 两级幂等消化——游标快速过滤整批跳过、不调 LLM（memoryPipeline.service.ts:71-85）+ `sourceMessageIds` DB 精确去重（:94-108），重复 P2 退化为廉价 no-op；终态双写由 P3 二次校验（P3-2）拦截
 - 其他触发器在 P1 看到 `processing` 已存在就直接 SKIP 返回，不空等锁
 
 **为什么 processing TTL = 300s 且无需续期（D4 决策，详见 §七）**：当前 LLM 调用超时上限为 非流式 120s / 流式 30s，P2 总耗时（LLM + 向量化 + 存储）稳定在 300s 以内，300s 基线提供 >2× 余量。续期会让 Pipeline 耦合触发器（违背 D1），得不偿失。
@@ -222,7 +221,7 @@ P2-1  await pipeline.run(sessionId)
 P2-2  （正常完成）进入 Phase 3
 ```
 
-> **finally 块兜底**：无论 Phase 2 成功还是失败，finally 块都 best-effort `DEL processing`。P2 完成后 processing 的防并发使命已结束，即使 P3 没执行到清除步骤，finally 也保证清理。TTL 300s 是最终兜底。
+> **finally 块为主清除点**：无论 Phase 2 成功还是失败，finally 块都 `DEL processing`——注意成功路径上该清除**先于 Phase 3 执行**，P2 完成即释放互斥（由此产生 §3.3 所述的 P2→P3 窗口，由 Pipeline 两级幂等消化）。P3 步骤4 的清除为防御性冗余。TTL 300s 是崩溃兜底。
 
 > Pipeline 内部续期不实现（D4 决策，见 §七）。
 
@@ -235,14 +234,18 @@ P3-1  获取分布式锁（带重试）
       │              游标已由 Pipeline 更新，终态由 L2 周期扫描兜底
       │
 P3-2  二次检查 extracted 终态标记
-      ├─ 已存在 → SKIP_TERMINAL（P2 期间另一个触发器已写终态）
+      ├─ 已存在 → SKIP_TERMINAL（终态已被先写，两条可达路径）
+      │   ① 窗口路径：P2 结束 finally 清 processing 后、本触发器 P3 写终态前，
+      │      其他触发器（典型：L1 重试链恰好探测到释放）已完成三阶段并写入终态
+      │   ② 租约失效路径：processing TTL 300s 到期（不变式被破坏）或 Redis
+      │      LRU 淘汰，导致并发 P2，先完成者在自己的 P3 写入终态
       │           清除 processing → 释锁 → 返回
       │
 P3-3  执行状态写入（在同一把锁内，保证原子性）
       ├─ L1/L2: 写 extracted 终态标记（不可逆）
       └─ L3: 无操作（游标已由 Pipeline 更新）
       │
-P3-4  清除 processing 标记
+P3-4  防御性冗余清除 processing（finally 已于 P2 末尾清除，此处幂等无害）
 P3-5  释放分布式锁
 ```
 
@@ -298,6 +301,8 @@ P3-5  释放分布式锁
 | 异步兜底  | 30s 后异步重试 1 次 | 同步重试仍 SKIP 时触发 | 覆盖 L3 临界超时 |
 | 隐性兜底① | `processing` TTL 300s 自然过期 | 所有显式重试失败时     | 会话重新可被终结 |
 | 隐性兜底② | L2 周期扫描 | 安全网 | 终态最终一定写入 |
+
+> **窗口交互注记**：L1 重试链的等待-探测模式使其可能恰好在窗口期（processing 已清、终态未写）通过 P1，启动一次冗余 P2——Pipeline 游标快速过滤将其退化为 no-op（不调 LLM，memoryPipeline.service.ts:71-85），其终态写入由 P3-2 二次校验拦截（终态已由先完成者写入），最终语义仍是「终态恰写一次」。
 
 **多次重试全失败的兜底结论**（回应「若多次重试均不成功」）：
 

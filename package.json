@@ -12,7 +12,8 @@
         "test:integration": "vitest run --dir tests/integration",
         "test:snapshot": "vitest run --dir tests/evals",
         "test:coverage": "vitest run --coverage",
-        "setup:indexes": "ts-node setup/setup-db-indexes.ts"
+        "setup:indexes": "ts-node setup/setup-db-indexes.ts",
+        "eval:note-recall": "cross-env NODE_ENV=development ts-node -r tsconfig-paths/register scripts/run-note-recall-eval.ts"
     },
     "dependencies": {
         "@types/dotenv": "^6.1.1",

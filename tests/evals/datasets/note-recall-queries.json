@@ -1,0 +1,59 @@
+{
+    "schemaVersion": "1.0",
+    "meta": {
+        "purpose": "笔记 RAG 召回评测 query + ground truth 数据集模板。每条 query 记录自然语言提问、应召回的 NoteChunk._id 列表与类型，供评测 runner 对 searchNotes 三模式（向量路 / BM25 路 / hybrid RRF）计算 recall@K。",
+        "proportion": {
+            "negative": "约 10%：语料中确实无答案可召回，targetChunkIds 必须为 []",
+            "synthetic": "≤20%：含 code-token / synthetic-edge 两类，可脚本合成",
+            "hand": "其余为手标真实信息需求（从千问/元宝提问提取，映射到笔记内容）"
+        },
+        "queryFields": {
+            "id": "唯一字符串",
+            "query": "自然语言问句，非空串",
+            "targetChunkIds": "应召回的 NoteChunk._id 数组，元素为合法 24 位 hex；negative 类型必须为 []",
+            "type": "枚举 paraphrase | exact | cross-notebook | code-token | synthetic-edge | negative",
+            "notebookId": "可选串，仅 cross-notebook 类型使用，验证笔记本过滤正确性"
+        },
+        "typeEnums": [
+            "paraphrase - 语义泛化（同义改写），禁止拿原文当 query",
+            "exact - 精确术语命中基线",
+            "cross-notebook - 跨笔记本关联，验证 notebookId 过滤正确性",
+            "code-token - 代码块 token 检索（合成）",
+            "synthetic-edge - 多字节 / 父子块回填边界（合成）",
+            "negative - 拒绝能力，应返回空"
+        ],
+        "placeholderNote": "示例 chunkId / notebookId 均为合法 24 位 hex 占位（形如 000000000000000000000001），非真实数据，须替换为 Mongo 真实 NoteChunk._id 后再评测。占位仅演示 schema，不得当作评测标注。",
+        "privacy": "不提交任何 note 正文 / searchText，仅提交 chunkId / notebookId / query 文本 / ground truth。",
+        "annotationRule": "hand 类标注完成一周后盲抽 5 条、仅看 query 文本 + 候选 chunk 列表重判，不一致则修订（对冲作者偏差）。评测前 chunk_id 失效检测：缺失率 >20% 中止并告警须重新标注。"
+    },
+    "queries": [
+        {
+            "id": "note-recall-demo-paraphrase-001",
+            "query": "有必要做RAG分块质量评测吗",
+            "targetChunkIds": [
+                "6a8bec772d8aaec4eed3ac70",
+                "6a8bec772d8aaec4eed3ac76"
+            ],
+            "type": "exact"
+        },
+        {
+            "id": "note-recall-demo-cross-notebook-002",
+            "query": "输出RAG召回报告格式",
+            "targetChunkIds": [
+                "6a93c95052008878f87ca3bb",
+                "6a93fcd645e71ddcb494f1c0"
+            ],
+            "type": "cross-notebook",
+            "notebookId": "00000000000000000000000a"
+        },
+        {
+            "id": "note-recall-demo-negative-003",
+            "query": "mnemo的ltm三层触发机制是怎么实现的？",
+            "targetChunkIds": [
+                "6a93c87852008878f87ca29c",
+                "6a93c87852008878f87ca2a5"
+            ],
+            "type": "exact"
+        }
+    ]
+}

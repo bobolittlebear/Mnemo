@@ -11,6 +11,7 @@ import { createLogger } from '@/lib/logger';
 const log = createLogger('rag');
 
 export interface NoteRetrievalResult {
+    chunkId: string; // _id 映射
     noteId: string;
     notebookId: string;
     title: string;
@@ -24,6 +25,7 @@ export interface NoteRetrievalResult {
 export interface SearchNotesParams {
     userId: string;
     query: string;
+    mode?: 'hybrid' | 'vector' | 'bm25'; // 默认 hybrid
     notebookId?: string;
     topK?: number;
 }
@@ -186,7 +188,13 @@ function rrfFuse(
 export async function searchNotes(
     params: SearchNotesParams,
 ): Promise<NoteRetrievalResult[]> {
-    const { userId, query, notebookId, topK = DEFAULT_TOP_K } = params;
+    const {
+        userId,
+        query,
+        notebookId,
+        mode = 'hybrid',
+        topK = DEFAULT_TOP_K,
+    } = params;
     if (!query || !query.trim()) return [];
 
     const trimmedQuery = query.trim();
@@ -197,16 +205,22 @@ export async function searchNotes(
     const queryEmbedding = embeddings[0];
     if (!queryEmbedding) throw new Error('生成查询向量失败');
 
+    log.info('笔记检索模式', { mode });
+
     const [vectorRes, textRes] = await Promise.allSettled([
-        vectorSearch(userId, queryEmbedding, candidateLimit, notebookId),
-        textSearch(userId, trimmedQuery, candidateLimit, notebookId),
+        mode !== 'bm25'
+            ? vectorSearch(userId, queryEmbedding, candidateLimit, notebookId)
+            : [],
+        mode !== 'vector'
+            ? textSearch(userId, trimmedQuery, candidateLimit, notebookId)
+            : [],
     ]);
     const vectorDocs = vectorRes.status === 'fulfilled' ? vectorRes.value : [];
     const textDocs = textRes.status === 'fulfilled' ? textRes.value : [];
     if (vectorRes.status === 'rejected')
-        log.warn('笔记向量检索失败，仅用关键词路', { error: vectorRes.reason });
+        log.warn('笔记向量检索失败', { error: vectorRes.reason });
     if (textRes.status === 'rejected')
-        log.warn('笔记关键词检索失败，仅用向量路', { error: textRes.reason });
+        log.warn('笔记关键词检索失败', { error: textRes.reason });
 
     const fused = rrfFuse(vectorDocs, textDocs, topK);
     if (fused.length === 0) return [];
@@ -230,6 +244,7 @@ export async function searchNotes(
     }
 
     const results = fused.map(({ doc, score }) => ({
+        chunkId: doc._id.toString(),
         noteId: doc.noteId.toString(),
         notebookId: doc.notebookId.toString(),
         title: doc.title,

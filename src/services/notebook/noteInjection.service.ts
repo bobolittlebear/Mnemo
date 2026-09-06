@@ -124,6 +124,7 @@ export async function injectNotesIntoSystemPrompt(
         retrieved: results.length,
         injected: retained.length,
         retained: retained.map((r) => r.content),
+        chunkIds: retained.map((r) => r.chunkId),
         noteBudgetTokens,
     });
     return `${systemPrompt}\n\n${block}`;

@@ -419,4 +419,118 @@ describe('noteSearch.searchNotes', () => {
 
         expect(results).toEqual([]);
     });
+
+    // ────────────────────── mode 模式分支 ──────────────────────
+
+    it('HP1: mode=vector 仅走向量路，BM25 未执行，score 为单路 RRF', async () => {
+        const a = makeChunk('A');
+        const b = makeChunk('B');
+        // 单路模式：只设置向量路候选（不用 mockAggregate，它预置两次 once）
+        (NoteChunk.aggregate as any).mockResolvedValueOnce([a, b]);
+
+        const results = await searchNotes({
+            userId: 'u1',
+            query: '部署指南',
+            mode: 'vector',
+        });
+
+        // 单路 RRF：A rank0 → 1/60，B rank1 → 1/61，顺序按向量 rank
+        expect(results.length).toBe(2);
+        expect(results[0]!.noteId).toBe('note-A');
+        expect(results[1]!.noteId).toBe('note-B');
+        expectClose(results[0]!.score, 1 / RRF_K);
+        expectClose(results[1]!.score, 1 / (RRF_K + 1));
+        // 只调用向量路：aggregate 1 次，管道首段是 $vectorSearch 而非 $text
+        expect(NoteChunk.aggregate).toHaveBeenCalledTimes(1);
+        expect(pipelineAt(0)![0].$vectorSearch.index).toBe('vector_index');
+        // BM25 未执行：tokenize 未被调用
+        expect(tokenize).not.toHaveBeenCalled();
+        // queryEmbedding 在分支前已生成，仍调用一次
+        expect(generateEmbedding).toHaveBeenCalledTimes(1);
+    });
+
+    it('HP2: mode=bm25 仅走 BM25 路，向量路未执行，score 为单路 RRF', async () => {
+        const a = makeChunk('A');
+        const b = makeChunk('B');
+        // 单路模式：只设置 BM25 路候选
+        (NoteChunk.aggregate as any).mockResolvedValueOnce([a, b]);
+
+        const results = await searchNotes({
+            userId: 'u1',
+            query: '部署指南',
+            mode: 'bm25',
+        });
+
+        // 单路 RRF：A rank0 → 1/60，B rank1 → 1/61，顺序按文本 rank
+        expect(results.length).toBe(2);
+        expect(results[0]!.noteId).toBe('note-A');
+        expect(results[1]!.noteId).toBe('note-B');
+        expectClose(results[0]!.score, 1 / RRF_K);
+        expectClose(results[1]!.score, 1 / (RRF_K + 1));
+        // 只调用 BM25 路：aggregate 1 次，管道首段是 $text 而非 $vectorSearch
+        expect(NoteChunk.aggregate).toHaveBeenCalledTimes(1);
+        expect(pipelineAt(0)![0].$match.$text).toEqual({
+            $search: 'tok:部署指南',
+        });
+        // BM25 执行：tokenize 调用 1 次；queryEmbedding 仍在分支前生成
+        expect(tokenize).toHaveBeenCalledTimes(1);
+        expect(tokenize).toHaveBeenCalledWith('部署指南');
+        expect(generateEmbedding).toHaveBeenCalledTimes(1);
+    });
+
+    it('B1: 不传 mode 默认 hybrid，向量 + BM25 两路均执行，融合语义与 H1 一致', async () => {
+        const a = makeChunk('A');
+        const b = makeChunk('B');
+        const c = makeChunk('C');
+        mockAggregate([a, b], [b, c]); // 向量：A,B；BM25：B,C
+        mockFindReturn(parentsFor([a, b, c]));
+
+        const results = await searchNotes({ userId: 'u1', query: '部署指南' });
+
+        // 两路均执行：aggregate 2 次
+        expect(NoteChunk.aggregate).toHaveBeenCalledTimes(2);
+        // 融合语义与 H1 一致：B 双路叠加最高，A(1/60) > C(1/61)
+        expect(results.length).toBe(3);
+        expect(results[0]!.noteId).toBe('note-B');
+        expect(results[0]!.score).toBeCloseTo(1 / RRF_K + 1 / (RRF_K + 1), 6);
+        expect(results[1]!.noteId).toBe('note-A');
+        expect(results[2]!.noteId).toBe('note-C');
+        expect(generateEmbedding).toHaveBeenCalledTimes(1);
+    });
+
+    it('B2: mode=vector 向量路为空，返回 [] 且不触发 parent 查询', async () => {
+        (NoteChunk.aggregate as any).mockResolvedValueOnce([]);
+
+        const results = await searchNotes({
+            userId: 'u1',
+            query: '部署指南',
+            mode: 'vector',
+        });
+
+        expect(results).toEqual([]);
+        // 只调用向量路 1 次，BM25 未执行
+        expect(NoteChunk.aggregate).toHaveBeenCalledTimes(1);
+        expect(tokenize).not.toHaveBeenCalled();
+        expect(generateEmbedding).toHaveBeenCalledTimes(1);
+        // 无候选 → fused 为空短路，不查 parent
+        expect(NoteChunk.find).not.toHaveBeenCalled();
+    });
+
+    it('B3: mode=bm25 BM25 路为空，返回 [] 且不触发 parent 查询', async () => {
+        (NoteChunk.aggregate as any).mockResolvedValueOnce([]);
+
+        const results = await searchNotes({
+            userId: 'u1',
+            query: '部署指南',
+            mode: 'bm25',
+        });
+
+        expect(results).toEqual([]);
+        // 只调用 BM25 路 1 次，向量路未执行
+        expect(NoteChunk.aggregate).toHaveBeenCalledTimes(1);
+        expect(tokenize).toHaveBeenCalledTimes(1);
+        expect(generateEmbedding).toHaveBeenCalledTimes(1);
+        // 无候选 → fused 为空短路，不查 parent
+        expect(NoteChunk.find).not.toHaveBeenCalled();
+    });
 });

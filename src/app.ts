@@ -34,8 +34,10 @@ startNoteReindexWorker();
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'pug');
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+// 允许较大请求体：飞书知识库等长文档导入时 content 体积较大，默认 100kb 会触发 413。
+// 设为 10mb，留出余量（MongoDB 单文档上限为 16MB）。
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
