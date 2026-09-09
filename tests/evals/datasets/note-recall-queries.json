@@ -47,12 +47,25 @@
             "notebookId": "00000000000000000000000a"
         },
         {
-            "id": "note-recall-demo-negative-003",
+            "id": "note-recall-demo-cross-notebook-003",
+            "query": "mnemo rag的报告格式是怎样的？",
+            "targetChunkIds": ["6a9d5017987b1634413047e9"],
+            "type": "cross-notebook",
+            "notebookId": "00000000000000000000000a"
+        },
+        {
+            "id": "note-recall-demo-negative-004",
             "query": "mnemo的ltm三层触发机制是怎么实现的？",
             "targetChunkIds": [
                 "6a93c87852008878f87ca29c",
                 "6a93c87852008878f87ca2a5"
             ],
+            "type": "exact"
+        },
+        {
+            "id": "note-recall-demo-negative-005",
+            "query": "FastGPT是怎么实现RAG构建的？",
+            "targetChunkIds": ["6a96401445e71ddcb494f3a2"],
             "type": "exact"
         }
     ]
