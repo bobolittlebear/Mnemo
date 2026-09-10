@@ -59,6 +59,10 @@ const MemoryFactSchema = new Schema<RawMemoryFact>(
         },
 
         deletedAt: { type: Date },
+
+        // 最后一次被实质使用（检索命中 / 入库 / 提取更新）的时间，遗忘机制判定依据
+        // 可选：存量记忆无此字段属正常状态，扫描侧用 $exists: true 防护
+        lastSignificantAt: { type: Date },
     },
     {
         timestamps: true,
@@ -82,6 +86,9 @@ MemoryFactSchema.index(
 
 // 混合检索的前置过滤器
 MemoryFactSchema.index({ userId: 1, notebookId: 1, type: 1, createdAt: -1 });
+
+// 遗忘机制扫描索引：等值前缀（userId/type/category）在前，范围字段 lastSignificantAt 在后
+MemoryFactSchema.index({ userId: 1, type: 1, category: 1, lastSignificantAt: 1 });
 
 // 精确去重唯一索引（替代原来的 contentHash sparse 单字段索引）
 MemoryFactSchema.index(
