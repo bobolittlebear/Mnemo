@@ -56,7 +56,15 @@ export async function ingestMemoryFacts(
                             metadata: fact.metadata || {},
                             updatedAt: new Date(),
                             sourceMessageIds: fact.sourceMessageIds,
+                            // 写入点2：入库即视为「被实质使用」，刷新遗忘机制的时间戳
+                            lastSignificantAt: new Date(),
                         },
+                        // 软删复活：同 contentHash 重新入库即撤销软删。
+                        // 必须用 $unset（移除字段），不能用 $set: null —— 读路径
+                        // 判定的是 deletedAt: { $exists: false }，null 值会让该记录
+                        // 被当成已删除而永久漏判（既搜不到也不再复活）。
+                        // 对已删除/新建记录均为安全 no-op：字段不存在时无副作用。
+                        $unset: { deletedAt: '' },
                         $setOnInsert: {
                             userId: context.userId,
                             type: context.type || 'fact',

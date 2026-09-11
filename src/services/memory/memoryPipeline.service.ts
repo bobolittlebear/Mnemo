@@ -234,6 +234,8 @@ class MemoryPipelineService {
                             updatedAt: new Date(),
                             confidence: fact.confidence,
                             category: fact.category,
+                            // 写入点3：被 LLM 主动修正即视为「被实质使用」，刷新遗忘时间戳
+                            lastSignificantAt: new Date(),
                         },
                     },
                 },

@@ -149,4 +149,54 @@ describe('IngestionService', () => {
         expect(result.inserted).toBe(3);
         expect(result.updated).toBe(0);
     });
+
+    // ────────────────────── 写入点2 + 软删复活 ──────────────────────
+
+    it('M5-1 - 入库应打 lastSignificantAt 时间戳，并以 $unset 复活软删记录', async () => {
+        mockedBulkWrite.mockResolvedValue(fixtures.mockBulkWriteResult as any);
+        const before = Date.now();
+
+        await ingestMemoryFacts(makeFacts(1), ctx);
+
+        const op = (mockedBulkWrite.mock.calls[0]?.[0] as any[])[0].updateOne;
+
+        // 写入点2：入库即「被实质使用」
+        const stamp = op.update.$set.lastSignificantAt as Date;
+        expect(stamp).toBeInstanceOf(Date);
+        expect(stamp.getTime()).toBeGreaterThanOrEqual(before);
+        expect(stamp.getTime()).toBeLessThanOrEqual(Date.now());
+
+        expect(op.update.$unset).toEqual({ deletedAt: '' });
+    });
+
+    it('M5-2 - 复活走 $unset 移除字段，而非 $set 成 null', async () => {
+        mockedBulkWrite.mockResolvedValue(fixtures.mockBulkWriteResult as any);
+
+        await ingestMemoryFacts(makeFacts(1), ctx);
+
+        const op = (mockedBulkWrite.mock.calls[0]?.[0] as any[])[0].updateOne;
+
+        // 读路径判定的是 deletedAt: { $exists: false }，
+        // 写成 $set: { deletedAt: null } 会让已删记录永久漏判（搜不到也不再复活）
+        expect(op.update.$unset.deletedAt).toBe('');
+        expect('deletedAt' in op.update.$set).toBe(false);
+    });
+
+    it('M5-3 - filter 仅含 userId + contentHash，不得混入 deletedAt', async () => {
+        mockedBulkWrite.mockResolvedValue(fixtures.mockBulkWriteResult as any);
+
+        await ingestMemoryFacts(makeFacts(1), ctx);
+
+        const op = (mockedBulkWrite.mock.calls[0]?.[0] as any[])[0].updateOne;
+
+        // filter 一旦带上 deletedAt 过滤，软删的同 contentHash 记录就命中不到，复活失效
+        expect(Object.keys(op.filter).sort()).toEqual(['contentHash', 'userId']);
+        expect(op.filter.contentHash).toBe('hash_事实内容1');
+        expect(op.filter.userId).toBe(fixtures.mockUserId);
+
+        // $set 与 $setOnInsert 同字段会触发 MongoDB 路径冲突，
+        // 故 lastSignificantAt 只能出现在 $set
+        expect(op.update.$set).toHaveProperty('lastSignificantAt');
+        expect('lastSignificantAt' in op.update.$setOnInsert).toBe(false);
+    });
 });

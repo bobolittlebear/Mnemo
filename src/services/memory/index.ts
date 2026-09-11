@@ -16,6 +16,8 @@ import { STMChatMessageSource } from './chatMessageSource';
 import { createTriggerSystem } from './trigger';
 import { SessionTimeoutScanner } from './trigger/sessionTimeoutScanner';
 import { validateConfigInvariants } from './trigger/memoryTriggerConfig';
+import { ForgetScanner } from './trigger/forgetScanner';
+import { runForgetScan, scheduleDailyAt } from './forget.service';
 
 // 应用启动期校验触发器配置不变式（§7.2 / O4）：防止 llmTimeoutMaxMs 上调后 processing TTL 不足引发双重提取。
 validateConfigInvariants();
@@ -44,5 +46,19 @@ const sessionTimeoutScanner = new SessionTimeoutScanner({
 sessionTimeoutScanner.start();
 export { sessionTimeoutScanner };
 
+// 遗忘扫描：每天 03:00 自动软删过期记忆（存量初始化 backfill 是扫描第一步）。
+// 注入扫描与调度实现，保持 trigger/ 纯粹。
+const forgetScanner = new ForgetScanner({
+    scan: () => runForgetScan({ dryRun: false }),
+    schedule: scheduleDailyAt,
+});
+forgetScanner.start();
+export { forgetScanner };
+
 export { sessionMemoryLifecycle } from './trigger';
 export { memoryPipelineService };
+export {
+    runForgetScan,
+    backfillLastSignificantAt,
+    scheduleDailyAt,
+} from './forget.service';

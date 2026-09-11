@@ -26,7 +26,7 @@ vi.mock('@/lib/embedding', () => ({
 }));
 
 vi.mock('@/models/MemoryFact', () => ({
-    MemoryFact: { find: vi.fn() },
+    MemoryFact: { find: vi.fn(), bulkWrite: vi.fn() },
 }));
 
 vi.mock('@/lib/logger', () => {
@@ -71,6 +71,7 @@ const mockedSetLastExtractedMsgId = vi.mocked(STM.setLastExtractedMsgId);
 const mockedGetLastExtractedMsgId = vi.mocked(STM.getLastExtractedMsgId);
 const mockedGenerateEmbeddings = vi.mocked(generateEmbeddings);
 const mockedFind = vi.mocked(MemoryFact.find);
+const mockedBulkWrite = vi.mocked(MemoryFact.bulkWrite);
 
 const pipeline = new MemoryPipelineService(fakeResolver);
 
@@ -520,7 +521,7 @@ describe('PipelineService', () => {
     });
 });
 
-// ──────────────────── M2: userId 解析（合并自 tests/unit/services/memory/memoryPipeline.service.test.ts）────────────────────
+// ──────────────────── userId 解析（合并自 tests/unit/services/memory/memoryPipeline.service.test.ts）────────────────────
 // 说明：源文件的 用例③/④（context.userId 显式传入优先 / adapter 不传 userId 走 resolver）
 // 已分别由上方 B1/B2 完整覆盖，此处不再重复，避免无意义冗余用例。
 // 本块仅补充两处 B1/B2/B3 缺失的断言：
@@ -595,5 +596,114 @@ describe('MemoryPipeline — userId 解析（M2）', () => {
         expect(mockWarn).toHaveBeenCalledWith('无法解析 userId，跳过提取', {
             sessionId: testSessionId,
         });
+    });
+
+    // ──────────────────── 记忆遗忘机制 写入点3 UPDATE 分支标记 ────────────────────
+
+    /** 构造 UPDATE/DELETE 所需的白名单记录（find 的两次调用共用同一 mock） */
+    function mockExistingForUpdate(ids: string[]) {
+        mockFindLean(
+            ids.map((id) => ({
+                _id: id,
+                content: `事实${id}`,
+                userId: fixtures.mockUserId,
+                sourceMessageIds: [],
+            })) as any,
+        );
+    }
+
+    it('M6-1 - UPDATE 分支应写入 lastSignificantAt，且 filter 指向目标 _id', async () => {
+        mockedGetLastExtractedMsgId.mockResolvedValue(null);
+        mockExistingForUpdate(['m1']);
+        mockedExtractFacts.mockResolvedValue([
+            {
+                action: 'UPDATE',
+                old_memory_id: 'm1',
+                content: '事实m1',
+                confidence: 0.8,
+                category: 'skill',
+                sourceMessageIds: ['msg-001'],
+            } as any,
+        ]);
+        mockedGenerateEmbeddings.mockResolvedValue({
+            totalTokens: 10,
+            embeddings: [Array(1536).fill(0.1)],
+        });
+        mockedBulkWrite.mockResolvedValue({
+            writeErrors: [],
+        } as any);
+
+        await pipeline.run(
+            { sessionId: fixtures.mockSessionId, userId: fixtures.mockUserId },
+            fixtures.mockMessages,
+        );
+
+        expect(mockedBulkWrite).toHaveBeenCalledTimes(1);
+        const ops = mockedBulkWrite.mock.calls[0]![0] as any[];
+        expect(ops).toHaveLength(1);
+
+        const op = ops[0].updateOne;
+        expect(op.filter).toEqual({ _id: 'm1', userId: fixtures.mockUserId });
+
+        // 写入点3：被 LLM 主动修正即「被实质使用」
+        expect(op.update.$set.lastSignificantAt).toBeInstanceOf(Date);
+
+        // UPDATE 目标来自 deletedAt:$exists:false 的白名单，必然未软删，
+        // 故此处既不该设置也不该移除 deletedAt（与 M5 的 ingest 复活语义不同）
+        expect('deletedAt' in op.update.$set).toBe(false);
+        expect(op.update.$unset).toBeUndefined();
+
+        // 未加 upsert：目标是白名单内既有记录，必达
+        expect(op.upsert).toBeUndefined();
+    });
+
+    it('M6-2 - 多条 UPDATE 应逐条写入 lastSignificantAt', async () => {
+        mockedGetLastExtractedMsgId.mockResolvedValue(null);
+        mockExistingForUpdate(['m1', 'm2']);
+        mockedExtractFacts.mockResolvedValue([
+            {
+                action: 'UPDATE',
+                old_memory_id: 'm1',
+                content: '事实m1',
+                confidence: 0.8,
+                category: 'skill',
+                sourceMessageIds: ['msg-001'],
+            },
+            {
+                action: 'UPDATE',
+                old_memory_id: 'm2',
+                content: '事实m2',
+                confidence: 0.7,
+                category: 'diet',
+                sourceMessageIds: ['msg-001'],
+            },
+        ] as any);
+        mockedGenerateEmbeddings.mockResolvedValue({
+            totalTokens: 20,
+            embeddings: [Array(1536).fill(0.2), Array(1536).fill(0.3)],
+        });
+        mockedBulkWrite.mockResolvedValue({ writeErrors: [] } as any);
+
+        await pipeline.run(
+            { sessionId: fixtures.mockSessionId, userId: fixtures.mockUserId },
+            fixtures.mockMessages,
+        );
+
+        const ops = mockedBulkWrite.mock.calls[0]![0] as any[];
+        expect(ops).toHaveLength(2);
+        expect(ops.map((o) => o.updateOne.filter._id)).toEqual(['m1', 'm2']);
+
+        for (const op of ops) {
+            expect(op.updateOne.update.$set.lastSignificantAt).toBeInstanceOf(
+                Date,
+            );
+        }
+
+        // 向量化按 UPDATE 条数调用一次、传两条内容
+        expect(mockedGenerateEmbeddings).toHaveBeenCalledTimes(1);
+        expect(mockedGenerateEmbeddings.mock.calls[0]![0]).toEqual([
+            '事实m1',
+            '事实m2',
+        ]);
     });
 });

@@ -26,10 +26,13 @@ vi.mock('@/lib/logger', () => ({
 
 vi.mock('@/utils/config', () => ({
     EMBEDDING_DIMENSIONS: 1536,
+    // 写入点1 的标记阈值，search() 在合并结果后读取；缺省会让阈值变 undefined
+    MEMORY_SELECTION_MIN_VECTOR_SCORE: 0.5,
 }));
 
 vi.mock('@/models/MemoryFact', () => ({
-    MemoryFact: { aggregate: vi.fn() },
+    // updateMany 供写入点1 的 fire-and-forget 标记使用
+    MemoryFact: { aggregate: vi.fn(), updateMany: vi.fn() },
 }));
 
 // ── 引入被测模块（在 Mock 之后）──

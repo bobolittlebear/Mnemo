@@ -13,6 +13,7 @@
         "test:snapshot": "vitest run --dir tests/evals",
         "test:coverage": "vitest run --coverage",
         "setup:indexes": "ts-node setup/setup-db-indexes.ts",
+        "forget:memories": "cross-env NODE_ENV=development ts-node scripts/forget-memories.ts",
         "eval:note-recall": "cross-env NODE_ENV=development ts-node -r tsconfig-paths/register scripts/run-note-recall-eval.ts"
     },
     "dependencies": {

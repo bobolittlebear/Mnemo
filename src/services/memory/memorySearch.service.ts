@@ -3,7 +3,10 @@
 import { MemoryFact } from '@/models/MemoryFact';
 import { generateEmbedding } from '@/lib/embedding';
 import { createLogger } from '@/lib/logger';
-import { EMBEDDING_DIMENSIONS } from '@/utils/config';
+import {
+    EMBEDDING_DIMENSIONS,
+    MEMORY_SELECTION_MIN_VECTOR_SCORE,
+} from '@/utils/config';
 import type {
     MemorySearchBaseDoc,
     MemorySearchOptions,
@@ -37,6 +40,26 @@ interface VectorSearchDoc extends MemorySearchBaseDoc {
 /** $text 聚合结果文档 */
 interface TextSearchDoc extends MemorySearchBaseDoc {
     textScore: number;
+}
+
+// ── 写入点1：检索命中标记 ─────────────────────────────────────
+
+/**
+ * 收集本轮检索中「值得标记为最近使用」的记忆 _id, 后续用于更新记忆遗忘机制使用的标识 lastSignificantAt
+ *
+ * 判定依据是向量相似度而非 RRF 融合分：RRF 分只反映排名，
+ * 跨查询不可比；vectorScore 是绝对语义相关性，才能与 A0 地板绑定。
+ * vectorScore 缺失（纯关键词命中、降级路径）按 0 处理，不计入标记。
+ *
+ * 纯函数，无副作用，便于单测。
+ */
+export function collectMarkableIds(
+    results: { _id: string; vectorScore?: number }[],
+    threshold: number,
+): string[] {
+    return results
+        .filter((doc) => (doc.vectorScore ?? 0) >= threshold)
+        .map((doc) => doc._id);
 }
 
 // ── 混合检索服务 ──────────────────────────────────────────────
@@ -187,6 +210,30 @@ class MemorySearchService {
             fusedCount: fused.length,
             fused: fused.map((f) => f.content),
         });
+
+        // ── 5. 写入点1：刷新「最近使用」时间戳（遗忘机制主信号）──
+        // fire-and-forget：不 await，不阻塞响应，失败只 warn。
+        // 未 await 的 Promise 若不挂 .catch，Node >= 15 下未捕获 reject 会直接崩进程。
+        const markedIds = collectMarkableIds(
+            fused,
+            MEMORY_SELECTION_MIN_VECTOR_SCORE,
+        );
+        if (markedIds.length > 0) {
+            // 滚动 24h 窗口：把「按次刷新」降为「按 24h 刷新」，对天级遗忘判定无精度损失。
+            // 用 $not: { $gte } 而非 $lt —— 比较算子不命中缺失字段，会给存量记忆
+            // 制造「命中后仍保持缺失 → backfill 设成旧 createdAt → 同轮被误删」的窗口。
+            const nowMinus24h = new Date(Date.now() - 86_400_000);
+            void MemoryFact.updateMany(
+                {
+                    _id: { $in: markedIds },
+                    type: 'fact',
+                    lastSignificantAt: { $not: { $gte: nowMinus24h } },
+                },
+                { $set: { lastSignificantAt: new Date() } },
+            ).catch((error) => {
+                logger.warn('forget-mark-failed', { error });
+            });
+        }
 
         return {
             results: fused,
