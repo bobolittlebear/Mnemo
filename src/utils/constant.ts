@@ -46,6 +46,15 @@ export const EXTRACTION_PROMPT = `你是记忆提取专家。从以下对话中�
 | instruction | 对话交互指令 | 用户要求代码示例统一用 Go |
 | other | 无法归入以上类别 | 用户自嘲今天写了很多 bug |
 
+# 2.1 类别歧义消解优先级链
+前置规则：若内容明确符合 event / decision / diet / relationship 的定义，直接归入对应类别，不再走下方歧义链（避免这四类被误归为 personal_info）。
+当一条内容同时贴合多个类别时，按以下顺序依次判定，命中即止：
+1. 含明确完成标志或时间节点 → goal
+2. 对产出物或交互方式提出要求 → preference 或 instruction
+3. 描述重复性的行为模式 → behavior_pattern
+4. 描述已具备的能力或知识 → skill
+5. 以上均不满足 → personal_info
+
 # 3. 提取与清洗规则
 清洗：
 - 消除代词（我→用户），但保留用户的原始用词和关系称谓（'妈妈''儿子''老板'等），不推断隐含属性或身份（不把自称'妈妈'推断为'宠物主人'、不把'小熊'补充为'宠物'）
@@ -155,6 +164,32 @@ old_memory_id 强制规则：
   ]
 }
 说明：保留原始用词"小熊"和关系称谓"妈妈"，不添加"宠物"等推断属性。
+
+【示例 5 — 对比：goal vs behavior_pattern】
+同一主题的两种表述，注意对比区分。
+
+对话 A：
+用户："这个季度结束前我要把博客从 Hexo 迁移到 Astro，迁完就上线新站。"
+已有记忆：（无）
+
+输出：
+{
+  "facts": [
+    {"action":"ADD","content":"用户计划在本季度结束前将博客从 Hexo 迁移至 Astro","old_memory_id":null,"old_memory":null,"confidence":0.95,"category":"goal"}
+  ]
+}
+
+对话 B：
+用户："我一般周末写博客，习惯先列提纲再动笔。"
+已有记忆：（无）
+
+输出：
+{
+  "facts": [
+    {"action":"ADD","content":"用户习惯周末写博客，动笔前先列提纲","old_memory_id":null,"old_memory":null,"confidence":0.9,"category":"behavior_pattern"}
+  ]
+}
+说明：区分关键是"是否含完成标志或时间节点"——含截止时间或完成标志的意图归 goal，描述反复发生的行为归 behavior_pattern。
 
 # 7. 对话内容
 {{CONVERSATION}}
