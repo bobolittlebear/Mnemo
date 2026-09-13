@@ -2,11 +2,17 @@
  * forget.service 单元测试
  *
  * 测试目标：四条件 filter 构建、可删类别顺序、dry-run 不写库、
- *           单次上限截断、存量 backfill 隔离、定点调度延迟与递归
- * Mock 依赖：MemoryFact（find / countDocuments / updateMany）—— 不连真实 DB
+ *           单次上限截断、存量 backfill 隔离、整轮 guard（瞬态失败兜底）、
+ *           定点调度延迟与递归、调度层不自行重试
+ * Mock 依赖：MemoryFact（find / countDocuments / updateMany）
+ *           —— 不连真实 DB（runGuardedTask 走真实实现）
  * 真实逻辑：filter 组装、预算分配、报告汇总、递归 setTimeout 调度
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+
+const { mockLogError } = vi.hoisted(() => ({
+    mockLogError: vi.fn(),
+}));
 
 vi.mock('@/models/MemoryFact', () => ({
     MemoryFact: {
@@ -20,7 +26,7 @@ vi.mock('@/lib/logger', () => ({
     createLogger: () => ({
         info: vi.fn(),
         warn: vi.fn(),
-        error: vi.fn(),
+        error: mockLogError,
         debug: vi.fn(),
     }),
 }));
@@ -274,6 +280,55 @@ describe('runForgetScan - 单次删除上限', () => {
     });
 });
 
+// ────────────────────── 整轮 guard（runGuardedTask） ──────────────────────
+
+describe('runForgetScan - 整轮 guard', () => {
+    it('整轮依赖失败（连接被回收等瞬态故障）→ 返回空报告、不抛', async () => {
+        mockedUpdateMany.mockRejectedValue(
+            new Error('MongoPoolClearedError: pool cleared'),
+        );
+
+        const report = await runForgetScan({ dryRun: false });
+
+        // 空报告而非抛出：调用方（调度层 / CLI）无需处理失败
+        expect(report).toEqual({
+            dryRun: false,
+            backfilled: 0,
+            categories: [],
+            totalCandidates: 0,
+            totalDeleted: 0,
+            truncated: false,
+        });
+        // backfill 是整轮第一步，它失败则扫描阶段不执行
+        expect(mockedCountDocuments).not.toHaveBeenCalled();
+        expect(mockedFind).not.toHaveBeenCalled();
+    });
+
+    it('整轮失败时保留 dryRun 语义（默认仍为 true）', async () => {
+        mockedUpdateMany.mockRejectedValue(new Error('server selection'));
+
+        const report = await runForgetScan();
+
+        expect(report.dryRun).toBe(true);
+        expect(report.totalDeleted).toBe(0);
+    });
+
+    it('整轮先失败后恢复 → 重试成功即返回真实报告，不再兜成空报告', async () => {
+        // 首次 backfill 抛错（瞬态），重试时恢复为无改动
+        mockedUpdateMany
+            .mockRejectedValueOnce(new Error('MongoPoolClearedError'))
+            .mockResolvedValue({ modifiedCount: 0 } as any);
+        countPerCategory({ diet: 2 });
+        mockFindChain(makeIds(2));
+
+        const report = await runForgetScan({ dryRun: true });
+
+        expect(report.dryRun).toBe(true);
+        expect(report.totalCandidates).toBe(2);
+        expect(report.categories.map((c) => c.category)).toEqual(['diet']);
+    });
+});
+
 // ────────────────────── M7-7: backfill 隔离 ──────────────────────
 
 describe('backfillLastSignificantAt', () => {
@@ -386,6 +441,25 @@ describe('scheduleDailyAt / msUntilNextDaily', () => {
 
         await vi.advanceTimersByTimeAsync(24 * 3_600_000);
         expect(cb).toHaveBeenCalledTimes(2);
+    });
+
+    it('cb 抛错只记日志并照常排下一轮：调度层不做重试（重试归 runGuardedTask，避免双重重试）', async () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date('2026-09-11T02:00:00'));
+        const cb = vi.fn().mockRejectedValue(new Error('mongo down'));
+
+        scheduleDailyAt(3, 0, cb);
+
+        await vi.advanceTimersByTimeAsync(3_600_000);
+        expect(cb).toHaveBeenCalledTimes(1);
+        expect(mockLogError).toHaveBeenCalledWith('遗忘定时任务执行失败', {
+            error: expect.any(Error),
+        });
+
+        // 往后推 10 分钟：调度层不得自行补跑（否则与任务内的 withRetry 叠加）
+        await vi.advanceTimersByTimeAsync(600_000);
+        expect(cb).toHaveBeenCalledTimes(1);
+        expect(mockLogError).toHaveBeenCalledTimes(1);
     });
 
     it('cb 执行途中 stop()：在途回调结束后不得重排（防链条复活）', async () => {

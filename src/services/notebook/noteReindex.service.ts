@@ -15,6 +15,7 @@ import type { ChildChunk } from '@/types/noteChunk';
 import { generateEmbeddings } from '@/lib/embedding';
 import { tokenize } from '@/utils/tokenizer';
 import redisClient from '@/lib/redis';
+import { runGuardedTask } from '@/lib/backgroundTask';
 import { createLogger } from '@/lib/logger';
 import { withRetry } from '@/lib/retry';
 
@@ -457,24 +458,18 @@ export function stopNoteReindexWorker(): void {
 async function pollOnce(intervalMs: number): Promise<void> {
     // log.info('定时扫描 reindex 笔记');
     try {
-        // MongoDB 未就绪时跳过本轮，避免把基础设施故障误计成笔记失败
-        if (
-            mongoose.connection.readyState !==
-            mongoose.ConnectionStates.connected
-        ) {
-            log.warn('MongoDB 未就绪，跳过本轮 reindex 扫描');
-        } else {
+        // 重试与失败兜底由 runGuardedTask 统一兜住（整轮失败返回 null，
+        // 不当成笔记失败，避免把基础设施故障误计成 embedding 失败）
+        await runGuardedTask('note-reindex', async () => {
             const pending = await redisClient.sMembers(PENDING_KEY);
-            if (pending.length > 0) {
-                log.info(`reindex 扫描到 ${pending.length} 个待处理笔记`);
-            }
+            log.info(`reindex 扫描到 ${pending.length} 个待处理笔记`);
             // 单 worker 串行处理：个人知识库低频任务，无需并发，避免打满 embedding API
             for (const noteId of pending) {
                 await processOne(noteId);
             }
-        }
+        });
     } catch (error) {
-        log.error('reindex worker 单轮扫描异常', error as Error);
+        log.error('reindex worker 单轮扫描异常', { error });
     } finally {
         if (workerStarted) {
             pollTimer = setTimeout(() => {

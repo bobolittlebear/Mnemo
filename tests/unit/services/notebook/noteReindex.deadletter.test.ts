@@ -7,7 +7,8 @@
  *
  * 死信逻辑在未导出的 processOne（worker 内部），incrementalReindex 本身不碰 Redis，
  * 故通过已导出的 startNoteReindexWorker 驱动真实 worker 链路复现多轮失败计数：
- *   - mongoose.connection.readyState 置为 connected，绕过 pollOnce 的未就绪守卫
+ *   - runGuardedTask 不再有连接探针，pollOnce 只经 redis.sMembers + processOne，
+ *     不触 MongoDB，故无需任何连接桩
  *   - redis.sMembers 返回同一 noteId 多次，单轮 worker 对同一 note 串行重试
  *   - generateEmbeddings 默认恒抛 → incrementalReindex reject → processOne 走失败分支；
  *     recovery 用例用 mockRejectedValueOnce × MAX_FAILS + mockResolvedValue 构造
@@ -162,14 +163,10 @@ describe('noteReindex 死信链路（worker 驱动）', () => {
     beforeEach(() => {
         vi.resetAllMocks();
         setupMocks();
-        // 绕过 pollOnce 的「MongoDB 未就绪」守卫。直接改内部态仅为测试便捷；
-        // 若 mongoose 升级为 getter-only，需改 vi.spyOn(mongoose.connection, 'readyState').mockReturnValue(1)
-        (mongoose.connection as any).readyState = 1;
     });
 
     afterEach(() => {
         stopNoteReindexWorker();
-        (mongoose.connection as any).readyState = 0;
     });
 
     it('failure path：连续失败 1~MAX_FAILS 次仅递增计数，不触发死信，不消费 pending', async () => {

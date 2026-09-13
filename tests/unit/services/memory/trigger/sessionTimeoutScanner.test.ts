@@ -51,6 +51,7 @@ function createResolver(opts?: { resolveBatch?: boolean }) {
 describe('SessionTimeoutScanner', () => {
     beforeEach(() => {
         vi.useFakeTimers();
+        vi.clearAllMocks();
     });
 
     afterEach(() => {
@@ -199,6 +200,47 @@ describe('SessionTimeoutScanner', () => {
         await scanner.scanOnce();
 
         expect(store.findInactiveSessions).toHaveBeenCalledWith(60);
+    });
+
+    // ── 整轮 guard（runGuardedTask） ──
+
+    it('整轮依赖失败（不可重试错误）：scanOnce 不抛，且不触发终端', async () => {
+        const err: any = new Error('bad request');
+        err.status = 400; // 不可重试 → withRetry 立即抛出，不进入退避等待
+        const coordinator = createCoordinator(async () => completed(true));
+        const store = createStore(['sid1', 'sid2']);
+        store.findInactiveSessions.mockRejectedValue(err);
+        const resolver = createResolver({ resolveBatch: false });
+        const scanner = new SessionTimeoutScanner({
+            coordinator,
+            sessionStore: store,
+            resolver,
+        });
+
+        await expect(scanner.scanOnce()).resolves.toBeUndefined();
+
+        expect(store.findInactiveSessions).toHaveBeenCalledTimes(1);
+        expect(coordinator.executeTerminalTrigger).not.toHaveBeenCalled();
+    });
+
+    it('瞬态失败后重试成功：整轮重试生效，照常触发终端', async () => {
+        vi.useRealTimers(); // 放行 withRetry 的真实退避（默认 ≤2s）
+        const coordinator = createCoordinator(async () => completed(true));
+        const store = createStore(['sid1']);
+        store.findInactiveSessions
+            .mockRejectedValueOnce(new Error('MongoPoolClearedError'))
+            .mockResolvedValue(['sid1']);
+        const resolver = createResolver({ resolveBatch: false });
+        const scanner = new SessionTimeoutScanner({
+            coordinator,
+            sessionStore: store,
+            resolver,
+        });
+
+        await scanner.scanOnce();
+
+        expect(store.findInactiveSessions).toHaveBeenCalledTimes(2);
+        expect(coordinator.executeTerminalTrigger).toHaveBeenCalledTimes(1);
     });
 
     // ── M4: batch resolve tests ──

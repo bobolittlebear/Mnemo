@@ -1,3 +1,4 @@
+import { runGuardedTask } from '@/lib/backgroundTask';
 import { createLogger } from '@/lib/logger';
 import { memoryTriggerConfig } from './memoryTriggerConfig';
 import type { SessionIdentityResolver } from '@/services/memory/sessionIdentity.resolver';
@@ -49,25 +50,30 @@ export class SessionTimeoutScanner {
     }
 
     async scanOnce(): Promise<void> {
-        const sids = await this.sessionStore.findInactiveSessions(
-            this.timeoutSec,
-        );
-        const userMap = this.resolver.resolveBatch
-            ? await this.resolver.resolveBatch(sids)
-            : null;
-        for (const sid of sids) {
-            try {
-                await this.coordinator.executeTerminalTrigger(
-                    sid,
-                    'timeout',
-                    userMap?.get(sid) ?? undefined,
-                );
-            } catch (e) {
-                log.error('L2 超时扫描单会话兜底失败', e as Error, {
-                    sessionId: sid,
-                });
+        // 重试与失败兜底统一由 runGuardedTask 承担；整轮失败不抛出，
+        // 由 start() 的周期 setInterval 自然进入下一轮
+        await runGuardedTask('l2-timeout-scan', async () => {
+            const sids = await this.sessionStore.findInactiveSessions(
+                this.timeoutSec,
+            );
+            const userMap = this.resolver.resolveBatch
+                ? await this.resolver.resolveBatch(sids)
+                : null;
+            for (const sid of sids) {
+                try {
+                    await this.coordinator.executeTerminalTrigger(
+                        sid,
+                        'timeout',
+                        userMap?.get(sid) ?? undefined,
+                    );
+                } catch (e) {
+                    log.error('L2 超时扫描单会话兜底失败', e as Error, {
+                        sessionId: sid,
+                    });
+                }
             }
-        }
+            log.info('L2 超时扫描完成', { sids });
+        });
     }
 
     start(): void {

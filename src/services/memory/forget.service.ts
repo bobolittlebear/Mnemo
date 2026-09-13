@@ -9,8 +9,9 @@
  * - 服务内定时器 → trigger/forgetScanner.ts（每天 03:00 自动软删）
  * - 手动兜底入口 → scripts/forget-memories.ts
  */
-import { MemoryFact } from '@/models/MemoryFact';
+import { runGuardedTask } from '@/lib/backgroundTask';
 import { createLogger } from '@/lib/logger';
+import { MemoryFact } from '@/models/MemoryFact';
 import {
     FORGET_CONFIDENCE_FLOOR,
     FORGET_INACTIVE_DAYS,
@@ -126,6 +127,18 @@ export async function backfillLastSignificantAt(): Promise<number> {
 
 // ── 扫描 ──────────────────────────────────────────────────────
 
+/** 本轮未执行时的空报告（连接不可用 / 重试耗尽），各计数归零 */
+function emptyReport(dryRun: boolean): ForgetScanReport {
+    return {
+        dryRun,
+        backfilled: 0,
+        categories: [],
+        totalCandidates: 0,
+        totalDeleted: 0,
+        truncated: false,
+    };
+}
+
 /**
  * 执行一轮遗忘扫描。
  *
@@ -133,11 +146,25 @@ export async function backfillLastSignificantAt(): Promise<number> {
  * `dryRun`（默认）只统计不写库，用于人工复核。
  *
  * 上限是全局的、不是 per-category 的：预算先到先得，耗尽即停后续类别。
+ *
+ * 整轮包在 `runGuardedTask` 里：瞬时故障（含凌晨低峰连接被 Atlas 回收导致的
+ * 首个查询抛错）整轮重试一次。重试耗尽返回空报告而非抛出——
+ * 调度层只需保证排期不断，不必再处理失败。
  */
 export async function runForgetScan(
     opts: { dryRun?: boolean } = {},
 ): Promise<ForgetScanReport> {
     const dryRun = opts.dryRun ?? true; // 默认 dry-run，安全侧
+
+    const result = await runGuardedTask('forget-scan', () =>
+        doForgetScan(dryRun),
+    );
+
+    return result ?? emptyReport(dryRun);
+}
+
+/** 实际扫描逻辑；重试与失败兜底由外层 runGuardedTask 承担 */
+async function doForgetScan(dryRun: boolean): Promise<ForgetScanReport> {
     const startTime = Date.now();
     const nowMs = startTime;
 
@@ -251,6 +278,9 @@ export function msUntilNextDaily(
  * 用递归 setTimeout 而非 setInterval：上一轮跑完才排下一轮，天然避免重叠，
  * 也不会因执行耗时累积漂移。
  *
+ * 本函数只负责排期，不负责重试：重试与连接恢复由任务自身（runGuardedTask）承担，
+ * 否则会与之叠成双重重试。这里的 catch 只是防 `cb` 意外抛出时断掉每日链条。
+ *
  * 返回句柄的 `stop()` 会终止整条递归链——只清当前 timer 是不够的，
  * 因为下一次调度是在回调内部重新创建的。
  */
@@ -270,7 +300,7 @@ export function scheduleDailyAt(
                 await cb();
             } catch (error) {
                 // 单次失败不得中断每日链条（DB / 网络瞬时故障）
-                log.error('遗忘定时任务执行失败', error as Error);
+                log.error('遗忘定时任务执行失败', { error });
             }
             scheduleNext();
         }, msUntilNextDaily(hour, minute, Date.now()));
