@@ -1,4 +1,4 @@
-# Mnemo 工具调用功能设计文档（tool-calling）
+# Mnemo 工具调用功能设计文档（tool-calling 细节版）
 
 > 版本：v1.1（已定稿，2026-09-07 审批通过）  
 > 日期：2026-09-07  
@@ -169,6 +169,7 @@ AI 对话框顶部"写作"模式 chip（正向操作常驻可见）。开启后�
 - 气泡分色展示（写作模式独立配色）；切换时插入 banner：
   > 已切换为写作模式，该模式的上下文独立。切换回对话模式将保留各自历史。
 - 会话-笔记解耦原则不破：会话不绑定笔记，单条消息携带笔记上下文。
+
 
 ### 4.3 上下文注入策略
 
@@ -379,34 +380,35 @@ idle → thinking（thinking 事件，沿用现有占位样式）
 
 ---
 
+
 ## 10. 决策记录
 
-| #  | 决策点        | 结论                                                                                                                                             | 轮次    |
-| -- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
-| 1  | 工具集        | update_title / insert_at_cursor / replace_selection；块级修改、覆盖、删除推 V2                                                                             | R1    |
-| 2  | 入口策略       | 显式写作模式 chip，消息级携带 noteId + 光标/选区上下文                                                                                                            | R1    |
-| 3  | 并发冲突       | 生成期间锁编辑区（v1.1 延伸为整 run 锁，见 #12）                                                                                                                | R1→R4 |
-| 4  | 工具协议       | qwen3.7-plus 原生 Function Calling（已核实支持）                                                                                                        | R1→R2 |
-| 5  | 长笔记        | 全文注入 + 20 万字符防御闸门；分块循环编辑否决                                                                                                                     | R2    |
-| 6  | 双上下文       | 单消息流 + mode 字段；气泡分色 + 切换 banner；写上下文按 noteId 隔离                                                                                                | R2    |
-| 7  | 写模式检索      | 保留 user_memory 注入，砍跨笔记 RAG                                                                                                                     | R2    |
-| 8  | 撤销         | V1 原生 Ctrl+Z / Ctrl+Shift+Z；气泡级逆操作推 V1.5                                                                                                       | R2    |
-| 9  | HITL 审批流   | 不做写入前审批/diff 展示；以撤销信号埋点替代数据采集，后续按数据升级                                                                                                          | R3    |
-| 10 | 版本 stack   | 不做；V1.5 以 AI patch 日志覆盖真实盲区                                                                                                                    | R3    |
-| 11 | 执行位置       | **前端执行器 + 观察回传（方案 B）**；否决后端直写 DB（方案 C）：双写者冲突 + 反向同步深水区 + 索引管线绕过 + 版本管理                                                                         | R4    |
-| 12 | MVP 档位     | Tier 2 直上：完整 agent loop（run_paused → tool_result → 续轮 → 失败重试 → 事实总结）                                                                           | R4    |
-| 13 | loop 载体    | 消息历史即 agent 状态，零内存状态、无需 Redis、刷新不丢                                                                                                             | R4    |
-| 14 | 锁策略        | 整 run 锁（到 run_finished / 取消）；逐轮锁否决                                                                                                             | R4    |
-| 15 | 失败两层       | 参数校验失败后端合成直续轮（不经前端）；执行失败前端回传 failed 修正重试                                                                                                       | R4    |
-| 16 | 传输         | 专用 POST /stream/chat/tool-result 内联续轮 SSE                                                                                                      | R4    |
-| 17 | 撤销粒度       | per-tool step；run 级分组记增强项                                                                                                                      | R4    |
-| 18 | 悬挂兜底       | 末位 tool_call 无后继结果 → 后端合成 cancelled 追加（上下文完整性）                                                                                                 | R4    |
-| 19 | 事件集收敛      | 现有 4 + thinking/tool_call/run_paused/run_finished；tool_status 降前端本地态、summary 由收尾轮取代；砍 tool_call_delta / message_delta                          | R4→R5 |
-| 20 | 载荷存储       | toolCalls / result 走结构化字段，content 保持人可读文本；tool 消息 content 不塞 JSON                                                                              | R5    |
-| 21 | runId      | 加（run 级观测口径，与请求级 traceId 互补）                                                                                                                   | R5    |
-| 22 | display 字段 | **不加**（role='tool' 即内部性判别符；全量存全量回，前端过滤免费）                                                                                                      | R5    |
-| 23 | 内部轮判据      | 结构化 `toolCalls?.length > 0`，不用 content==='' 启发式（避免误吞无工具时代故障消息）                                                                                 | R5    |
-| 24 | 回放呈现       | 折叠摘要标注（"调用了 X 个工具"），不渲染过程卡                                                                                                                     | R5    |
-| 25 | run 可见性兜底  | run 结束时后端校验可见 assistant 消息存在性，无则补失败说明（用户可感知性）                                                                                                  | R5    |
-| 26 | docHash 定位 | **机器层字段，不是模型信号**：模型无法计算哈希、感知漂移后亦无行动路径（无读文档工具），且整 run 锁消灭 run 内漂移、全文注入覆盖跨 run 漂移。保留用于锁失效守卫（消息上行 docHashAtSend + patch 应用前前端自比对）与观测对账；组装模型上下文时剥离 | R6    |
+| #  | 决策点         | 结论                                                                                                                                                                                                   | 轮次    |
+| -- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
+| 1  | 工具集         | update_title / insert_at_cursor / replace_selection；块级修改、覆盖、删除推 V2                                                                                                                                   | R1    |
+| 2  | 入口策略        | 显式写作模式 chip，消息级携带 noteId + 光标/选区上下文                                                                                                                                                                  | R1    |
+| 3  | 并发冲突        | 生成期间锁编辑区（v1.1 延伸为整 run 锁，见 #12）                                                                                                                                                                      | R1→R4 |
+| 4  | 工具协议        | qwen3.7-plus 原生 Function Calling（已核实支持）                                                                                                                                                              | R1→R2 |
+| 5  | 长笔记         | 全文注入 + 20 万字符防御闸门；分块循环编辑否决                                                                                                                                                                           | R2    |
+| 6  | 双上下文        | 单消息流 + mode 字段；气泡分色 + 切换 banner；写上下文按 noteId 隔离                                                                                                                                                      | R2    |
+| 7  | 写模式检索       | 保留 user_memory 注入，砍跨笔记 RAG                                                                                                                                                                           | R2    |
+| 8  | 撤销          | V1 原生 Ctrl+Z / Ctrl+Shift+Z；气泡级逆操作推 V1.5                                                                                                                                                             | R2    |
+| 9  | HITL 审批流    | 不做写入前审批/diff 展示；以撤销信号埋点替代数据采集，后续按数据升级                                                                                                                                                                | R3    |
+| 10 | 版本 stack    | 不做；V1.5 以 AI patch 日志覆盖真实盲区                                                                                                                                                                          | R3    |
+| 11 | 执行位置        | **前端执行器 + 观察回传（方案 B）**；否决后端直写 DB（方案 C）：双写者冲突 + 反向同步深水区 + 索引管线绕过 + 版本管理                                                                                                                               | R4    |
+| 12 | MVP 档位      | Tier 2 直上：完整 agent loop（run_paused → tool_result → 续轮 → 失败重试 → 事实总结）                                                                                                                                 | R4    |
+| 13 | loop 载体     | 消息历史即 agent 状态，零内存状态、无需 Redis、刷新不丢                                                                                                                                                                   | R4    |
+| 14 | 锁策略         | 整 run 锁（到 run_finished / 取消）；逐轮锁否决                                                                                                                                                                   | R4    |
+| 15 | 失败两层        | 参数校验失败后端合成直续轮（不经前端）；执行失败前端回传 failed 修正重试                                                                                                                                                             | R4    |
+| 16 | 传输          | 专用 POST /stream/chat/tool-result 内联续轮 SSE                                                                                                                                                            | R4    |
+| 17 | 撤销粒度        | per-tool step；run 级分组记增强项                                                                                                                                                                            | R4    |
+| 18 | 悬挂兜底        | 末位 tool_call 无后继结果 → 后端合成 cancelled 追加（上下文完整性）                                                                                                                                                       | R4    |
+| 19 | 事件集收敛       | 现有 4 + thinking/tool_call/run_paused/run_finished；tool_status 降前端本地态、summary 由收尾轮取代；砍 tool_call_delta / message_delta                                                                                | R4→R5 |
+| 20 | 载荷存储        | toolCalls / result 走结构化字段，content 保持人可读文本；tool 消息 content 不塞 JSON                                                                                                                                    | R5    |
+| 21 | runId       | 加（run 级观测口径，与请求级 traceId 互补）                                                                                                                                                                         | R5    |
+| 22 | display 字段  | **不加**（role='tool' 即内部性判别符；全量存全量回，前端过滤免费）                                                                                                                                                            | R5    |
+| 23 | 内部轮判据       | 结构化 `toolCalls?.length > 0`，不用 content==='' 启发式（避免误吞无工具时代故障消息）                                                                                                                                       | R5    |
+| 24 | 回放呈现        | 折叠摘要标注（"调用了 X 个工具"），不渲染过程卡                                                                                                                                                                           | R5    |
+| 25 | run 可见性兜底   | run 结束时后端校验可见 assistant 消息存在性，无则补失败说明（用户可感知性）                                                                                                                                                        | R5    |
+| 26 | docHash 定位  | **机器层字段，不是模型信号**：模型无法计算哈希、感知漂移后亦无行动路径（无读文档工具），且整 run 锁消灭 run 内漂移、全文注入覆盖跨 run 漂移。保留用于锁失效守卫（消息上行 docHashAtSend + patch 应用前前端自比对）与观测对账；组装模型上下文时剥离                                                       | R6    |
 | 27 | 工具过程消息 role | 维持 `role: 'assistant'` + toolCalls 判据，不引入 system/新 role 承载：`assistant + tool_calls` 是 OpenAI/qwen FC 协议标准形态（忠实记录、组装零翻译）；system 是顶端系统提示词语义且无 tool_calls 承载位；system 已有系统提示词/LTM 用途，混入会产生一 role 两语义的二义性 | R7    |
