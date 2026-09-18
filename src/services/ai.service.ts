@@ -2,6 +2,7 @@
 import { getAIApi } from './core/llm';
 import { AI_CONFIG, AI_MODEL } from '@/utils/config';
 import type { RawMessage } from '@/types/chat';
+import type { ChatCompletionTool } from 'openai/resources/chat/completions';
 
 // ==================== 类型定义 ====================
 
@@ -21,6 +22,13 @@ export interface StreamChatOptions {
         /** 消息唯一ID */
         msgId?: string;
     };
+    /** Function Calling 工具定义；不传（或空数组）则完全不启用工具 */
+    tools?: ChatCompletionTool[];
+    /**
+     * 单轮是否允许并行调用工具，仅在传入 tools 时生效，默认 false。
+     * 设计 §5：V1 约束单轮最多一个 tool_call，不启用并行工具调用。
+     */
+    parallelToolCalls?: boolean;
 }
 export interface UsageInfo {
     promptTokens: number;
@@ -45,6 +53,8 @@ export async function createStreamChat(
         maxTokens,
         systemPrompt,
         metadata,
+        tools,
+        parallelToolCalls,
     } = options;
 
     // 如果提供了系统提示词，自动前置
@@ -68,6 +78,14 @@ export async function createStreamChat(
         stream_options: {
             include_usage: true,
         },
+        // Function Calling 仅在传入非空 tools 时才带参数：
+        // chat 模式不发这些字段，请求体与既有行为逐字一致
+        ...(tools?.length
+            ? {
+                  tools,
+                  parallel_tool_calls: parallelToolCalls ?? false,
+              }
+            : {}),
     } as any);
 }
 

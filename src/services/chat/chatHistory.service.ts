@@ -38,6 +38,15 @@ export default {
             timestamp: new Date(msg.timestamp).toISOString(),
             msgId: msg.msgId,
             traceId: msg.traceId,
+            // 写模式新字段（M-D1）：find().lean() 未做字段投影，六个字段本就在结果里，
+            // 直接取即可（不新增 .select()——省下了投影就不必再挑一次字段）。
+            // chat 消息不含这些字段，取出来是 undefined，前端据此走普通气泡分支
+            mode: msg.mode,
+            noteId: msg.noteId,
+            runId: msg.runId,
+            toolCalls: msg.toolCalls,
+            toolCallId: msg.toolCallId,
+            result: msg.result,
         }));
     },
 
@@ -86,8 +95,9 @@ export default {
         await sessionEndTrigger.end(sessionId);
 
         // 标记会话为已归档
-        Session.updateOne({ sessionId }, { $set: { status: 'archived' } }).catch(
-            () => {},
-        );
+        Session.updateOne(
+            { sessionId },
+            { $set: { status: 'archived' } },
+        ).catch(() => {});
     },
 };

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
     chat,
+    handleToolResult,
     endSession,
     getChatHistory,
     clearChatHistory,
@@ -17,6 +18,8 @@ router.use(authMiddleware);
 router.use(memoryMiddleware); // 开启会话时加上短期记忆key
 
 router.post('/chat', traceMiddleware, chat);
+// 工具执行回执 → 内联续轮（只服务写模式；上下文域由已挂载的 memoryMiddleware 注入）
+router.post('/chat/tool-result', traceMiddleware, handleToolResult);
 
 router.post('/session/end', endSession);
 router.get('/chat/history', getChatHistory);

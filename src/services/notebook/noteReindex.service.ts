@@ -365,8 +365,6 @@ export async function incrementalReindex(
         childrenDeleted,
         unchanged,
         embeddingTokens,
-        parents: parents.map((p) => p.content),
-        children: children.map((p) => p.content),
     });
 
     return {

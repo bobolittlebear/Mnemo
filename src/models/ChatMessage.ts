@@ -26,7 +26,8 @@ const chatMessageSchema = new Schema<ChatMessage>(
         role: {
             type: String,
             required: true,
-            enum: ['user', 'assistant', 'system'],
+            // OpenAI 兼容协议的消息产生方：tool 用于工具结果消息
+            enum: ['user', 'assistant', 'system', 'tool'],
         },
         content: {
             type: String,
@@ -44,6 +45,44 @@ const chatMessageSchema = new Schema<ChatMessage>(
         isDeleted: {
             type: Boolean,
             default: false,
+        },
+        // ── 工具调用链路扩容（.claude/design/tool-calling/tool-calling-detail.md §6.3）──
+        // 以下字段均为可选：不参与检索过滤，不新建索引（autoIndex 全局关闭）
+        mode: {
+            type: String,
+            enum: ['chat', 'write'], // 消息归属的上下文域，prompt 按此过滤
+        },
+        noteId: {
+            type: String, // 写模式按笔记隔离；chat 模式不写
+        },
+        // 工具调用（挂在 assistant 消息上）；arguments 用 Mixed 容忍 LLM 动态参数结构
+        toolCalls: {
+            // default: undefined —— 关掉 Mongoose 数组默认 []，
+            // 否则无工具时代的消息也会被写入 toolCalls: []，落库形状无谓改变
+            type: [
+                {
+                    _id: false, // 元素自带模型生成的 id，无需 Mongoose 隐式 _id
+                    id: String, // 模型生成的 toolCallId，tool 消息引用它
+                    name: String,
+                    arguments: Schema.Types.Mixed, // 结构化参数，前端直接执行不 parse
+                },
+            ],
+            default: undefined,
+        },
+        toolCallId: {
+            type: String, // 引用 assistant.toolCalls[].id
+        },
+        result: {
+            status: {
+                type: String,
+                enum: ['applied', 'failed', 'cancelled'], // cancelled = 悬挂兜底合成
+            },
+            docHash: String, // 锁失效守卫 + 观测对账；组装模型上下文时剥离
+            titleAfter: String,
+            error: String, // 失败原因，模型据此修正重试
+        },
+        runId: {
+            type: String, // 一个 run 的多轮次共享，与请求级 traceId 互补
         },
     },
     {

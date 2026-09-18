@@ -28,6 +28,24 @@ export interface ChatMessage extends Document {
     msgId: string; // UUID v7，消息级唯一标识 ← sourceMessageIds 引用这个
     traceId: string; // 请求级追踪标识 ← 保留，继续用于全链路追踪
     isDeleted: boolean; // 软删除标识
+
+    // ── 工具调用链路扩容（.claude/design/tool-calling/tool-calling-detail.md §6.3）──
+    // 均为可选：Mongoose 的 SchemaDefinition<T> 严格映射 keyof T，schema 新增路径必须在此声明
+    mode?: 'chat' | 'write'; // 消息归属的上下文域，prompt 按此过滤
+    noteId?: string; // 写模式按笔记隔离；chat 模式不写
+    toolCalls?: Array<{
+        id: string; // 模型生成的 toolCallId，tool 消息引用它
+        name: string; // 工具名（schema 层为 String，未做 enum 约束）
+        arguments: Record<string, unknown>; // 结构化参数，前端直接执行不 parse
+    }>;
+    toolCallId?: string; // 引用 assistant.toolCalls[].id
+    result?: {
+        status: 'applied' | 'failed' | 'cancelled'; // cancelled = 悬挂兜底合成
+        docHash?: string; // 锁失效守卫 + 观测对账；组装模型上下文时剥离
+        titleAfter?: string;
+        error?: string; // 失败原因，模型据此修正重试
+    };
+    runId?: string; // 一个 run 的多轮次共享，与请求级 traceId 互补
 }
 
 /** 长期记忆的语义分类枚举 (对应 Prompt 的扩展) */
