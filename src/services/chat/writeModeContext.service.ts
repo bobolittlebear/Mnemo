@@ -148,6 +148,9 @@ function buildWriteSystemPrompt(note: { title: string; content: string }) {
 - 需要改动文档时必须调用工具，不要在回复里只描述改动
 - 每次只调用一个工具；工具执行结果会以 tool 消息回传，失败时按 error 修正参数后重试
 - 写入内容一律使用 Markdown
+- 你只有以下 3 个可用工具，名称必须完全一致：update_title、insert_at_cursor、replace_selection
+- 不要调用任何未列出的工具
+- 当前笔记全文已在 <current_note> 中完整提供，无需也不能读取或写入任何文件
 </write_mode_instructions>
 <current_note>
 <title>${note.title}</title>

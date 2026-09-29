@@ -1,0 +1,9 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`buildRetrievalText（检索表示 = breadcrumb + 正文） > R1 - 空 sectionPath：无前缀时原样返回正文 1`] = `"纯正文内容。"`;
+
+exports[`buildRetrievalText（检索表示 = breadcrumb + 正文） > R2 - 多层 sectionPath：按 \` / \` 逐级拼接前缀再拼正文 1`] = `"Mnemo RAG / 章节A / 小节A.1 / 报告格式要求。"`;
+
+exports[`buildRetrievalText（检索表示 = breadcrumb + 正文） > R3 - \` / \` 拼接分隔符唯一且稳定（对齐 jieba 分词 / BM25 searchText） 1`] = `"A / B / C"`;
+
+exports[`buildRetrievalText（检索表示 = breadcrumb + 正文） > R4 - content 为空边界：保留 breadcrumb，不产生尾部 \`/ \` 残片 1`] = `"A / B"`;

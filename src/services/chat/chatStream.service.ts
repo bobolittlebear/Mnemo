@@ -277,16 +277,31 @@ ${memsXml}
 
         // 工具轮收尾：逐个回调拼接结果，再声明本轮流终态。
         // run_paused 取代该轮的 done，Controller 据此不再补发 done。
+        //
+        // 工具名白名单：模型会幻觉出不存在的工具（如 read_file / edit）。未列在 chatTools
+        // 里的名字一律丢弃——不下发 onToolCall、不执行、不落写模式历史，本轮降级为普通回复。
+        const ALLOWED_TOOL_NAMES = new Set(
+            chatTools.map((t) => t.function.name),
+        );
         const splicedToolCalls: SplicedToolCall[] = [];
-        const isToolRound =
+        const rawIsToolRound =
             finishReason === 'tool_calls' || toolCallAcc.size > 0;
-        if (isToolRound) {
+        if (rawIsToolRound) {
             for (const [index, acc] of toolCallAcc) {
+                const name = acc.name ?? '';
+                if (!ALLOWED_TOOL_NAMES.has(name)) {
+                    // 不反馈模型重生成（保持跨 HTTP ReAct loop 的上下文干净）
+                    logger.warn('写作模式收到未授权工具名，已丢弃', {
+                        traceId,
+                        toolName: name,
+                    });
+                    continue;
+                }
                 const toolCall: SplicedToolCall = {
                     id: acc.id ?? `call_${index}`,
                     type: 'function',
                     function: {
-                        name: acc.name ?? '',
+                        name,
                         arguments: safeParseToolArgs(
                             acc.argsBuf,
                             index,
@@ -297,6 +312,11 @@ ${memsXml}
                 splicedToolCalls.push(toolCall);
                 onToolCall?.(toolCall);
             }
+        }
+        // 以"实际留下来的工具"为准判定工具轮：全是幻觉工具时 splicedToolCalls 为空，
+        // 本轮即普通文本轮——不发 run_paused，落库走下方既有文本分支，不污染工具历史。
+        const isToolRound = splicedToolCalls.length > 0;
+        if (isToolRound) {
             onRunPaused?.();
         }
 
