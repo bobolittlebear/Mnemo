@@ -20,6 +20,15 @@ const setTokenCookie = (res: Response, token: string) => {
     });
 };
 
+const clearTokenCookie = (res: Response, _token?: string) => {
+    res.clearCookie('token', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        path: '/',
+    });
+};
+
 export const register = async (
     req: Request,
     res: Response,
@@ -77,7 +86,38 @@ export const login = async (
     }
 };
 
+export const logout = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+) => {
+    try {
+        clearTokenCookie(res);
+        res.json(ApiResponse.success(null, '登出成功'));
+    } catch (err) {
+        res.status(500).json(
+            ApiResponse.error(
+                err instanceof Error ? err.message : UNKNOWN_ERROR,
+            ),
+        );
+    }
+};
+export const me = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const user = await authService.me(req.user.userId!);
+        res.json(ApiResponse.success(user, '获取成功'));
+    } catch (err) {
+        res.status(500).json(
+            ApiResponse.error(
+                err instanceof Error ? err.message : UNKNOWN_ERROR,
+            ),
+        );
+    }
+};
+
 export default {
     register,
     login,
+    logout,
+    me,
 };

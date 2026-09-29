@@ -1,6 +1,6 @@
 # Mnemo Agent 状态机设计
 
-**读者画像**：面试官评估 Mnemo 架构；熟悉 React / Node / LLM Agent 基本概念，但不了解 Mnemo 内部实现。本文目标：用一张 run 级状态机图 + 一张架构位置图，把「Mnemo 怎么编排工具调用」讲清楚，并说明 run 状态当前如何存储。
+**读者画像**：了解 Mnemo 架构；熟悉 React / Node / LLM Agent 基本概念，但不了解 Mnemo 内部实现。本文目标：用一张 run 级状态机图 + 一张架构位置图，把「Mnemo 怎么编排工具调用」讲清楚，并说明 run 状态当前如何存储。
 
 ---
 

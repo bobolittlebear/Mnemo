@@ -30,7 +30,16 @@ export const login = async (username: string, password: string) => {
     return generateToken(user._id.toString());
 };
 
+export const me = async (userId: string) => {
+  const user = await UserModel.findById(userId).select("-password");
+  if (!user) {
+    throw new Error("用户不存在");
+  }
+  return user;
+};
+
 export default {
-    register,
-    login,
+  register,
+  login,
+  me,
 };
