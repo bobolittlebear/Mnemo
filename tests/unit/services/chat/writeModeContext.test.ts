@@ -37,6 +37,7 @@ import {
     persistWriteRound,
     persistToolResult,
 } from '@/services/chat/writeModeContext.service';
+import { countTokens } from '@/utils/tokenizer';
 import type { RawMessage } from '@/types/chat';
 
 // ── 测试辅助 ──
@@ -307,6 +308,7 @@ describe('persistWriteRound', () => {
             mode: 'write',
             noteId: 'n1',
             runId: 'run-1',
+            tokenCount: countTokens('把标题改成 X'),
         });
 
         const assistant = docs[1]!;
@@ -426,5 +428,141 @@ describe('persistToolResult', () => {
         expect(doc.traceId).toBe('trace-1');
         expect(doc.msgId).toMatch(/^msg-/);
         expect(typeof doc.timestamp).toBe('number');
+    });
+});
+
+// ────────────────────── M2a 写模式 tokenCount 落库与回带 ──────────────────────
+// 写模式不走 persistConversation、不写 STM，是 M2 覆盖不到的第二条消息落库路径；
+// 计数口径与 M2 同构：按落库 content（= 喂模型的 token 成本）算一次并缓存。
+describe('M2a 写模式 tokenCount 落库', () => {
+    it('M2a-1：user / assistant 文档的 tokenCount 等于各自落库 content 的计数', async () => {
+        await persistWriteRound({
+            sessionId: 's1',
+            userId: 'u1',
+            noteId: 'n1',
+            runId: 'run-1',
+            traceId: 'trace-1',
+            userMsg: makeUserMsg('把标题改成 X'),
+            assistantMsg: { content: '标题已改好', msgId: 'msg-a1' },
+        });
+
+        const [docs] = chatMessageMock.insertMany.mock.calls[0]!;
+        expect(docs[0]!.tokenCount).toBe(countTokens('把标题改成 X'));
+        expect(docs[1]!.tokenCount).toBe(countTokens('标题已改好'));
+    });
+
+    it('M2a-2：assistant 空 content 走兜底摘要时，按摘要计数而非空串', async () => {
+        await persistWriteRound({
+            sessionId: 's1',
+            userId: 'u1',
+            noteId: 'n1',
+            runId: 'run-1',
+            traceId: 'trace-1',
+            assistantMsg: { content: '', msgId: 'msg-a1' },
+            toolCalls: [
+                {
+                    id: 'call_1',
+                    name: 'update_title',
+                    arguments: { new_title: 'X' },
+                },
+            ],
+        });
+
+        const [docs] = chatMessageMock.insertMany.mock.calls[0]!;
+        // 落库 content 是摘要，tokenCount 必须与它同源（否则预算器读到的是空串成本）
+        expect(docs[0]!.content).toBe('调用 update_title');
+        expect(docs[0]!.tokenCount).toBe(countTokens('调用 update_title'));
+        expect(docs[0]!.tokenCount).toBeGreaterThan(0);
+    });
+
+    it('M2a-3：tool 消息按 JSON.stringify(result) 的落库 content 计数', async () => {
+        const result = {
+            status: 'failed' as const,
+            error: '锚点失配',
+            docHash: 'hash-2',
+        };
+
+        await persistToolResult({
+            sessionId: 's1',
+            userId: 'u1',
+            noteId: 'n1',
+            runId: 'run-1',
+            traceId: 'trace-1',
+            toolCallId: 'call_1',
+            result,
+        });
+
+        const doc = chatMessageMock.create.mock.calls[0]![0];
+        expect(doc.tokenCount).toBe(countTokens(JSON.stringify(result)));
+        expect(doc.tokenCount).toBeGreaterThan(0);
+    });
+
+    it('M2a-4 边界：空 JSON 回执的 tokenCount 为合理小值且不崩', async () => {
+        await persistToolResult({
+            sessionId: 's1',
+            userId: 'u1',
+            noteId: 'n1',
+            runId: 'run-1',
+            traceId: 'trace-1',
+            toolCallId: 'call_1',
+            result: {},
+        });
+
+        const doc = chatMessageMock.create.mock.calls[0]![0];
+        // content 永非空（schema required），空 result 序列化成 '{}'
+        expect(doc.content).toBe('{}');
+        expect(doc.tokenCount).toBe(countTokens('{}'));
+        // 小值：能算出有限整数即可（缺 content 时算成 NaN 会在这里暴露）
+        expect(Number.isInteger(doc.tokenCount)).toBe(true);
+        expect(doc.tokenCount).toBeLessThan(50);
+    });
+});
+
+describe('M2a 写模式读路径回带 tokenCount', () => {
+    it('M2a-5：toRawMessage 把存量文档的 tokenCount 原样带进 RawMessage', async () => {
+        mockHistory([
+            {
+                role: 'user',
+                content: '把标题改成 X',
+                msgId: 'm1',
+                timestamp: 1000,
+                tokenCount: 7,
+            },
+            {
+                role: 'assistant',
+                content: '调用 update_title',
+                msgId: 'm2',
+                timestamp: 2000,
+                tokenCount: 6,
+                toolCalls: [
+                    { id: 'call_1', name: 'update_title', arguments: {} },
+                ],
+            },
+            {
+                role: 'tool',
+                content: '{"status":"applied"}',
+                msgId: 'm3',
+                timestamp: 3000,
+                toolCallId: 'call_1',
+                tokenCount: 5,
+            },
+        ]);
+
+        const ctx = await assembleWriteContext(ASSEMBLE_PROPS);
+
+        // 三种分支（plain / assistant+tool_calls / tool）都必须回带，否则预算器盲算
+        expect(ctx.messages.map((m) => m.tokenCount)).toEqual([7, 6, 5]);
+    });
+
+    it('M2a-6 边界：存量消息无 tokenCount 时回带 undefined（不伪造 0）', async () => {
+        mockHistory([
+            { role: 'user', content: '你好', msgId: 'm1', timestamp: 1000 },
+        ]);
+
+        const ctx = await assembleWriteContext(ASSEMBLE_PROPS);
+
+        // M2 之前落库的存量行没有该字段：保持 undefined 交给预算器兜底，
+        // 而不是在这里补 0（补 0 会让计量账单看不出「缺计数」这件事）
+        expect(ctx.messages[0]!.tokenCount).toBeUndefined();
     });
 });

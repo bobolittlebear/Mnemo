@@ -31,6 +31,13 @@ vi.mock('@/lib/logger', () => ({
     }),
 }));
 
+// getInputBudget 包一层：BUDGET_CONFIG 保持真实，只有「模型输入预算」可被单个用例压低，
+// 用来制造 RAG 块超天花板的逐出压力（真实 1M 窗口下永远压不出来）
+vi.mock('@/utils/config', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@/utils/config')>();
+    return { ...actual, getInputBudget: vi.fn(actual.getInputBudget) };
+});
+
 // ── 引入被测模块（在 Mock 之后）──
 
 import {
@@ -40,6 +47,7 @@ import {
 import { searchNotes } from '@/services/notebook/noteSearch.service';
 import type { NoteRetrievalResult } from '@/services/notebook/noteSearch.service';
 import { countTokens } from '@/utils/tokenizer';
+import { BUDGET_CONFIG, getInputBudget } from '@/utils/config';
 
 // ── 测试工具 ──
 
@@ -68,6 +76,14 @@ function extractNoteContext(systemPrompt: string): string {
     return systemPrompt.slice(start, end + '</note_context>'.length);
 }
 
+/** 按出现顺序取出注入块里的 noteId，用于断言保留/逐出了哪几条 */
+function noteIdsOf(systemPrompt: string): string[] {
+    return Array.from(
+        extractNoteContext(systemPrompt).matchAll(/note_id="([^"]+)"/g),
+        (m) => m[1]!,
+    );
+}
+
 // ── 测试 ──
 
 describe('noteInjection.injectNotesIntoSystemPrompt', () => {
@@ -75,6 +91,8 @@ describe('noteInjection.injectNotesIntoSystemPrompt', () => {
         vi.clearAllMocks();
         // searchNotes 默认无实现，各用例自行 mockResolvedValue / mockRejectedValue
         vi.mocked(searchNotes).mockReset();
+        // 输入预算恢复真实值：只有制造逐出压力的用例才临时压低
+        vi.mocked(getInputBudget).mockReturnValue(1_000_000);
     });
 
     // ────────────────────── Happy Path ──────────────────────
@@ -116,12 +134,11 @@ describe('noteInjection.injectNotesIntoSystemPrompt', () => {
             topK: 8,
         });
         expect(searchNotes).toHaveBeenCalledTimes(1);
-        // 自审：countTokens 被调用且入参为真实注入块文本
-        expect(countTokens).toHaveBeenCalled();
+        // 自审（M4）：块成本按「父块正文 + 父块上下文」实时计数——
+        // 逐条累加的是这两个字段，而不是渲染后的 <note> 文本
         const tokenArgs = vi.mocked(countTokens).mock.calls.map((c) => c[0]!);
-        expect(
-            tokenArgs.some((t) => t.includes('note_id="note-A"')),
-        ).toBe(true);
+        expect(tokenArgs).toContain('部署步骤一');
+        expect(tokenArgs).toContain('父章节全文');
     });
 
     it('H2: 记忆 + 笔记共存 → <user_memory> 与 <note_context> 同时存在、互不影响', async () => {
@@ -203,38 +220,60 @@ describe('noteInjection.injectNotesIntoSystemPrompt', () => {
 
     // ────────────────────── token 预算 ──────────────────────
 
-    it('B1: 超预算 → 低分 note 被截断、高分保留，注入块真实 token 数 ≤ 预算', async () => {
-        const high = makeResult({
-            noteId: 'note-H',
-            content: '高分短内容',
-            score: 0.9,
-        });
-        const low = makeResult({
-            noteId: 'note-L',
-            content: '低分超长内容 '.repeat(100),
-            score: 0.1,
-        });
-        vi.mocked(searchNotes).mockResolvedValue([high, low]);
-
-        // 用真实 token 计数推导预算边界：high 单条可容纳，high+low 超预算
-        const highBlock = buildNoteContextBlock([high]);
-        const bothBlock = buildNoteContextBlock([high, low]);
-        const budget = countTokens(bothBlock) - 1;
-        expect(countTokens(highBlock)).toBeLessThanOrEqual(budget); // 前提校验
+    it('B1a: 固定 1500 token 预算已移除 → 预算宽裕时召回几条注入几条', async () => {
+        // 7 条召回（约 70+ token）：旧实现会被 1500 预算或 8 条上限之外的逻辑截断，
+        // M4 起只在超「模型输入预算 × ragMaxRatio」天花板时才逐出
+        const results = Array.from({ length: 7 }, (_, i) =>
+            makeResult({
+                noteId: `note-${i + 1}`,
+                content: `第 ${i + 1} 段正文`,
+                score: 0.9 - i * 0.1,
+            }),
+        );
+        vi.mocked(searchNotes).mockResolvedValue(results);
 
         const result = await injectNotesIntoSystemPrompt({
             userId: 'u1',
             query: '部署',
             systemPrompt: BASE_PROMPT,
-            noteBudgetTokens: budget,
         });
 
-        expect(result).toContain('note_id="note-H"');
-        expect(result).not.toContain('note_id="note-L"');
-        // 预算断言用真实 token 计数（非字符串长度近似）
-        expect(countTokens(extractNoteContext(result))).toBeLessThanOrEqual(
-            budget,
+        const keptIds = noteIdsOf(result);
+        expect(keptIds).toHaveLength(7);
+        expect(keptIds).toContain('note-7');
+        expect(countTokens).toHaveBeenCalled();
+    });
+
+    it('B1b: 预算吃紧（超块天花板）→ 从低分端逐出，止步于 ragFloor', async () => {
+        // 天花板 = inputBudget × ragMaxRatio：把输入预算压到 40 → 天花板 10 token，
+        // 7 条均超 → 逐出至 floor(5)，且留下的必是分数最高的 5 条
+        vi.mocked(getInputBudget).mockReturnValue(40);
+        const results = Array.from({ length: 7 }, (_, i) =>
+            makeResult({
+                noteId: `note-${i + 1}`,
+                content: `第 ${i + 1} 段正文`,
+                score: 0.9 - i * 0.1,
+            }),
         );
+        vi.mocked(searchNotes).mockResolvedValue(results);
+
+        const result = await injectNotesIntoSystemPrompt({
+            userId: 'u1',
+            query: '部署',
+            systemPrompt: BASE_PROMPT,
+        });
+
+        // floor 只是下限：压到 5 条即停，不会更狠
+        expect(noteIdsOf(result)).toEqual([
+            'note-1',
+            'note-2',
+            'note-3',
+            'note-4',
+            'note-5',
+        ]);
+        expect(noteIdsOf(result)).toHaveLength(BUDGET_CONFIG.ragFloor);
+        expect(result).not.toContain('note_id="note-6"');
+        expect(result).not.toContain('note_id="note-7"');
     });
 
     it('B2: 多 note 顺序 → 即使 searchNotes 未按分数排序，注入块内按融合分降序', async () => {
@@ -304,7 +343,9 @@ describe('noteInjection.buildNoteContextBlock', () => {
         expect(block).toContain('note_id="a&amp;b"');
         expect(block).toContain('title="标题&lt;A&gt;"');
         expect(block).toContain('section="部署 &gt; A&gt;B"');
-        expect(block).toContain('<content>内容 &quot;X&quot; &amp; &lt;Y&gt;</content>');
+        expect(block).toContain(
+            '<content>内容 &quot;X&quot; &amp; &lt;Y&gt;</content>',
+        );
         expect(block.startsWith('<note_context count="1">')).toBe(true);
         expect(block.endsWith('</note_context>')).toBe(true);
     });

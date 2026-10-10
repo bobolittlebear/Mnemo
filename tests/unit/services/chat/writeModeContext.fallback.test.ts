@@ -43,6 +43,7 @@ import {
     countWriteRounds,
     ensureRunVisibleMessage,
 } from '@/services/chat/writeModeContext.service';
+import { countTokens } from '@/utils/tokenizer';
 import type { RawMessage } from '@/types/chat';
 
 // ── 测试辅助 ──
@@ -162,12 +163,16 @@ describe('assembleWriteContext — 层1 悬挂 tool_call 兜底', () => {
         expect(doc.traceId).toBe('trace-1');
         expect(doc.msgId).toMatch(/^msg-/);
         expect(typeof doc.timestamp).toBe('number');
+        // M2a：合成消息同样按落库 content 计数，落库与内存数组共用同一口径
+        expect(doc.tokenCount).toBe(countTokens(doc.content));
 
         // 本轮喂模型的上下文必须已含这条工具结果，否则模型仍在等一个不会来的结果
         expect(ctx.messages).toHaveLength(3);
         const healed = toolMsgOf(ctx.messages[2]!);
         expect(healed.role).toBe('tool');
         expect(healed.tool_call_id).toBe('c1');
+        // 合成的 tool 消息也要能被预算器计量，不能是漏网的历史
+        expect(ctx.messages[2]!.tokenCount).toBe(doc.tokenCount);
         expect(JSON.parse(healed.content)).toEqual({
             status: 'cancelled',
             error: 'client disconnected',
@@ -297,6 +302,10 @@ describe('ensureRunVisibleMessage — 层2 用户可感知性兜底', () => {
         expect(doc.traceId).toBe('trace-1');
         expect(doc.msgId).toMatch(/^msg-/);
         expect(typeof doc.timestamp).toBe('number');
+        // M2a：兜底文案也是真实落库 content，按它计数（预算器读历史时同样要看到）
+        expect(doc.tokenCount).toBe(
+            countTokens('本次写作中断，未生成可见回复，请重试。'),
+        );
 
         expect(loggerMock.warn).toHaveBeenCalledWith(
             '写模式 run 无可见 assistant 消息，已补失败说明',
@@ -337,6 +346,10 @@ describe('ensureRunVisibleMessage — 层2 用户可感知性兜底', () => {
         expect(inserted).toBe(true);
         expect(chatMessageMock.create.mock.calls[0]![0].content).toBe(
             '已在 3 轮内尝试但未能完成，run 已关闭。',
+        );
+        // tokenCount 跟着覆盖后的文案走，而不是缺省文案
+        expect(chatMessageMock.create.mock.calls[0]![0].tokenCount).toBe(
+            countTokens('已在 3 轮内尝试但未能完成，run 已关闭。'),
         );
     });
 

@@ -20,6 +20,7 @@ import ChatMessage from '@/models/ChatMessage';
 import noteService from '@/services/notebook/note.service';
 import { createLogger } from '@/lib/logger';
 import { generateMessageId } from '@/utils/tool';
+import { countTokens } from '@/utils/tokenizer';
 import type { ChatMessage as ChatMessageDoc } from '@/types/models';
 import type { RawMessage } from '@/types/chat';
 
@@ -75,7 +76,14 @@ export interface WriteContext {
 /** Lean 查询结果的最小形状（只取装配需要的字段） */
 type LeanChatMessage = Pick<
     ChatMessageDoc,
-    'role' | 'content' | 'msgId' | 'timestamp' | 'toolCalls' | 'toolCallId'
+    | 'role'
+    | 'content'
+    | 'msgId'
+    | 'timestamp'
+    | 'toolCalls'
+    | 'toolCallId'
+    // tokenCount 随装配一并带出：预算器（M3）读写模式历史时与 chat 模式同样只读求和
+    | 'tokenCount'
 >;
 
 /**
@@ -117,6 +125,8 @@ function toRawMessage(doc: LeanChatMessage): RawMessage {
         content: doc.content,
         msgId: doc.msgId,
         timestamp: doc.timestamp,
+        // 存量消息无此字段 → undefined，预算器自行兜底；新写入的消息原样回带
+        tokenCount: doc.tokenCount,
     };
 
     if (doc.role === 'assistant' && doc.toolCalls?.length) {
@@ -208,10 +218,12 @@ async function healOrphanToolCalls(
         };
         const msgId = generateMessageId();
         const timestamp = Date.now();
+        // content 即落库形态，token 计数按它算一次，落库与内存数组共用
+        const content = JSON.stringify(result); // 与 persistToolResult 同形状：content 永非空
 
         await ChatMessage.create({
             role: 'tool',
-            content: JSON.stringify(result), // 与 persistToolResult 同形状：content 永非空
+            content,
             toolCallId: orphan.id,
             result,
             timestamp,
@@ -221,14 +233,16 @@ async function healOrphanToolCalls(
             mode: 'write',
             noteId: scope.noteId,
             runId: scope.runId,
+            tokenCount: countTokens(content),
         });
         // 内存数组同步追加：本轮喂给模型的上下文必须已包含这条工具结果
         docs.push({
             role: 'tool',
-            content: JSON.stringify(result),
+            content,
             toolCallId: orphan.id,
             timestamp,
             msgId,
+            tokenCount: countTokens(content),
         });
 
         logger.info('孤儿 tool_call 已合成 cancelled 兜底', {
@@ -287,6 +301,7 @@ export async function ensureRunVisibleMessage(props: {
         mode: 'write',
         noteId,
         runId,
+        tokenCount: countTokens(content),
     });
 
     logger.warn('写模式 run 无可见 assistant 消息，已补失败说明', {
@@ -435,6 +450,7 @@ export async function persistWriteRound(props: {
                       mode: 'write',
                       noteId,
                       runId,
+                      tokenCount: countTokens(userMsg.content as string),
                   },
               ]
             : []),
@@ -448,6 +464,8 @@ export async function persistWriteRound(props: {
             mode: 'write',
             noteId,
             runId,
+            // 兜底摘要也是真实喂给模型的 content，按它计数而非原始空串
+            tokenCount: countTokens(assistantContent),
             ...(toolCalls?.length
                 ? {
                       toolCalls: toolCalls.map((t) => ({
@@ -494,9 +512,12 @@ export async function persistToolResult(props: {
         props;
     const started = Date.now();
 
+    // 按落库 content 计数：content 是喂模型的 token 成本来源
+    const content = JSON.stringify(result); // 拒绝空串，单没有空串校验？一次写入失败就永久失败
+
     await ChatMessage.create({
         role: 'tool',
-        content: JSON.stringify(result), // 拒绝空串，单没有空串校验？一次写入失败就永久失败
+        content,
         toolCallId,
         result,
         timestamp: Date.now(),
@@ -506,6 +527,7 @@ export async function persistToolResult(props: {
         mode: 'write',
         noteId,
         runId,
+        tokenCount: countTokens(content),
     });
 
     logger.info('工具执行结果已落库', {

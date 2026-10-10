@@ -53,6 +53,7 @@ import STM from '@/utils/shortTermMemory';
 import { generateEmbeddings } from '@/lib/embedding';
 import { MemoryFact } from '@/models/MemoryFact';
 import MemoryPipelineService from '@/services/memory/memoryPipeline.service';
+import { countTokens } from '@/utils/tokenizer';
 import type { SessionIdentityResolver } from '@/services/memory/sessionIdentity.resolver';
 import * as fixtures from '../../../helpers/fixtures';
 import { createLogger } from '@/lib/logger';
@@ -705,5 +706,86 @@ describe('MemoryPipeline — userId 解析（M2）', () => {
             '事实m1',
             '事实m2',
         ]);
+    });
+
+    // ──────────────────── M2 UPDATE 分支 tokenCount ────────────────────
+
+    /** 构造超过 event 单条上限（800）的内容 */
+    function overEventCap(): string {
+        const unit = '这是一段会反复追加的事件细节描述。';
+        let text = unit;
+        while (countTokens(text) <= 800) text += unit;
+        return text;
+    }
+
+    it('M2-4 - UPDATE 短 content 不改写，tokenCount 等于 countTokens(content)', async () => {
+        mockedGetLastExtractedMsgId.mockResolvedValue(null);
+        mockExistingForUpdate(['m1']);
+        const content = '用户偏好用 TypeScript';
+        mockedExtractFacts.mockResolvedValue([
+            {
+                action: 'UPDATE',
+                old_memory_id: 'm1',
+                content,
+                confidence: 0.8,
+                category: 'skill',
+                sourceMessageIds: ['msg-001'],
+            },
+        ] as any);
+        mockedGenerateEmbeddings.mockResolvedValue({
+            totalTokens: 5,
+            embeddings: [Array(1536).fill(0.1)],
+        });
+        mockedBulkWrite.mockResolvedValue({ writeErrors: [] } as any);
+
+        await pipeline.run(
+            { sessionId: fixtures.mockSessionId, userId: fixtures.mockUserId },
+            fixtures.mockMessages,
+        );
+
+        const op = (mockedBulkWrite.mock.calls[0]![0] as any[])[0].updateOne;
+        expect(op.update.$set.content).toBe(content);
+        expect(op.update.$set.tokenCount).toBe(countTokens(content));
+        expect(op.update.$set.contentHash).toBe(`hash_${content}`);
+    });
+
+    it('M2-5 - UPDATE 变更后远超 category 上限（800）也不截断，全量落库且 tokenCount 重算', async () => {
+        mockedGetLastExtractedMsgId.mockResolvedValue(null);
+        mockExistingForUpdate(['m1']);
+        const content = overEventCap();
+        const totalTokens = countTokens(content);
+        expect(totalTokens).toBeGreaterThan(800);
+
+        mockedExtractFacts.mockResolvedValue([
+            {
+                action: 'UPDATE',
+                old_memory_id: 'm1',
+                content,
+                confidence: 0.8,
+                category: 'event',
+                sourceMessageIds: ['msg-001'],
+            },
+        ] as any);
+        mockedGenerateEmbeddings.mockResolvedValue({
+            totalTokens: 5,
+            embeddings: [Array(1536).fill(0.1)],
+        });
+        mockedBulkWrite.mockResolvedValue({ writeErrors: [] } as any);
+
+        await pipeline.run(
+            { sessionId: fixtures.mockSessionId, userId: fixtures.mockUserId },
+            fixtures.mockMessages,
+        );
+
+        const op = (mockedBulkWrite.mock.calls[0]![0] as any[])[0].updateOne;
+        const stored = op.update.$set.content as string;
+
+        // 不截断：变更后的全量原文原样落库
+        expect(stored).toBe(content);
+        expect(op.update.$set.tokenCount).toBe(totalTokens);
+        expect(op.update.$set.contentHash).toBe(`hash_${content}`);
+        // 向量化输入同样是全量原文，与落库正文、embedding 同源
+        expect(mockedGenerateEmbeddings).toHaveBeenCalledTimes(1);
+        expect(mockedGenerateEmbeddings.mock.calls[0]![0]).toEqual([content]);
     });
 });

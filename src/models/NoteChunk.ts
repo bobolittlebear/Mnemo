@@ -43,6 +43,9 @@ const NoteChunkSchema = new Schema<NoteChunkType>(
         searchText: { type: String, default: '' },
 
         contentHash: { type: String, required: true },
+
+        // content 的 token 数：仅父块（RAG 注入单元）计算，子块仅作检索键不填
+        tokenCount: { type: Number },
     },
     {
         timestamps: true,

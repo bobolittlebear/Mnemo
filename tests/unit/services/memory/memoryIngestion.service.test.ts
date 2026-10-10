@@ -1,9 +1,9 @@
 /**
  * IngestionService 单元测试
  *
- * 测试目标：contentHash 去重 + bulkWrite upsert 入库
+ * 测试目标：contentHash 去重 + bulkWrite upsert 入库 + 写入侧 tokenCount（M2）
  * Mock 依赖：MemoryFact.bulkWrite（MongoDB）
- * 真实逻辑：operations 构建、contentHash 计算、结果解析
+ * 真实逻辑：operations 构建、contentHash 计算、全量 content 落库、token 计数、结果解析
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
@@ -33,6 +33,8 @@ vi.mock('@/utils/tool', () => ({
 // ── 引入被测模块 ──
 import { MemoryFact } from '@/models/MemoryFact';
 import { ingestMemoryFacts } from '@/services/memory/memoryIngestion.service';
+import { countTokens, tokenize } from '@/utils/tokenizer';
+import { BUDGET_CONFIG } from '@/utils/config';
 import * as fixtures from '../../../helpers/fixtures';
 import type { EmbeddedFact, IngestionContext } from '@/types/memory';
 
@@ -198,5 +200,107 @@ describe('IngestionService', () => {
         // 故 lastSignificantAt 只能出现在 $set
         expect(op.update.$set).toHaveProperty('lastSignificantAt');
         expect('lastSignificantAt' in op.update.$setOnInsert).toBe(false);
+    });
+
+    // ────────────────────── M2 写入侧 tokenCount ──────────────────────
+
+    /** 按 category 单条上限生成超长内容（不依赖固定 token 数的字面量） */
+    function overCapContent(categoryCapMax: number): string {
+        const unit = '这是一段会反复追加的事件细节描述。';
+        let text = unit;
+        while (countTokens(text) <= categoryCapMax) text += unit;
+        return text;
+    }
+
+    /** 取第 i 条 operation 的 $set */
+    function setOf(i = 0): any {
+        return (mockedBulkWrite.mock.calls[0]?.[0] as any[])[i]!.updateOne.update
+            .$set;
+    }
+
+    it('M2-1 - 短 fact 不改写 content，tokenCount 等于 countTokens(content)', async () => {
+        mockedBulkWrite.mockResolvedValue(fixtures.mockBulkWriteResult as any);
+        const content = '用户偏好喝美式咖啡';
+
+        await ingestMemoryFacts(
+            [
+                {
+                    content,
+                    confidence: 0.9,
+                    category: 'preference',
+                    embedding: [0.1],
+                    sourceMessageIds: ['msg-1'],
+                },
+            ],
+            ctx,
+        );
+
+        const set = setOf();
+        expect(set.content).toBe(content);
+        expect(set.tokenCount).toBe(countTokens(content));
+        const op = (mockedBulkWrite.mock.calls[0]?.[0] as any[])[0].updateOne;
+        expect(op.filter.contentHash).toBe(`hash_${content}`);
+    });
+
+    it('M2-2 - event 远超上限（800）也入库全量 content，tokenCount 基于全量计', async () => {
+        mockedBulkWrite.mockResolvedValue(fixtures.mockBulkWriteResult as any);
+        const content = overCapContent(
+            BUDGET_CONFIG.ltmCategoryTokenCap.event![1],
+        );
+
+        // 前置：构造的原文确实远超 category 上限，否则本用例什么都没验证
+        const totalTokens = countTokens(content);
+        expect(totalTokens).toBeGreaterThan(800);
+
+        await ingestMemoryFacts(
+            [
+                {
+                    content,
+                    confidence: 0.9,
+                    category: 'event',
+                    embedding: [0.1, 0.2, 0.3],
+                    sourceMessageIds: ['msg-1'],
+                },
+            ],
+            ctx,
+        );
+
+        const set = setOf();
+        // 入库不截断：content 是事实源，逐字保留
+        expect(set.content).toBe(content);
+        expect(set.tokenCount).toBe(totalTokens);
+        expect(set.searchText).toBe(tokenize(content));
+
+        const op = (mockedBulkWrite.mock.calls[0]?.[0] as any[])[0].updateOne;
+        // 去重键同样基于全量 content
+        expect(op.filter.contentHash).toBe(`hash_${content}`);
+        // embedding 原样透传，维度不被改写（本就是按全量原文生成的）
+        expect(set.embedding).toEqual([0.1, 0.2, 0.3]);
+    });
+
+    it('M2-3 - category 缺省（other 上限 400）同样不截断，存储期与 category 无关', async () => {
+        mockedBulkWrite.mockResolvedValue(fixtures.mockBulkWriteResult as any);
+        const content = overCapContent(
+            BUDGET_CONFIG.ltmCategoryTokenCap.other![1],
+        );
+        const totalTokens = countTokens(content);
+        expect(totalTokens).toBeGreaterThan(400);
+
+        await ingestMemoryFacts(
+            [
+                {
+                    content,
+                    confidence: 0.9,
+                    embedding: [0.4],
+                    sourceMessageIds: ['msg-1'],
+                },
+            ],
+            ctx,
+        );
+
+        const set = setOf();
+        expect(set.content).toBe(content);
+        expect(set.tokenCount).toBe(totalTokens);
+        expect(set.category).toBeUndefined();
     });
 });

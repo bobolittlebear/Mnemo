@@ -3,7 +3,7 @@
 import { MemoryFact } from '@/models/MemoryFact';
 import { createLogger } from '@/lib/logger';
 import { generateContentHash } from '@/utils/tool';
-import { tokenize } from '@/utils/tokenizer';
+import { tokenize, countTokens } from '@/utils/tokenizer';
 import type {
     EmbeddedFact,
     IngestionContext,
@@ -37,6 +37,9 @@ export async function ingestMemoryFacts(
     try {
         // 1. 构建 bulkWrite 操作数组
         const operations = facts.map((fact) => {
+            // 入库不截断 content：content 是事实源，token 预算属运行时呈现层问题。
+            // content / embedding / contentHash / searchText / tokenCount 一律基于同一份全量
+            // content（embedding 本就由全量原文生成），category 上限只在 M3 注入侧做防御截断。
             const contentHash = generateContentHash(fact.content);
 
             return {
@@ -56,6 +59,7 @@ export async function ingestMemoryFacts(
                             metadata: fact.metadata || {},
                             updatedAt: new Date(),
                             sourceMessageIds: fact.sourceMessageIds,
+                            tokenCount: countTokens(fact.content),
                             // 写入点2：入库即视为「被实质使用」，刷新遗忘机制的时间戳
                             lastSignificantAt: new Date(),
                         },

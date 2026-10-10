@@ -65,6 +65,7 @@ vi.mock('@/services/memory/memorySelection.service', () => ({
 
 vi.mock('@/services/notebook/noteInjection.service', () => ({
     injectNotesIntoSystemPrompt: vi.fn(),
+    retrieveNotes: vi.fn().mockResolvedValue([]),
 }));
 
 import { createStreamChat } from '@/services/ai.service';

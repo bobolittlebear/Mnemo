@@ -14,7 +14,7 @@ import { generateEmbeddings } from '@/lib/embedding';
 import { createLogger } from '@/lib/logger';
 import { MemoryFact } from '@/models/MemoryFact';
 import { generateContentHash } from '@/utils/tool';
-import { tokenize } from '@/utils/tokenizer';
+import { tokenize, countTokens } from '@/utils/tokenizer';
 import type {
     EmbeddedFact,
     IngestionContext,
@@ -231,6 +231,7 @@ class MemoryPipelineService {
                             embedding: embRes.embeddings[i],
                             contentHash: generateContentHash(fact.content),
                             searchText: tokenize(fact.content),
+                            tokenCount: countTokens(fact.content),
                             updatedAt: new Date(),
                             confidence: fact.confidence,
                             category: fact.category,

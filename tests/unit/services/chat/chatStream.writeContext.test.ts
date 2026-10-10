@@ -75,6 +75,7 @@ vi.mock('@/services/memory/memorySelection.service', () => ({
 
 vi.mock('@/services/notebook/noteInjection.service', () => ({
     injectNotesIntoSystemPrompt: vi.fn(),
+    retrieveNotes: vi.fn().mockResolvedValue([]),
 }));
 
 // 只桩掉落库函数，保留 streamChat 真实实现

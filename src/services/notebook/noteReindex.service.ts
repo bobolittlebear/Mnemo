@@ -13,7 +13,7 @@ import NoteModel from '@/models/Note';
 import { chunkMarkdown, buildRetrievalText } from '@/utils/noteChunker';
 import type { ChildChunk } from '@/types/noteChunk';
 import { generateEmbeddings } from '@/lib/embedding';
-import { tokenize } from '@/utils/tokenizer';
+import { tokenize, countTokens } from '@/utils/tokenizer';
 import redisClient from '@/lib/redis';
 import { runGuardedTask } from '@/lib/backgroundTask';
 import { createLogger } from '@/lib/logger';
@@ -167,6 +167,8 @@ export async function incrementalReindex(
                 content: p.content,
                 searchText: tokenize(p.content),
                 contentHash: p.contentHash,
+                // 仅父块计入 tokenCount（RAG 按父块注入）；子块只作检索键，不填
+                tokenCount: countTokens(p.content),
             };
         });
         await NoteChunk.insertMany(docs);

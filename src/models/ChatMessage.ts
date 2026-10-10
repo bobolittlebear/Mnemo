@@ -84,6 +84,9 @@ const chatMessageSchema = new Schema<ChatMessage>(
         runId: {
             type: String, // 一个 run 的多轮次共享，与请求级 traceId 互补
         },
+        tokenCount: {
+            type: Number, // content 的 token 数，落库时算一次；预算器只读求和
+        },
     },
     {
         timestamps: false, // 我们使用自定义的 timestamp 字段

@@ -55,6 +55,9 @@ class ShortTermMemory {
                     content: String(m.content),
                     timestamp: m.timestamp || Date.now(),
                     traceId: m.traceId || traceId, // ✅ 优先使用消息自身的，其次使用批量注入的
+                    // 计数已在写入侧算好，这里只透传；缺省时 JSON.stringify 会省略该键，
+                    // 回读侧拿到 undefined，预算器按 0 累计或回退重算
+                    tokenCount: m.tokenCount,
                 };
                 pipeline.rPush(key, JSON.stringify(payload)); // 尾部追加，插入顺序 = 时间顺序
             }

@@ -63,6 +63,9 @@ const MemoryFactSchema = new Schema<RawMemoryFact>(
         // 最后一次被实质使用（检索命中 / 入库 / 提取更新）的时间，遗忘机制判定依据
         // 可选：存量记忆无此字段属正常状态，扫描侧用 $exists: true 防护
         lastSignificantAt: { type: Date },
+
+        // content 的 token 数（基于完整 content 计一次，入库不截断），预算器只读求和
+        tokenCount: { type: Number },
     },
     {
         timestamps: true,

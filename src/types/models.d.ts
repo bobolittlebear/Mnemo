@@ -28,6 +28,7 @@ export interface ChatMessage extends Document {
     msgId: string; // UUID v7，消息级唯一标识 ← sourceMessageIds 引用这个
     traceId: string; // 请求级追踪标识 ← 保留，继续用于全链路追踪
     isDeleted: boolean; // 软删除标识
+    tokenCount?: number; // content 的 token 数，落库时算一次；预算器只读求和，不重算
 
     // ── 工具调用链路扩容（.claude/design/tool-calling/tool-calling-detail.md §6.3）──
     // 均为可选：Mongoose 的 SchemaDefinition<T> 严格映射 keyof T，schema 新增路径必须在此声明
@@ -111,6 +112,10 @@ export interface MemoryFact extends Document {
     // 最后一次被实质使用（检索命中 / 入库 / 提取更新）的时间，遗忘机制判定依据
     // 可选：存量记忆无此字段属正常状态
     lastSignificantAt?: Date;
+
+    // content 的 token 数，基于完整 content 计一次（入库不截断 content，截断职责在检索/注入侧）；
+    // 存量记忆无此字段属正常状态
+    tokenCount?: number;
 }
 
 /** 笔记分块（父子块，独立于 MemoryFact 的集合） */
@@ -127,6 +132,7 @@ export interface NoteChunk extends Document {
     embedding?: number[]; // 向量（仅 child 块生成）
     searchText: string; // 分词后的搜索文本，用于中文全文检索
     contentHash: string; // 内容指纹，用于去重
+    tokenCount?: number; // content 的 token 数，仅父块重切分时写；子块只作检索键，不填
     createdAt: Date;
     updatedAt: Date;
 }

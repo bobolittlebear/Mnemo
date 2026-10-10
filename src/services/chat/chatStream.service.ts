@@ -8,16 +8,56 @@ import Session from '@/models/Session';
 import { messageCounter, sessionMemoryLifecycle } from '@/services/memory';
 import memorySearchService from '@/services/memory/memorySearch.service';
 import memorySelectionService from '@/services/memory/memorySelection.service';
-import { injectNotesIntoSystemPrompt } from '@/services/notebook/noteInjection.service';
+import { retrieveNotes } from '@/services/notebook/noteInjection.service';
+import ContextBudgeter, { buildSystemPrompt } from './tokenBudget.service';
+import type { BudgetBill } from './tokenBudget.service';
 import { chatTools } from './tools';
 import { persistWriteRound } from './writeModeContext.service';
 import type { ChatCompletionChunk } from 'openai/resources/chat/completions';
 import type { RawMessage } from '@/types/chat';
+import type { MemorySearchResult } from '@/types/memory';
+import type { NoteRetrievalResult } from '@/services/notebook/noteSearch.service';
 import { generateMessageId } from '@/utils/tool';
+import { countTokens } from '@/utils/tokenizer';
+import { BUDGET_CONFIG } from '@/utils/config';
 
-/** 短期记忆注入的最近轮数 */
-const SHORT_TERM_ROUNDS = Number(process.env.STM_ROUNDS || 10);
+/**
+ * 短期记忆注入的最近轮数。
+ *
+ * 默认值对齐设计声明的 STM 窗口（`BUDGET_CONFIG.stmWindowRounds` = 20 轮），
+ * 不再用 10：预算器要在窗口内再切分 competitable / must-fit（最近
+ * mustFitRecentRounds 轮不可丢），窗口若只比 must-fit 大一点，L2 就没得压。
+ * 环境变量 STM_ROUNDS 仍可覆盖（运维临时收窄窗口用）。
+ */
+const SHORT_TERM_ROUNDS = Number(
+    process.env.STM_ROUNDS || BUDGET_CONFIG.stmWindowRounds,
+);
 const logger = createLogger('ltm');
+
+/**
+ * W3 软闸埋点：把预算账单落成结构化日志，**只观测、不在此步硬裁**——
+ * 真实分布出来之前先调阈值，比先砍一刀更安全。
+ * chat / write 两条装配路径共用，保证同一份分布口径可比。
+ */
+function logBudgetBill(props: {
+    sessionId: string;
+    mode: string;
+    model: string;
+    bill: BudgetBill;
+    startedAt: number;
+}): void {
+    logger.info('token budget bill', {
+        sessionId: props.sessionId,
+        mode: props.mode,
+        model: props.model,
+        inputBudget: props.bill.inputBudget,
+        level: props.bill.level,
+        mustFitCompressed: props.bill.mustFitCompressed,
+        perBlock: props.bill.perBlock,
+        stmWindowRounds: SHORT_TERM_ROUNDS,
+        duration_ms: Date.now() - props.startedAt,
+    });
+}
 
 /**
  * 拼接完成的工具调用（M-B1b）
@@ -130,11 +170,47 @@ class ChatStreamService {
         let finalMessages: Partial<RawMessage>[];
         let systemPrompt: string | undefined;
 
+        // 预算器：本层唯一的裁剪入口（设计 §11.4 集成点：三条检索之后、createStreamChat 之前）。
+        // 模型未登记时构造即抛错——预算算错的后果比一次失败请求严重得多。
+        const budgeter = new ContextBudgeter();
+
         if (isWritePrebuilt) {
-            finalMessages = writeContext!.messages;
-            systemPrompt = writeContext!.systemPrompt;
+            // 写模式同样纳入预算（设计 §9）：笔记全文超模型输入上限时退化为「标题 + 首部邻域」，
+            // 而不是把请求直接打爆。上下文来自 writeModeContext 的预装配结果——
+            // 末位即本轮送入模型的最后一条消息（首轮是用户指令，工具续轮是 tool 结果）。
+            const prebuilt = writeContext!.messages;
+            const basePrompt = writeContext!.systemPrompt ?? '';
+            const startedAt = Date.now();
+            const budgeted =
+                prebuilt.length > 0
+                    ? budgeter.assembleContext({
+                          systemPrompt: basePrompt,
+                          userMessage: prebuilt[prebuilt.length - 1]!,
+                          stmRounds: prebuilt.slice(0, -1),
+                          mode: 'write',
+                      })
+                    : undefined;
+            finalMessages = budgeted ? budgeted.finalMessages : prebuilt;
+            systemPrompt = budgeted
+                ? buildSystemPrompt(
+                      budgeted.systemPrompt,
+                      budgeted.keptLtm,
+                      budgeted.keptRag,
+                  )
+                : basePrompt;
+            if (budgeted) {
+                // 写模式的 system 块最容易撑爆（笔记全文本体），同样要落账单
+                logBudgetBill({
+                    sessionId,
+                    mode: 'write',
+                    model: budgeter.model,
+                    bill: budgeted.bill,
+                    startedAt,
+                });
+            }
         } else {
             const latestUserMsg = messages[messages.length - 1]!;
+            const query = latestUserMsg.content as string;
 
             // 续聊 O10：若上一轮已落终态标记，清终态+计数，并清 STM 消息列表，
             // 使本轮按新会话上下文进行。resetForContinuation 内部已 try/catch。
@@ -144,56 +220,37 @@ class ChatStreamService {
                 await STM.clearSession(sessionId);
             }
 
-            // 1. 从短期记忆检索最近对话并组装上下文
+            // 1. 短期记忆：连同落库缓存的 tokenCount 一并取出，预算器只读求和不重算
             const recent = await STM.safeGetRecentRounds(
                 sessionId,
                 SHORT_TERM_ROUNDS,
             );
-            const systemInjected: Partial<RawMessage>[] = recent.map((m) => ({
+            // 形状保持一致（role/content/msgId），只补时间戳与 tokenCount：
+            // 后者让预算器只读求和、不必把每条历史重算一遍 token。
+            const stmRounds: RawMessage[] = recent.map((m) => ({
                 role: m.role,
                 content: m.content,
                 msgId: m.msgId,
+                timestamp: m.timestamp,
+                tokenCount: m.tokenCount,
             }));
-            finalMessages = [...systemInjected, latestUserMsg].filter(Boolean);
 
-            // 记忆检索 → 选择 → 拼 system prompt
+            // 2. 记忆检索 → 选择（rrfScore 只活在内存里，绝不落库）
+            let scoredLtm: MemorySearchResult[] = [];
+            let selectedLtm: MemorySearchResult[] = [];
             try {
                 const searchResult = await memorySearchService.search({
                     userId,
-                    query: latestUserMsg.content as string,
+                    query,
                 });
                 const { selected, metadata } =
                     await memorySelectionService.select(searchResult.results);
+                scoredLtm = searchResult.results;
+                selectedLtm = selected;
 
                 if (selected.length > 0) {
-                    const today = new Date().toISOString().slice(0, 10);
-                    const formatDate = (d: Date) =>
-                        new Date(d).toISOString().slice(0, 10);
-                    const xmlEscape = (s: string) =>
-                        s
-                            .replace(/&/g, '&amp;')
-                            .replace(/</g, '&lt;')
-                            .replace(/>/g, '&gt;')
-                            .replace(/"/g, '&quot;');
-
-                    const memsXml = selected
-                        .map(
-                            (m) =>
-                                `<mem category="${xmlEscape(m.category ?? '')}" learned="${formatDate(m.createdAt)}">${xmlEscape(m.content)}</mem>`,
-                        )
-                        .join('\n');
-
-                    systemPrompt = `<memory_instructions>
-请基于以下用户记忆提供个性化回答：
-- 将记忆信息自然融入回答中，不要刻意提及"根据记忆"等表述
-- 如果记忆与用户当前表述矛盾，以用户当前表述为准
-- 不要编造记忆中没有的信息
-</memory_instructions>
-<user_memory count="${selected.length}" retrieved_at="${today}">
-${memsXml}
-</user_memory>`;
-
-                    logger.info('会话记忆注入成功', {
+                    // 此处只报「选择层选出多少」，真正注入了多少由下文的计量账单给出
+                    logger.info('会话记忆选择完成', {
                         totalCandidates: metadata.totalCandidates,
                         afterPercentile: metadata.afterPercentile,
                         afterDedup: metadata.afterDedup,
@@ -202,21 +259,47 @@ ${memsXml}
                     });
                 }
             } catch (error) {
+                // 记忆是可选增强：检索/选择异常不得中断对话
                 logger.warn('记忆注入失败，对话照常继续', { error });
-                systemPrompt = undefined;
             }
-            // 笔记 RAG 注入：在记忆注入之后追加 <note_context> 块。检索异常等由注入层内部降级，
-            // 此处兜底不打断对话；抛错时 systemPrompt 保留已拼好的记忆 prompt。
+
+            // 3. 笔记 RAG 检索（降级在注入层内部，已 try/catch，此处再兜一层）
+            let scoredRag: NoteRetrievalResult[] = [];
             try {
-                systemPrompt = await injectNotesIntoSystemPrompt({
-                    userId,
-                    query: latestUserMsg.content as string,
-                    systemPrompt: systemPrompt ?? '',
-                    // notebookId: 当前流式对话未绑定笔记本，暂不限定检索范围
-                });
+                scoredRag = await retrieveNotes({ userId, query });
             } catch (error) {
                 logger.warn('笔记注入失败，对话照常继续', { error });
             }
+
+            // 4. 预算装配：一次算清 system / STM / LTM / RAG 四块，
+            //    逐级降级（L0→L1→L2a/b/c→L3）后给出最终上下文与计量账单。
+            const startedAt = Date.now();
+            const budgeted = budgeter.assembleContext({
+                systemPrompt: '',
+                userMessage: latestUserMsg,
+                stmRounds,
+                scoredLtm,
+                selectedLtm,
+                scoredRag,
+            });
+
+            finalMessages = budgeted.finalMessages;
+            // 渲染用的是预算器**实际装入**的 LTM / RAG：提示词与账单同源，
+            // 不会出现「账单记已裁空、prompt 里还留着记忆」的错位。
+            systemPrompt = buildSystemPrompt(
+                budgeted.systemPrompt,
+                budgeted.keptLtm,
+                budgeted.keptRag,
+            );
+
+            // W3 软闸：本步只观测真实分布，不做强制硬裁（阈值待实测校准）
+            logBudgetBill({
+                sessionId,
+                mode: mode || 'chat',
+                model: budgeter.model,
+                bill: budgeted.bill,
+                startedAt,
+            });
         }
 
         const assistantMsgId = generateMessageId();
@@ -428,6 +511,12 @@ ${memsXml}
         const writeScope =
             mode === 'write' ? { mode, noteId, runId } : { mode };
 
+        // token 计数在写入侧算一次并缓存（STM 与 Mongo 两处共用同一数值，预算器只读求和）
+        const userTokenCount = latestUserMsg
+            ? countTokens(latestUserMsg.content as string)
+            : 0;
+        const assistantTokenCount = countTokens(assistantMsg.content);
+
         // STM 必须同步写入，确保下一轮请求能读到完整上下文
         try {
             const docsToSave: Array<Omit<RawMessage, 'id'>> = [
@@ -439,6 +528,7 @@ ${memsXml}
                               timestamp: latestUserMsg.timestamp || now,
                               msgId: latestUserMsg.msgId,
                               traceId,
+                              tokenCount: userTokenCount,
                           },
                       ]
                     : []),
@@ -448,6 +538,7 @@ ${memsXml}
                     timestamp: now,
                     msgId: assistantMsg.msgId,
                     traceId,
+                    tokenCount: assistantTokenCount,
                 },
             ];
             await STM.addMessages(sessionId, docsToSave);
@@ -483,6 +574,7 @@ ${memsXml}
                                   traceId,
                                   sessionId,
                                   msgId: latestUserMsg.msgId,
+                                  tokenCount: userTokenCount,
                                   ...writeScope,
                               },
                           ]
@@ -494,6 +586,7 @@ ${memsXml}
                         traceId,
                         sessionId,
                         msgId: assistantMsg.msgId,
+                        tokenCount: assistantTokenCount,
                         ...writeScope,
                     },
                 ],

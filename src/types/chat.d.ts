@@ -8,6 +8,7 @@ export interface RawMessage extends ChatCompletionMessageParam {
     content: string;
     timestamp: number;
     traceId?: string; // 请求的追踪标识
+    tokenCount?: number; // content 的 token 数，写 Redis 时带上；回读后预算器可直接求和
 }
 
 /**
