@@ -344,7 +344,7 @@ describe('noteSearch.searchNotes', () => {
         expect(vs.path).toBe('embedding');
         expect(Array.isArray(vs.queryVector)).toBe(true);
         expect(vs.queryVector.length).toBe(1536);
-        expect(vs.limit).toBe(16); // topK(8) * 2
+        expect(vs.limit).toBe(24); // ragTopK(12) * 2
         expect(vs.filter.chunkType).toEqual({ $eq: 'child' });
         // $project 携带结果填充所需字段
         const projection = pipeline[1].$project;
@@ -365,7 +365,7 @@ describe('noteSearch.searchNotes', () => {
         expect(pipeline[2].$match.userId).toBe('u1');
         expect(pipeline[2].$match.chunkType).toBe('child');
         expect(pipeline[3].$sort.textScore).toBe(-1);
-        expect(pipeline[4].$limit).toBe(16);
+        expect(pipeline[4].$limit).toBe(24);
         // tokenize 收到的是 trim 后的 query
         expect(tokenize).toHaveBeenCalledWith('部署指南');
     });

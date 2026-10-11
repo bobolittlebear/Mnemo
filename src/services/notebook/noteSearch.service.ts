@@ -6,6 +6,7 @@ import mongoose from 'mongoose';
 import { NoteChunk } from '@/models/NoteChunk';
 import { generateEmbedding } from '@/lib/embedding';
 import { tokenize } from '@/utils/tokenizer';
+import { BUDGET_CONFIG } from '@/utils/config';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('rag');
@@ -31,7 +32,6 @@ export interface SearchNotesParams {
 }
 
 const RRF_K = 60; // RRF 平滑因子，与 LTM 检索保持一致
-const DEFAULT_TOP_K = 8;
 const VECTOR_INDEX = 'vector_index'; // NoteChunk 的 Atlas 向量索引（云端手动创建，命名对齐 memorySearch）
 
 /** child 块候选（rank 0-based） */
@@ -193,7 +193,7 @@ export async function searchNotes(
         query,
         notebookId,
         mode = 'hybrid',
-        topK = DEFAULT_TOP_K,
+        topK = BUDGET_CONFIG.ragTopK,
     } = params;
     if (!query || !query.trim()) return [];
 

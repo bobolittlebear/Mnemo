@@ -305,7 +305,7 @@ describe('写模式回复轮 — 上下文域标签', () => {
         const [docs] = chatMessageMock.insertMany.mock.calls[0]!;
         expect(docs).toHaveLength(2);
         for (const doc of docs) {
-            expect('mode' in doc).toBe(false);
+            expect('mode' in doc).toBe(true);
             expect('noteId' in doc).toBe(false);
             expect('runId' in doc).toBe(false);
         }

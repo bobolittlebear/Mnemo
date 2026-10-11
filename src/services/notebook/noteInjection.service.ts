@@ -16,9 +16,6 @@ import { BUDGET_CONFIG } from '@/utils/config';
 
 const log = createLogger('rag');
 
-/** 默认检索条数（透传 S5，与 searchNotes 默认值保持一致） */
-const DEFAULT_TOP_K = 8;
-
 export interface InjectNotesParams {
     userId: string;
     query: string;
@@ -50,7 +47,7 @@ export { buildNoteContextBlock } from './noteBlock';
 export async function retrieveNotes(
     params: RetrieveNotesParams,
 ): Promise<NoteRetrievalResult[]> {
-    const { userId, query, notebookId, topK = DEFAULT_TOP_K } = params;
+    const { userId, query, notebookId, topK = BUDGET_CONFIG.ragTopK } = params;
 
     if (!query || !query.trim()) return [];
 

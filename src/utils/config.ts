@@ -135,6 +135,8 @@ interface BudgetConfig {
     systemMaxRatio: number;
     stmMaxRatio: number;
     ragMaxRatio: number;
+    /** RAG 检索默认召回条数（合并原 noteSearch / noteInjection 两处同名 DEFAULT_TOP_K） */
+    ragTopK: number;
     ltmHardMax: number;
     ltmCategoryTokenCap: Record<string, CategoryTokenCap>;
     ragFloor: number;
@@ -156,6 +158,16 @@ export const BUDGET_CONFIG: BudgetConfig = {
     systemMaxRatio: 0.1,
     stmMaxRatio: 0.3,
     ragMaxRatio: 0.25,
+
+    /**
+     * RAG 检索默认召回条数（合并原 noteSearch / noteInjection 两处同名 DEFAULT_TOP_K）。
+     *
+     * 边界约束（与安全天花板解耦，仅作召回上限，非 token 预算）：
+     *   ragTopK × (maxParentTokens + maxChildTokens) ≤ inputBudget × ragMaxRatio
+     * 当前 12 × (1500 + 300) = 21.6K ≪ 858K × 0.25 = 214.5K，远低于 L1 逐出天花板，
+     * 正常不会触发 RAG 逐出（仅 ragFloor=5 保底）。改此值需同步核对 noteSearch / noteInjection 测试。
+     */
+    ragTopK: 12,
 
     /** LTM 固定槽条数上限：8 条 × ≤800 token ≈ 0.75% 预算，故从比例系统中剔除 */
     ltmHardMax: MEMORY_SELECTION_HARD_MAX,

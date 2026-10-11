@@ -480,9 +480,17 @@ export class ContextBudgeter {
         list: T[],
         floor: number,
         fits: () => boolean,
+        maxTokens?: number,
+        tokenOf?: (item: T) => number,
     ): T[] {
         const kept = [...list];
-        while (kept.length > floor && !fits()) kept.pop();
+        const overTokenCap = () =>
+            maxTokens !== undefined &&
+            tokenOf !== undefined &&
+            kept.reduce((s, it) => s + tokenOf(it), 0) > maxTokens;
+        // 逐出条件：超过全局预算「或」超过指定 token 上限（如 RAG 的 ragMaxRatio 天花板）；
+        // 二者任一成立且仍高于 floor 就继续滚删，确保天花板（软）与 floor（硬下限）同时生效。
+        while (kept.length > floor && (!fits() || overTokenCap())) kept.pop();
         return kept;
     }
 
@@ -618,10 +626,22 @@ export class ContextBudgeter {
             });
 
         // ── D1 全量 fit？ ──
+        // RAG 逐块硬天花板（与设计「RAG ≤25% 真伸缩」一致）：L1 阶段作为次级约束接入逐出，
+        // 与全局预算、块数下限（ragFloor）同处一个循环——有余量时收紧，低于 floor 的 token
+        // 当量时让位给 floor（软天花板、硬下限）。
+        const ragCeiling = Math.floor(
+            this.inputBudget * BUDGET_CONFIG.ragMaxRatio,
+        );
         if (!fits()) {
             // ── L1 逐步逐出可选块：RAG 低分先出，再动 LTM；尊重 floor，每步重算 ──
             level = 'L1';
-            rag = this.evictToFloor(ragPool, BUDGET_CONFIG.ragFloor, fits);
+            rag = this.evictToFloor(
+                ragPool,
+                BUDGET_CONFIG.ragFloor,
+                fits,
+                ragCeiling,
+                (chunk) => this.ragChunkTokens(chunk),
+            );
             if (!fits()) {
                 ltm = this.evictToFloor(ltmPool, BUDGET_CONFIG.ltmFloor, fits);
             }

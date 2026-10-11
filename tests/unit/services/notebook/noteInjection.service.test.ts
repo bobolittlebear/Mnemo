@@ -126,12 +126,12 @@ describe('noteInjection.injectNotesIntoSystemPrompt', () => {
         expect(result).toContain('父章节全文'); // parent_context
         expect(result).toContain(BASE_PROMPT); // 原 prompt 完整保留
 
-        // 自审：真实入参（topK 默认 8 透传 S5）
+        // 自审：真实入参（topK 默认 12 透传，合并自原 noteSearch / noteInjection 两处 DEFAULT_TOP_K）
         expect(searchNotes).toHaveBeenCalledWith({
             userId: 'u1',
             query: '部署',
             notebookId: undefined,
-            topK: 8,
+            topK: 12,
         });
         expect(searchNotes).toHaveBeenCalledTimes(1);
         // 自审（M4）：块成本按「父块正文 + 父块上下文」实时计数——
