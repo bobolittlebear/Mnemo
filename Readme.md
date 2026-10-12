@@ -343,8 +343,8 @@ pnpm start
 - [x] 记忆遗忘机制（设计文档 `ltm-forgetting.md`：单字段标记 + 四条件软删 + contentHash 复活 + 每日定时扫描）
 - [x] Tool Calling（写模式 3 工具 + 跨 HTTP 工具环路 + 白名单兜底，设计见 `tool-calling/`）
 - [x] Agent 任务状态管理（run 生命周期 + 悬挂修复 + 可见兜底 + 后台异步任务，设计见 `agent-state-machine.md`）
-- [ ] Token 仪表盘中间件（后端用量统计 + 前端展示）—— 规划中（W3 亮点）
-- [ ] 前端配套（Web / 桌面端）
+- [x] Token 预算与用量计量设计
+- [x] Web 前端配套
 
 ---
 

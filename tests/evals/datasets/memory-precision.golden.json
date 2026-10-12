@@ -1,0 +1,319 @@
+[
+    {
+        "id": "P1",
+        "description": "Go CLI 容器化部署：检索召回 4 条技术相关 + 3 条纯噪声",
+        "context": "我那个用 Go 写的 CLI 工具怎么容器化部署？",
+        "candidates": [
+            { "_id": "m1", "content": "用户用 Go 写了一个 CLI 工具", "rrfScore": 0.032, "vectorScore": 0.9, "category": "skill", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m2", "content": "用户熟悉 Docker", "rrfScore": 0.03, "vectorScore": 0.85, "category": "skill", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m3", "content": "用户了解 K8s", "rrfScore": 0.029, "vectorScore": 0.82, "category": "skill", "type": "fact", "userId": "u1", "confidence": 0.85, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m4", "content": "用户主要用 Go", "rrfScore": 0.028, "vectorScore": 0.8, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m5", "content": "用户住北京", "rrfScore": 0.01, "vectorScore": 0.2, "category": "personal_info", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m6", "content": "用户吃素", "rrfScore": 0.009, "vectorScore": 0.15, "category": "diet", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m7", "content": "用户有一只叫小熊的宠物", "rrfScore": 0.008, "vectorScore": 0.12, "category": "fact", "type": "fact", "userId": "u1", "confidence": 0.8, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" }
+        ],
+        "config": {},
+        "expected": { "relevantIds": ["m1", "m2", "m3", "m4"] }
+    },
+    {
+        "id": "P2",
+        "description": "推荐语言：4 条语言相关 + 2 条生活噪声",
+        "context": "帮我推荐一门接下来适合深入学的语言",
+        "candidates": [
+            { "_id": "m1", "content": "用户计划学 Rust", "rrfScore": 0.031, "vectorScore": 0.88, "category": "goal", "type": "fact", "userId": "u1", "confidence": 0.8, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m2", "content": "用户学过 Python 和 TS", "rrfScore": 0.029, "vectorScore": 0.82, "category": "skill", "type": "fact", "userId": "u1", "confidence": 0.85, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m3", "content": "用户主要用 Go", "rrfScore": 0.028, "vectorScore": 0.8, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m4", "content": "用户觉得 Java 太啰嗦", "rrfScore": 0.022, "vectorScore": 0.7, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m5", "content": "用户喜欢拉面", "rrfScore": 0.012, "vectorScore": 0.3, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.85, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m6", "content": "用户周末喜欢爬山", "rrfScore": 0.011, "vectorScore": 0.25, "category": "behavior_pattern", "type": "fact", "userId": "u1", "confidence": 0.8, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" }
+        ],
+        "config": {},
+        "expected": { "relevantIds": ["m1", "m2", "m3", "m4"] }
+    },
+    {
+        "id": "P3",
+        "description": "深色主题 VS Code：相关 2 条 + 1 条被检索误排高的无关（蓝色偏好）",
+        "context": "给我配一套深色主题的 VS Code",
+        "candidates": [
+            { "_id": "m1", "content": "用户喜欢深色主题", "rrfScore": 0.031, "vectorScore": 0.9, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m2", "content": "用户常用 VS Code", "rrfScore": 0.03, "vectorScore": 0.86, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m3", "content": "用户偏好蓝色", "rrfScore": 0.028, "vectorScore": 0.66, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.85, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m4", "content": "用户吃素", "rrfScore": 0.009, "vectorScore": 0.15, "category": "diet", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m5", "content": "用户养小熊", "rrfScore": 0.008, "vectorScore": 0.12, "category": "fact", "type": "fact", "userId": "u1", "confidence": 0.8, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" }
+        ],
+        "config": {},
+        "expected": { "relevantIds": ["m1", "m2"] }
+    },
+    {
+        "id": "P4",
+        "description": "回忆 Transformer 论文：相关 2 条 + 1 条误排高的无关（Go 语言）",
+        "context": "我之前看的那篇 Transformer 论文讲了什么来着",
+        "candidates": [
+            { "_id": "m1", "content": "用户看过 Transformer 论文", "rrfScore": 0.032, "vectorScore": 0.92, "category": "event", "type": "fact", "userId": "u1", "confidence": 0.8, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m2", "content": "用户正在转型 AI 全栈", "rrfScore": 0.028, "vectorScore": 0.8, "category": "goal", "type": "fact", "userId": "u1", "confidence": 0.85, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m3", "content": "用户主要用 Go", "rrfScore": 0.027, "vectorScore": 0.62, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m4", "content": "用户喜欢拉面", "rrfScore": 0.012, "vectorScore": 0.3, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.85, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m5", "content": "用户住北京", "rrfScore": 0.01, "vectorScore": 0.2, "category": "personal_info", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" }
+        ],
+        "config": {},
+        "expected": { "relevantIds": ["m1", "m2"] }
+    },
+    {
+        "id": "P5",
+        "description": "周末放松活动：仅 1 条相关 + 1 条误排高的无关（养宠物）",
+        "context": "周末有什么放松的活动推荐？",
+        "candidates": [
+            { "_id": "m1", "content": "用户周末喜欢爬山", "rrfScore": 0.03, "vectorScore": 0.88, "category": "behavior_pattern", "type": "fact", "userId": "u1", "confidence": 0.8, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m2", "content": "用户有一只叫小熊的宠物", "rrfScore": 0.024, "vectorScore": 0.58, "category": "fact", "type": "fact", "userId": "u1", "confidence": 0.8, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m3", "content": "用户主要用 Go", "rrfScore": 0.014, "vectorScore": 0.4, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m4", "content": "用户了解 K8s", "rrfScore": 0.013, "vectorScore": 0.35, "category": "skill", "type": "fact", "userId": "u1", "confidence": 0.85, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m5", "content": "用户偏好蓝色", "rrfScore": 0.012, "vectorScore": 0.3, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.85, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" }
+        ],
+        "config": {},
+        "expected": { "relevantIds": ["m1"] }
+    },
+    {
+        "id": "P6",
+        "description": "饮食注意：2 条相关 + 2 条纯噪声",
+        "context": "我的饮食有什么要注意的",
+        "candidates": [
+            { "_id": "m1", "content": "用户吃素", "rrfScore": 0.031, "vectorScore": 0.9, "category": "diet", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m2", "content": "用户喜欢拉面", "rrfScore": 0.023, "vectorScore": 0.7, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.85, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m3", "content": "用户主要用 Go", "rrfScore": 0.012, "vectorScore": 0.3, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m4", "content": "用户住北京", "rrfScore": 0.011, "vectorScore": 0.25, "category": "personal_info", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" }
+        ],
+        "config": {},
+        "expected": { "relevantIds": ["m1", "m2"] }
+    },
+    {
+        "id": "P7",
+        "description": "review Go 代码风格：相关 2 + 1 条误排高的无关（其他语言）",
+        "context": "帮我 review 一下我的 Go 代码风格",
+        "candidates": [
+            { "_id": "m1", "content": "用户主要用 Go", "rrfScore": 0.032, "vectorScore": 0.9, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m2", "content": "用户用 Go 写了一个 CLI 工具", "rrfScore": 0.03, "vectorScore": 0.85, "category": "skill", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m3", "content": "用户学过 Python 和 TS", "rrfScore": 0.026, "vectorScore": 0.6, "category": "skill", "type": "fact", "userId": "u1", "confidence": 0.85, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m4", "content": "用户看过 Transformer 论文", "rrfScore": 0.014, "vectorScore": 0.4, "category": "event", "type": "fact", "userId": "u1", "confidence": 0.8, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m5", "content": "用户养小熊", "rrfScore": 0.009, "vectorScore": 0.15, "category": "fact", "type": "fact", "userId": "u1", "confidence": 0.8, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" }
+        ],
+        "config": {},
+        "expected": { "relevantIds": ["m1", "m2"] }
+    },
+    {
+        "id": "P8",
+        "description": "Docker vs K8s：相关 2 + 1 条误排高的无关（Go CLI 工具）",
+        "context": "容器编排我该学 Docker 还是 K8s？",
+        "candidates": [
+            { "_id": "m1", "content": "用户熟悉 Docker", "rrfScore": 0.032, "vectorScore": 0.9, "category": "skill", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m2", "content": "用户了解 K8s", "rrfScore": 0.031, "vectorScore": 0.88, "category": "skill", "type": "fact", "userId": "u1", "confidence": 0.85, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m3", "content": "用户用 Go 写了一个 CLI 工具", "rrfScore": 0.027, "vectorScore": 0.63, "category": "skill", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m4", "content": "用户吃素", "rrfScore": 0.01, "vectorScore": 0.2, "category": "diet", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m5", "content": "用户偏好蓝色", "rrfScore": 0.012, "vectorScore": 0.3, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.85, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" }
+        ],
+        "config": {},
+        "expected": { "relevantIds": ["m1", "m2"] }
+    },
+    {
+        "id": "P9",
+        "description": "买显示器：全部无关，但 2 条被误排高（VS Code / 深色主题）",
+        "context": "我想买个新显示器，有什么建议",
+        "candidates": [
+            { "_id": "m1", "content": "用户常用 VS Code", "rrfScore": 0.024, "vectorScore": 0.58, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m2", "content": "用户喜欢深色主题", "rrfScore": 0.023, "vectorScore": 0.56, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m3", "content": "用户主要用 Go", "rrfScore": 0.014, "vectorScore": 0.4, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m4", "content": "用户吃素", "rrfScore": 0.01, "vectorScore": 0.2, "category": "diet", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m5", "content": "用户住北京", "rrfScore": 0.011, "vectorScore": 0.25, "category": "personal_info", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" }
+        ],
+        "config": {},
+        "expected": { "relevantIds": [] }
+    },
+    {
+        "id": "P10",
+        "description": "总结技术栈：8 条相关触发硬上限 + 2 条噪声",
+        "context": "帮我总结一下我的技术栈",
+        "candidates": [
+            { "_id": "m1", "content": "用户是后端工程师", "rrfScore": 0.032, "vectorScore": 0.9, "category": "fact", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m2", "content": "用户主要用 Go", "rrfScore": 0.031, "vectorScore": 0.88, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m3", "content": "用户学过 Python 和 TS", "rrfScore": 0.029, "vectorScore": 0.85, "category": "skill", "type": "fact", "userId": "u1", "confidence": 0.85, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m4", "content": "用户熟悉 Docker", "rrfScore": 0.028, "vectorScore": 0.82, "category": "skill", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m5", "content": "用户了解 K8s", "rrfScore": 0.027, "vectorScore": 0.8, "category": "skill", "type": "fact", "userId": "u1", "confidence": 0.85, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m6", "content": "用户常用 VS Code", "rrfScore": 0.026, "vectorScore": 0.78, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m7", "content": "用户计划学 Rust", "rrfScore": 0.025, "vectorScore": 0.76, "category": "goal", "type": "fact", "userId": "u1", "confidence": 0.8, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m8", "content": "用户偏好蓝色", "rrfScore": 0.012, "vectorScore": 0.3, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.85, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m9", "content": "用户吃素", "rrfScore": 0.01, "vectorScore": 0.2, "category": "diet", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" }
+        ],
+        "config": {},
+        "expected": { "relevantIds": ["m1", "m2", "m3", "m4", "m5", "m6", "m7"] }
+    },
+    {
+        "id": "P11",
+        "description": "宠物不舒服：相关 2 + 1 条误排高的无关（泰迪熊玩偶）",
+        "context": "我宠物最近不太舒服",
+        "candidates": [
+            { "_id": "m1", "content": "用户有一只叫小熊的宠物", "rrfScore": 0.031, "vectorScore": 0.9, "category": "fact", "type": "fact", "userId": "u1", "confidence": 0.8, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m2", "content": "用户每天遛小熊", "rrfScore": 0.029, "vectorScore": 0.85, "category": "behavior_pattern", "type": "fact", "userId": "u1", "confidence": 0.8, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m3", "content": "用户买了一只泰迪熊玩偶", "rrfScore": 0.024, "vectorScore": 0.57, "category": "event", "type": "fact", "userId": "u1", "confidence": 0.8, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m4", "content": "用户主要用 Go", "rrfScore": 0.012, "vectorScore": 0.3, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m5", "content": "用户吃素", "rrfScore": 0.01, "vectorScore": 0.2, "category": "diet", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" }
+        ],
+        "config": {},
+        "expected": { "relevantIds": ["m1", "m2"] }
+    },
+    {
+        "id": "P12",
+        "description": "写 Rust hello world：相关 1 + 1 条误排高的无关（Go）",
+        "context": "帮我写个 Rust 的 hello world",
+        "candidates": [
+            { "_id": "m1", "content": "用户计划学 Rust", "rrfScore": 0.032, "vectorScore": 0.9, "category": "goal", "type": "fact", "userId": "u1", "confidence": 0.8, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m2", "content": "用户主要用 Go", "rrfScore": 0.026, "vectorScore": 0.61, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m3", "content": "用户学过 Python 和 TS", "rrfScore": 0.014, "vectorScore": 0.4, "category": "skill", "type": "fact", "userId": "u1", "confidence": 0.85, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m4", "content": "用户喜欢拉面", "rrfScore": 0.012, "vectorScore": 0.3, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.85, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" }
+        ],
+        "config": {},
+        "expected": { "relevantIds": ["m1"] }
+    },
+    {
+        "id": "P13",
+        "description": "搭建开发环境：相关 4 + 2 条噪声",
+        "context": "我的开发环境怎么搭建",
+        "candidates": [
+            { "_id": "m1", "content": "用户常用 VS Code", "rrfScore": 0.032, "vectorScore": 0.9, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m2", "content": "用户主要用 Go", "rrfScore": 0.031, "vectorScore": 0.88, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m3", "content": "用户熟悉 Docker", "rrfScore": 0.028, "vectorScore": 0.82, "category": "skill", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m4", "content": "用户了解 K8s", "rrfScore": 0.026, "vectorScore": 0.78, "category": "skill", "type": "fact", "userId": "u1", "confidence": 0.85, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m5", "content": "用户吃素", "rrfScore": 0.01, "vectorScore": 0.2, "category": "diet", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m6", "content": "用户养小熊", "rrfScore": 0.009, "vectorScore": 0.15, "category": "fact", "type": "fact", "userId": "u1", "confidence": 0.8, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" }
+        ],
+        "config": {},
+        "expected": { "relevantIds": ["m1", "m2", "m3", "m4"] }
+    },
+    {
+        "id": "P14",
+        "description": "配色方案：相关 2 + 3 条噪声",
+        "context": "配色方案给点意见",
+        "candidates": [
+            { "_id": "m1", "content": "用户偏好蓝色", "rrfScore": 0.031, "vectorScore": 0.9, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.85, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m2", "content": "用户喜欢深色主题", "rrfScore": 0.03, "vectorScore": 0.88, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m3", "content": "用户主要用 Go", "rrfScore": 0.013, "vectorScore": 0.35, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m4", "content": "用户吃素", "rrfScore": 0.01, "vectorScore": 0.2, "category": "diet", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m5", "content": "用户周末喜欢爬山", "rrfScore": 0.011, "vectorScore": 0.25, "category": "behavior_pattern", "type": "fact", "userId": "u1", "confidence": 0.8, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" }
+        ],
+        "config": {},
+        "expected": { "relevantIds": ["m1", "m2"] }
+    },
+    {
+        "id": "P15",
+        "description": "转型 AI 路线：相关 3 + 1 条误排高的无关（Rust）",
+        "context": "我想转 AI 方向，路线怎么规划",
+        "candidates": [
+            { "_id": "m1", "content": "用户正在转型 AI 全栈", "rrfScore": 0.032, "vectorScore": 0.92, "category": "goal", "type": "fact", "userId": "u1", "confidence": 0.85, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m2", "content": "用户看过 Transformer 论文", "rrfScore": 0.03, "vectorScore": 0.88, "category": "event", "type": "fact", "userId": "u1", "confidence": 0.8, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m3", "content": "用户主要用 Go", "rrfScore": 0.023, "vectorScore": 0.7, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m4", "content": "用户计划学 Rust", "rrfScore": 0.026, "vectorScore": 0.6, "category": "goal", "type": "fact", "userId": "u1", "confidence": 0.8, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m5", "content": "用户喜欢拉面", "rrfScore": 0.012, "vectorScore": 0.3, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.85, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m6", "content": "用户住北京", "rrfScore": 0.01, "vectorScore": 0.2, "category": "personal_info", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" }
+        ],
+        "config": {},
+        "expected": { "relevantIds": ["m1", "m2", "m3"] }
+    },
+    {
+        "id": "P16",
+        "description": "Go CLI 有 bug 调试：相关 3 + 2 条噪声",
+        "context": "我那个 Go CLI 工具有 bug，怎么调试",
+        "candidates": [
+            { "_id": "m1", "content": "用户用 Go 写了一个 CLI 工具", "rrfScore": 0.032, "vectorScore": 0.9, "category": "skill", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m2", "content": "用户主要用 Go", "rrfScore": 0.031, "vectorScore": 0.88, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m3", "content": "用户常用 VS Code", "rrfScore": 0.027, "vectorScore": 0.8, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m4", "content": "用户看过 Transformer 论文", "rrfScore": 0.014, "vectorScore": 0.4, "category": "event", "type": "fact", "userId": "u1", "confidence": 0.8, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m5", "content": "用户吃素", "rrfScore": 0.01, "vectorScore": 0.2, "category": "diet", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m6", "content": "用户养小熊", "rrfScore": 0.009, "vectorScore": 0.15, "category": "fact", "type": "fact", "userId": "u1", "confidence": 0.8, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" }
+        ],
+        "config": {},
+        "expected": { "relevantIds": ["m1", "m2", "m3"] }
+    },
+    {
+        "id": "P17",
+        "description": "周末去处：相关 2 + 3 条噪声",
+        "context": "推荐个周末去处",
+        "candidates": [
+            { "_id": "m1", "content": "用户周末喜欢爬山", "rrfScore": 0.03, "vectorScore": 0.88, "category": "behavior_pattern", "type": "fact", "userId": "u1", "confidence": 0.8, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m2", "content": "用户住北京", "rrfScore": 0.023, "vectorScore": 0.7, "category": "personal_info", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m3", "content": "用户主要用 Go", "rrfScore": 0.012, "vectorScore": 0.3, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m4", "content": "用户偏好蓝色", "rrfScore": 0.011, "vectorScore": 0.25, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.85, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m5", "content": "用户吃素", "rrfScore": 0.01, "vectorScore": 0.2, "category": "diet", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" }
+        ],
+        "config": {},
+        "expected": { "relevantIds": ["m1", "m2"] }
+    },
+    {
+        "id": "P18",
+        "description": "编辑器卡顿：相关 1 + 1 条误排高的无关（深色主题）",
+        "context": "我的代码编辑器卡顿怎么办",
+        "candidates": [
+            { "_id": "m1", "content": "用户常用 VS Code", "rrfScore": 0.032, "vectorScore": 0.9, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m2", "content": "用户喜欢深色主题", "rrfScore": 0.024, "vectorScore": 0.57, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m3", "content": "用户主要用 Go", "rrfScore": 0.014, "vectorScore": 0.4, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m4", "content": "用户吃素", "rrfScore": 0.01, "vectorScore": 0.2, "category": "diet", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m5", "content": "用户养小熊", "rrfScore": 0.009, "vectorScore": 0.15, "category": "fact", "type": "fact", "userId": "u1", "confidence": 0.8, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" }
+        ],
+        "config": {},
+        "expected": { "relevantIds": ["m1"] }
+    },
+    {
+        "id": "P19",
+        "description": "Go 后端面试题：相关 3 + 1 条误排高的无关（Python/TS）",
+        "context": "帮我写份 Go 后端面试题",
+        "candidates": [
+            { "_id": "m1", "content": "用户主要用 Go", "rrfScore": 0.032, "vectorScore": 0.9, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m2", "content": "用户是后端工程师", "rrfScore": 0.031, "vectorScore": 0.88, "category": "fact", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m3", "content": "用户了解 K8s", "rrfScore": 0.026, "vectorScore": 0.78, "category": "skill", "type": "fact", "userId": "u1", "confidence": 0.85, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m4", "content": "用户学过 Python 和 TS", "rrfScore": 0.025, "vectorScore": 0.6, "category": "skill", "type": "fact", "userId": "u1", "confidence": 0.85, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m5", "content": "用户喜欢拉面", "rrfScore": 0.012, "vectorScore": 0.3, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.85, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m6", "content": "用户养小熊", "rrfScore": 0.009, "vectorScore": 0.15, "category": "fact", "type": "fact", "userId": "u1", "confidence": 0.8, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" }
+        ],
+        "config": {},
+        "expected": { "relevantIds": ["m1", "m2", "m3"] }
+    },
+    {
+        "id": "P20",
+        "description": "宠物玩偶放哪：相关 1 + 2 条误排高的无关（真实宠物相关）",
+        "context": "我那个宠物玩偶放哪好",
+        "candidates": [
+            { "_id": "m1", "content": "用户买了一只泰迪熊玩偶", "rrfScore": 0.03, "vectorScore": 0.88, "category": "event", "type": "fact", "userId": "u1", "confidence": 0.8, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m2", "content": "用户有一只叫小熊的宠物", "rrfScore": 0.024, "vectorScore": 0.58, "category": "fact", "type": "fact", "userId": "u1", "confidence": 0.8, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m3", "content": "用户每天遛小熊", "rrfScore": 0.023, "vectorScore": 0.56, "category": "behavior_pattern", "type": "fact", "userId": "u1", "confidence": 0.8, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m4", "content": "用户主要用 Go", "rrfScore": 0.012, "vectorScore": 0.3, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m5", "content": "用户吃素", "rrfScore": 0.01, "vectorScore": 0.2, "category": "diet", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" }
+        ],
+        "config": {},
+        "expected": { "relevantIds": ["m1"] }
+    },
+    {
+        "id": "P21",
+        "description": "外卖怎么点（偏素）：相关 3 + 2 条噪声",
+        "context": "我饮食偏素，外卖怎么点",
+        "candidates": [
+            { "_id": "m1", "content": "用户吃素", "rrfScore": 0.031, "vectorScore": 0.9, "category": "diet", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m2", "content": "用户喜欢拉面", "rrfScore": 0.024, "vectorScore": 0.75, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.85, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m3", "content": "用户住北京", "rrfScore": 0.023, "vectorScore": 0.7, "category": "personal_info", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m4", "content": "用户主要用 Go", "rrfScore": 0.012, "vectorScore": 0.3, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m5", "content": "用户偏好蓝色", "rrfScore": 0.011, "vectorScore": 0.25, "category": "preference", "type": "fact", "userId": "u1", "confidence": 0.85, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" }
+        ],
+        "config": {},
+        "expected": { "relevantIds": ["m1", "m2", "m3"] }
+    },
+    {
+        "id": "P22",
+        "description": "K8s 节点不够：相关 2 + 1 条误排高的无关（Go CLI 工具）",
+        "context": "我那个 K8s 集群节点不够用了",
+        "candidates": [
+            { "_id": "m1", "content": "用户了解 K8s", "rrfScore": 0.032, "vectorScore": 0.9, "category": "skill", "type": "fact", "userId": "u1", "confidence": 0.85, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m2", "content": "用户熟悉 Docker", "rrfScore": 0.03, "vectorScore": 0.85, "category": "skill", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m3", "content": "用户用 Go 写了一个 CLI 工具", "rrfScore": 0.027, "vectorScore": 0.62, "category": "skill", "type": "fact", "userId": "u1", "confidence": 0.9, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m4", "content": "用户周末喜欢爬山", "rrfScore": 0.012, "vectorScore": 0.3, "category": "behavior_pattern", "type": "fact", "userId": "u1", "confidence": 0.8, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" },
+            { "_id": "m5", "content": "用户养小熊", "rrfScore": 0.009, "vectorScore": 0.15, "category": "fact", "type": "fact", "userId": "u1", "confidence": 0.8, "sourceMessageIds": [], "createdAt": "2026-08-01T00:00:00Z", "updatedAt": "2026-08-01T00:00:00Z" }
+        ],
+        "config": {},
+        "expected": { "relevantIds": ["m1", "m2"] }
+    }
+]
