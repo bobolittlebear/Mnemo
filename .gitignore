@@ -4,7 +4,12 @@ run_logs
 .env.development
 .env.production
 coverage
+.DS_Store
 
 # 评测标注中间产物（含笔记正文 / 真实 _id，勿提交）
 tests/evals/datasets/note-chunks-dump.json
 tests/evals/datasets/note-recall-queries.generated.json
+tests/evals/datasets/note-recall-queries.llm.json
+
+# 评测报告（每次跑新时间戳报告从不覆盖，本地产物勿提交）
+tests/evals/reports/

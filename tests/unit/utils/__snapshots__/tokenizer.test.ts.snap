@@ -1,0 +1,3 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`tokenize > 快照 - 中英混合文本分词结果稳定 1`] = `"Redis   缓存 穿透 与 乐观 锁"`;

@@ -1,8 +1,44 @@
 // src/utils/tokenizer.ts
 import { get_encoding, Tiktoken } from 'tiktoken';
-import { cut } from 'jieba-wasm';
+import { cut, add_word } from 'jieba-wasm';
+import { createLogger } from '@/lib/logger';
+import { DOMAIN_WORDS } from '@/utils/domainWords';
+
+const log = createLogger('rag');
 
 let encoder: Tiktoken | null = null;
+
+/** 领域词典是否已注册（模块级一次性标志，保证重复调用幂等） */
+let domainWordsRegistered = false;
+
+/**
+ * 注册 Mnemo 领域词典：把专有名词（模块名 / 字段名 / 内部黑话）预置进 jieba 词表，
+ * 避免被默认词表切碎。注册失败仅告警不抛错——tokenize 侧仍有 cut 降级兜底。
+ */
+function registerDomainWords(): void {
+    if (domainWordsRegistered) return;
+    domainWordsRegistered = true;
+    let failed = 0;
+    for (const word of DOMAIN_WORDS) {
+        try {
+            add_word(word);
+        } catch (error) {
+            failed++;
+            log.warn('jieba 领域词典注册失败（跳过该词，不影响分词降级）', {
+                word,
+                error: error as Error,
+            });
+        }
+    }
+    log.info('jieba 领域词典注册完成', {
+        registered: DOMAIN_WORDS.length - failed,
+        failed,
+    });
+}
+
+// 模块加载即注册：所有入库 / 查询分词均经本模块，据此保证在 tokenize() 被任何调用方
+// 使用前词典已就绪，避免「入库加了、查询没加」的口径漂移。
+registerDomainWords();
 
 /**
  * 获取单例 encoder，避免重复加载 WASM 模块

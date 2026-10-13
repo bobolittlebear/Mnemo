@@ -1,9 +1,9 @@
 /**
  * tokenizer 单元测试
  *
- * 测试目标：countTokens 精确计数、truncateByTokens 按上限截断
- * Mock 依赖：tiktoken（WASM 模块，纯 IO）
- * 真实逻辑：getEncoder 单例、token 编码/解码流程
+ * 测试目标：countTokens 精确计数、truncateByTokens 按上限截断、tokenize 领域词典分词
+ * Mock 依赖：tiktoken（WASM 模块，纯 IO）、@/lib/logger（避免 File transport 写盘）
+ * 真实逻辑：getEncoder 单例、token 编码/解码流程、jieba 领域词典注册与分词
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
@@ -18,8 +18,18 @@ vi.mock('tiktoken', () => ({
   })),
 }));
 
+// 单测禁止 IO：tokenizer 模块加载时会注册领域词典并打日志，mock 掉 logger 防止写日志文件
+vi.mock('@/lib/logger', () => ({
+  createLogger: () => ({
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  }),
+}));
+
 // ── 引入被测模块（在 Mock 之后）──
-import { countTokens, truncateByTokens } from '@/utils/tokenizer';
+import { countTokens, truncateByTokens, tokenize } from '@/utils/tokenizer';
 
 // ── 辅助：生成指定长度的模拟 token 数组 ──
 function mockTokens(count: number): number[] {
@@ -142,5 +152,37 @@ describe('truncateByTokens', () => {
     const truncated = new TextEncoder().encode('Hello World This');
     mockDecode.mockReturnValue(truncated);
     expect(truncateByTokens(text, 3)).toBe('Hello World This');
+  });
+});
+
+// tokenize 输出为空格分隔的词序列（入库 / 查询共用），断言时 split 成数组验证「整词」而非子串
+function tokenizeToWords(text: string): string[] {
+  return tokenize(text).split(' ');
+}
+
+// 注：M1 的领域词典已证伪并置空（见 src/utils/domainWords.ts），故这里只锁 tokenize 的
+// 基础行为（空格连接 / 空串 / 降级不抛错 / 快照）。词典注册出口仍在，M2 复用时可再加回词典用例。
+describe('tokenize', () => {
+  // ── Happy path ──
+  it('HP1 - 普通中文文本仍正常分词', () => {
+    const tokens = tokenizeToWords('用户很久没说话');
+    expect(tokens.length).toBeGreaterThan(0);
+    expect(tokens.join('')).toBe('用户很久没说话');
+  });
+
+  // ── Edge cases ──
+  it('边界1 - 空串返回空串', () => {
+    expect(tokenize('')).toBe('');
+  });
+
+  it('边界2 - 未登录词按 jieba 默认切分且不抛错', () => {
+    const tokens = tokenizeToWords('今天天气好');
+    expect(tokens.length).toBeGreaterThan(0);
+    expect(tokens.join('')).toBe('今天天气好');
+  });
+
+  // ── 快照：锁定分词行为，后续词典变更会触发快照审查 ──
+  it('快照 - 中英混合文本分词结果稳定', () => {
+    expect(tokenize('Redis 缓存穿透与乐观锁')).toMatchSnapshot();
   });
 });

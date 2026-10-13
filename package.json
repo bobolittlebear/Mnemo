@@ -16,7 +16,9 @@
         "forget:memories": "cross-env NODE_ENV=development ts-node scripts/forget-memories.ts",
         "eval:note-recall": "cross-env NODE_ENV=development ts-node -r tsconfig-paths/register scripts/run-note-recall-eval.ts",
         "dump:note-chunks": "cross-env NODE_ENV=development ts-node -r tsconfig-paths/register scripts/dump-note-chunks.ts",
-        "gen:note-recall-dataset": "cross-env NODE_ENV=development ts-node -r tsconfig-paths/register scripts/build-note-recall-dataset.ts"
+        "reindex:all": "cross-env NODE_ENV=development ts-node -r tsconfig-paths/register scripts/reindex-all-notes.ts",
+        "gen:note-recall-dataset": "cross-env NODE_ENV=development ts-node -r tsconfig-paths/register scripts/build-note-recall-dataset.ts",
+        "gen:note-recall-llm": "cross-env NODE_ENV=development ts-node -r tsconfig-paths/register scripts/gen-note-recall-llm.ts"
     },
     "dependencies": {
         "@types/dotenv": "^6.1.1",

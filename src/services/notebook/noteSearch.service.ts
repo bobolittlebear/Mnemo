@@ -6,6 +6,7 @@ import mongoose from 'mongoose';
 import { NoteChunk } from '@/models/NoteChunk';
 import { generateEmbedding } from '@/lib/embedding';
 import { tokenize } from '@/utils/tokenizer';
+import { expandQuery } from '@/utils/queryExpansion';
 import { BUDGET_CONFIG } from '@/utils/config';
 import { createLogger } from '@/lib/logger';
 
@@ -214,10 +215,12 @@ export async function searchNotes(
     if (!query || !query.trim()) return [];
 
     const trimmedQuery = query.trim();
+    // 查询展开：口语 query 追加领域术语（静态同义词表，无 LLM），向量路与 BM25 路共用同一扩展串
+    const expandedQuery = expandQuery(trimmedQuery);
     const candidateLimit = topK; // 原来是topK * 2
     const start = Date.now();
 
-    const { embeddings } = await generateEmbedding(trimmedQuery);
+    const { embeddings } = await generateEmbedding(expandedQuery);
     const queryEmbedding = embeddings[0];
     if (!queryEmbedding) throw new Error('生成查询向量失败');
 
@@ -228,7 +231,7 @@ export async function searchNotes(
             ? vectorSearch(userId, queryEmbedding, candidateLimit, notebookId)
             : [],
         mode !== 'vector'
-            ? textSearch(userId, trimmedQuery, candidateLimit, notebookId)
+            ? textSearch(userId, expandedQuery, candidateLimit, notebookId)
             : [],
     ]);
     const vectorDocs = vectorRes.status === 'fulfilled' ? vectorRes.value : [];

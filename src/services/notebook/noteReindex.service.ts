@@ -8,6 +8,7 @@
 //
 // 派生数据 NoteChunk 一律物理删除（不软删），源 Note 仍走软删除。
 import mongoose from 'mongoose';
+import pLimit from 'p-limit';
 import { NoteChunk } from '@/models/NoteChunk';
 import NoteModel from '@/models/Note';
 import { chunkMarkdown, buildRetrievalText } from '@/utils/noteChunker';
@@ -94,10 +95,17 @@ function buildEmptyResult(noteId: string, skipReason?: string): ReindexResult {
     };
 }
 
+/**
+ * @param noteId 目标笔记
+ * @param opts.force 为 true 时绕过 contentHash diff，对所有 child chunk 无条件重 embed +
+ *   重切 searchText（分词器 / jieba 领域词典变更后刷新存量索引）。默认 false 走原增量 diff。
+ */
 export async function incrementalReindex(
     noteId: string,
+    opts?: { force?: boolean },
 ): Promise<ReindexResult> {
     const start = Date.now();
+    const force = opts?.force === true;
 
     if (!mongoose.Types.ObjectId.isValid(noteId)) {
         log.warn('reindex 跳过：noteId 非法', { noteId });
@@ -185,8 +193,11 @@ export async function incrementalReindex(
         id: mongoose.Types.ObjectId;
         parentId: mongoose.Types.ObjectId;
         sectionPath: string[];
-        /** 笔记标题已变更 → 需就地重 embed 检索表示（contentHash 不含标题，标题变更不漂移 chunkId） */
-        titleChanged: boolean;
+        /**
+         * 需就地重 embed 检索表示。触发条件：笔记标题变更（contentHash 不含标题，标题变更不漂移
+         * chunkId）或 force 强制重建（分词器 / 词典变更）。
+         */
+        needsReEmbed: boolean;
         content: string;
     }> = [];
     let unchanged = 0;
@@ -199,19 +210,21 @@ export async function incrementalReindex(
         const old = oldChildByHash.get(child.contentHash);
         if (old) {
             // contentHash 相同 → 章节路径 + 正文未变（标题不哈入希）；
-            // 父块/章节路径/笔记标题变了才更新引用；仅标题变更需就地重 embed（检索源含标题）
+            // 父块/章节路径/笔记标题变了才更新引用；仅标题变更需就地重 embed（检索源含标题）；
+            // force → 全部走 toReParent 路径无条件重 embed，不做复用
             const parentChanged =
                 old.parentId?.toString() !== parentId.toString();
             const pathChanged =
                 JSON.stringify(old.sectionPath) !==
                 JSON.stringify(child.sectionPath);
-            const titleChanged = old.title !== note.title;
-            if (parentChanged || pathChanged || titleChanged) {
+            // title 变更 → 检索源（含标题）漂移，需重 embed；force → 无条件重 embed（词典变更后刷新）。
+            const needsReEmbed = force || old.title !== note.title;
+            if (force || parentChanged || pathChanged || needsReEmbed) {
                 toReParent.push({
                     id: old._id,
                     parentId,
                     sectionPath: child.sectionPath,
-                    titleChanged,
+                    needsReEmbed,
                     content: child.content,
                 });
             } else {
@@ -228,9 +241,9 @@ export async function incrementalReindex(
 
     let childrenReParented = 0;
     if (toReParent.length > 0) {
-        // 标题变更子块：就地重 embed（保留 _id 不新建，避免 chunkId 漂移、eval 标注失效）。
-        // 纯父块引用更新（父块边界变化而自身标题/章节/正文未变）→ 检索源未变，仅更新引用不烧 embedding。
-        const reEmbedEntries = toReParent.filter((r) => r.titleChanged);
+        // 标题变更 / force 子块：就地重 embed（保留 _id 不新建，避免 chunkId 漂移、eval 标注失效）。
+        // 纯父块引用更新（父块边界变化而自身标题/章节/正文未变，且非 force）→ 检索源未变，仅更新引用不烧 embedding。
+        const reEmbedEntries = toReParent.filter((r) => r.needsReEmbed);
         const embeddingByChunkId = new Map<string, number[]>();
         if (reEmbedEntries.length > 0) {
             const sources = reEmbedEntries.map((r) =>
@@ -359,6 +372,7 @@ export async function incrementalReindex(
     const durationMs = Date.now() - start;
     log.info('reindex 完成', {
         noteId,
+        force,
         duration_ms: durationMs,
         parentsInserted,
         parentsDeleted,
@@ -380,6 +394,81 @@ export async function incrementalReindex(
         embeddingTokens,
         durationMs,
     };
+}
+
+/* ------------------------------------------------------------------ */
+/* 强制全量重建（分词器 / jieba 词典变更后刷新存量 searchText）           */
+/* ------------------------------------------------------------------ */
+
+export interface ForceReindexAllResult {
+    total: number;
+    succeeded: number;
+    failed: number;
+    durationMs: number;
+}
+
+/**
+ * 强制全量重建：对目标范围内所有笔记的 child chunk 用当前分词器重切 searchText + 重 embed。
+ *
+ * 与「markNoteDirty 让 worker 重建」不同——增量 diff 会因 contentHash 未变而 no-op，
+ * 词典变更不会触发重切，故此处绕过 diff（incrementalReindex({ force: true })）。
+ *
+ * 并发受限（默认 5）：保护 Atlas embedding 配额，避免打满。单条失败不中断整体，
+ * 计入 failed 由调用方决定是否重跑（reindex 幂等，可安全重入）。
+ */
+export async function forceReindexAll(opts?: {
+    userId?: string;
+    concurrency?: number;
+}): Promise<ForceReindexAllResult> {
+    const start = Date.now();
+    const filter = opts?.userId ? { userId: opts.userId } : {};
+    const noteIds = (await NoteChunk.distinct('noteId', filter)).map(String);
+    const concurrency = opts?.concurrency ?? 5;
+    const limit = pLimit(concurrency);
+
+    let succeeded = 0;
+    let failed = 0;
+    let done = 0;
+
+    log.info('强制全量 reindex 开始', {
+        userId: opts?.userId ?? null,
+        notes: noteIds.length,
+        concurrency,
+    });
+
+    await Promise.all(
+        noteIds.map((noteId) =>
+            limit(async () => {
+                try {
+                    await incrementalReindex(noteId, { force: true });
+                    succeeded++;
+                } catch (error) {
+                    failed++;
+                    log.error('强制全量 reindex 单笔记失败', {
+                        noteId,
+                        error: error as Error,
+                    });
+                } finally {
+                    done++;
+                    if (done % 10 === 0 || done === noteIds.length) {
+                        log.info(
+                            `强制全量 reindex 进度 ${done}/${noteIds.length}`,
+                        );
+                    }
+                }
+            }),
+        ),
+    );
+
+    const durationMs = Date.now() - start;
+    log.info('强制全量 reindex 完成', {
+        total: noteIds.length,
+        succeeded,
+        failed,
+        duration_ms: durationMs,
+    });
+
+    return { total: noteIds.length, succeeded, failed, durationMs };
 }
 
 /* ------------------------------------------------------------------ */

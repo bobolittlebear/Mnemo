@@ -25,32 +25,33 @@
             "negative - 拒绝能力，应返回空"
         ],
         "annotationNote": "本数据集 targetChunkIds 已于 2026-10-12 基于真实 dump 逐条标注，全部为合法真实 NoteChunk._id，无占位符。评测前建议仍跑一次 GT chunk 缺失率检测（runner 内置 >20% 中止），以防 dump 与线上语料漂移。",
-        "privacy": "不提交任何 note 正文 / searchText，仅提交 chunkId / notebookId / query 文本 / ground truth。"
+        "privacy": "不提交任何 note 正文 / searchText，仅提交 chunkId / notebookId / query 文本 / ground truth。",
+        "remapNote": "targetChunkIds 由 note-recall-queries.json 机械重映射：对 dump 中旧 chunkId，按 (noteId, content) 唯一匹配当前 DB child chunk 的新 _id（内容逐字未变，仅 contentHash 变更导致 id 漂移）。仅供本次 M1 评测临时使用。"
     },
     "queries": [
         {
             "id": "q_l2_exact",
             "query": "LTM 三层触发机制里 L2 超时阈值设定为多少天",
             "targetChunkIds": [
-                "6a93c85f52008878f87ca287",
-                "6a93c87a52008878f87ca2e0",
-                "6a93c87a52008878f87ca302"
+                "6acdb0b87d2afeb9edac13d7",
+                "6acdb0b87d2afeb9edac13a6",
+                "6acdb0b87d2afeb9edac13c8"
             ],
             "type": "exact"
         },
         {
-            "id": "q_session_exact",
-            "query": "会话 Session 有哪几种状态",
-            "targetChunkIds": [
-                "6a93c9f752008878f87ca405"
-            ],
-            "type": "exact"
+        "id": "q_session_exact",
+        "query": "会话 Session 有哪几种状态",
+        "targetChunkIds": [
+            "6acdb0b87d2afeb9edac13ff"
+        ],
+        "type": "exact"
         },
         {
             "id": "q_token_exact",
             "query": "上下文窗口 Token 限制策略里总预算是怎么算的",
             "targetChunkIds": [
-                "6a93b6ff52008878f87ca1be"
+                "6acdb0b67d2afeb9edac1340"
             ],
             "type": "exact"
         },
@@ -58,7 +59,7 @@
             "id": "q_hallu_exact",
             "query": "大模型幻觉分哪两类",
             "targetChunkIds": [
-                "6a8c5065c00624279d9b0424"
+                "6acdb0ae7d2afeb9edac1180"
             ],
             "type": "exact"
         },
@@ -66,7 +67,7 @@
             "id": "q_bulk_exact",
             "query": "MongoDB 里 bulkWrite 是干什么用的",
             "targetChunkIds": [
-                "6a963f6545e71ddcb494f2c0"
+                "6acdb0b97d2afeb9edac1431"
             ],
             "type": "exact"
         },
@@ -74,7 +75,7 @@
             "id": "q_bin_exact",
             "query": "二分查找的前提条件是什么",
             "targetChunkIds": [
-                "6a93af9552008878f87c9ed6"
+                "6acdb0b07d2afeb9edac11cb"
             ],
             "type": "exact"
         },
@@ -82,7 +83,7 @@
             "id": "q_buf_exact",
             "query": "Node.js 里 Buffer 是干什么的",
             "targetChunkIds": [
-                "6a93b27c52008878f87c9fe2"
+                "6acdb0b37d2afeb9edac126f"
             ],
             "type": "exact"
         },
@@ -90,8 +91,8 @@
             "id": "q_sel_p70_exact",
             "query": "记忆选择策略里百分位截断默认取的是第几百分位",
             "targetChunkIds": [
-                "6a93c7e152008878f87ca205",
-                "6a93c7e152008878f87ca206"
+                "6acdb0b77d2afeb9edac1359",
+                "6acdb0b77d2afeb9edac135a"
             ],
             "type": "exact"
         },
@@ -99,8 +100,8 @@
             "id": "q_redis_cache_exact",
             "query": "Redis 缓存穿透、击穿、雪崩这三者核心区别是什么",
             "targetChunkIds": [
-                "6a963f9445e71ddcb494f31c",
-                "6a963f9445e71ddcb494f325"
+                "6acdb0ba7d2afeb9edac1472",
+                "6acdb0ba7d2afeb9edac147b"
             ],
             "type": "exact"
         },
@@ -108,9 +109,9 @@
             "id": "q_l2_para",
             "query": "用户很久没说话，系统怎么自动把对话内容存成长期记忆",
             "targetChunkIds": [
-                "6a93c87a52008878f87ca2d8",
-                "6a93c87a52008878f87ca2da",
-                "6a93c87a52008878f87ca2e1"
+                "6acdb0b87d2afeb9edac139e",
+                "6acdb0b87d2afeb9edac13a0",
+                "6acdb0b87d2afeb9edac13a7"
             ],
             "type": "paraphrase"
         },
@@ -118,9 +119,9 @@
             "id": "q_rag_para",
             "query": "笔记内容是怎么被切分向量化然后送进向量库做语义检索的",
             "targetChunkIds": [
-                "6a93c93952008878f87ca375",
-                "6a93c93952008878f87ca37a",
-                "6a93c93952008878f87ca380"
+                "6acdb0b77d2afeb9edac1383",
+                "6acdb0b77d2afeb9edac1388",
+                "6acdb0b77d2afeb9edac138e"
             ],
             "type": "paraphrase"
         },
@@ -136,8 +137,8 @@
             "id": "q_userid_para",
             "query": "userId 是怎么从 sessionId 进入到记忆模块的",
             "targetChunkIds": [
-                "6a93ca0f52008878f87ca42b",
-                "6a93ca0f52008878f87ca42c"
+                "6acdb0b97d2afeb9edac140e",
+                "6acdb0b97d2afeb9edac140f"
             ],
             "type": "paraphrase"
         },
@@ -146,8 +147,8 @@
             "query": "记忆模块最终选了什么存储方案 Redis 还是 MongoDB",
             "targetChunkIds": [
                 "6a93b58552008878f87ca0e0",
-                "6a93b58552008878f87ca0e3",
-                "6a93b58552008878f87ca0e4"
+                "6acdb0b47d2afeb9edac12b2",
+                "6acdb0b47d2afeb9edac12b3"
             ],
             "type": "paraphrase"
         },
@@ -155,8 +156,8 @@
             "id": "q_chunk_para",
             "query": "做知识库检索的时候怎么判断分块切得好不好",
             "targetChunkIds": [
-                "6a8c06d169bc7ae2b63440fc",
-                "6a8c06d169bc7ae2b63440fb"
+                "6acdb0af7d2afeb9edac1198",
+                "6acdb0af7d2afeb9edac1197"
             ],
             "type": "paraphrase"
         },
@@ -164,8 +165,8 @@
             "id": "q_lock_para",
             "query": "乐观锁和悲观锁的核心区别是什么",
             "targetChunkIds": [
-                "6a963f3945e71ddcb494f289",
-                "6a963f3945e71ddcb494f28f"
+                "6acdb0b97d2afeb9edac1419",
+                "6acdb0b97d2afeb9edac141f"
             ],
             "type": "paraphrase"
         },
@@ -181,7 +182,7 @@
             "id": "q_vt_para",
             "query": "View Transitions API 是干什么的",
             "targetChunkIds": [
-                "6a93b23852008878f87c9f91"
+                "6acdb0b27d2afeb9edac124e"
             ],
             "type": "paraphrase"
         },
@@ -189,8 +190,8 @@
             "id": "q_lock_code",
             "query": "MongoDB 乐观锁实现里 version 字段怎么用",
             "targetChunkIds": [
-                "6a963f3945e71ddcb494f292",
-                "6a963f3945e71ddcb494f291"
+                "6acdb0b97d2afeb9edac1422",
+                "6acdb0b97d2afeb9edac1421"
             ],
             "type": "code-token"
         },
@@ -199,8 +200,8 @@
             "query": "二叉树遍历的代码怎么写",
             "targetChunkIds": [
                 "6a93affe52008878f87c9f1a",
-                "6a93affe52008878f87c9f1b",
-                "6a93affe52008878f87c9f1c"
+                "6acdb0b17d2afeb9edac121a",
+                "6acdb0b17d2afeb9edac121b"
             ],
             "type": "code-token"
         },
@@ -208,7 +209,7 @@
             "id": "q_vec_code",
             "query": "会话消息向量化的 Go 模型定义里 notebookId 字段是干嘛的",
             "targetChunkIds": [
-                "6a93b65c52008878f87ca173"
+                "6acdb0b67d2afeb9edac130f"
             ],
             "type": "code-token"
         },
@@ -216,7 +217,7 @@
             "id": "q_xnb_mnemo",
             "query": "会话消息的向量化构建用了什么模型定义来兼容多场景",
             "targetChunkIds": [
-                "6a93b65c52008878f87ca173"
+                "6acdb0b67d2afeb9edac130f"
             ],
             "type": "cross-notebook",
             "notebookId": "6a93b4ee52008878f87c9ff2"
@@ -234,7 +235,7 @@
             "id": "q_xnb_test",
             "query": "后端服务怎么测试 STM addMessage",
             "targetChunkIds": [
-                "6a93c9b852008878f87ca3dc"
+                "6acdb0b87d2afeb9edac13eb"
             ],
             "type": "cross-notebook",
             "notebookId": "6a8555a17fe0f337a2c83b18"
@@ -243,9 +244,9 @@
             "id": "q_edge_para",
             "query": "父子块之间是怎么关联和回填的",
             "targetChunkIds": [
-                "6a93c93952008878f87ca380",
-                "6a93c93952008878f87ca376",
-                "6a93c93952008878f87ca377"
+                "6acdb0b77d2afeb9edac138e",
+                "6acdb0b77d2afeb9edac1384",
+                "6acdb0b77d2afeb9edac1385"
             ],
             "type": "synthetic-edge"
         },
@@ -253,7 +254,7 @@
             "id": "q_edge_chunk_bound",
             "query": "分块时遇到特别长的结构单元或特别短的段落分别怎么处理",
             "targetChunkIds": [
-                "6a93c93952008878f87ca37a"
+                "6acdb0b77d2afeb9edac1388"
             ],
             "type": "synthetic-edge"
         },
@@ -279,7 +280,7 @@
             "id": "q_sse_ws_exact",
             "query": "SSE 和 WebSocket 的核心区别是什么",
             "targetChunkIds": [
-                "6a963fab45e71ddcb494f365"
+                "6acdb0ba7d2afeb9edac1499"
             ],
             "type": "exact"
         },
@@ -287,7 +288,7 @@
             "id": "q_kafka_cg_exact",
             "query": "Kafka 里的 Consumer Group 是干什么的",
             "targetChunkIds": [
-                "6a963fd545e71ddcb494f37f"
+                "6acdb0ba7d2afeb9edac14a2"
             ],
             "type": "exact"
         },
@@ -295,7 +296,7 @@
             "id": "q_heapsort_exact",
             "query": "堆排序的最好和最坏情况时间复杂度分别是多少",
             "targetChunkIds": [
-                "6a93afd352008878f87c9ef5"
+                "6acdb0b17d2afeb9edac1211"
             ],
             "type": "exact"
         },
@@ -319,7 +320,7 @@
             "id": "q_fiber_exact",
             "query": "React Fiber 架构到底是什么",
             "targetChunkIds": [
-                "6a93ae3752008878f87c9e3d"
+                "6acdb0b07d2afeb9edac11d1"
             ],
             "type": "exact"
         },
@@ -344,8 +345,8 @@
             "id": "q_stm_para",
             "query": "Mnemo 的短期记忆 STM 实际最终存在哪里",
             "targetChunkIds": [
-                "6a93b56e52008878f87ca0ab",
-                "6a93b56e52008878f87ca0ac"
+                "6acdb0b57d2afeb9edac12e5",
+                "6acdb0b57d2afeb9edac12e6"
             ],
             "type": "paraphrase"
         },
@@ -361,7 +362,7 @@
             "id": "q_ltm_priority_para",
             "query": "长期记忆任务拆解里优先级最高的任务是什么",
             "targetChunkIds": [
-                "6a93b5ed52008878f87ca106"
+                "6acdb0b57d2afeb9edac12bf"
             ],
             "type": "paraphrase"
         },
@@ -377,8 +378,8 @@
             "id": "q_fiber_para",
             "query": "面试里怎么解释 React Fiber 为什么可以中断",
             "targetChunkIds": [
-                "6a93ae3752008878f87c9e3d",
-                "6a93ae3752008878f87c9e3e"
+                "6acdb0b07d2afeb9edac11d1",
+                "6acdb0b07d2afeb9edac11d2"
             ],
             "type": "paraphrase"
         },
@@ -386,8 +387,8 @@
             "id": "q_redis_lock_para",
             "query": "用 Redis 做分布式锁怎么避免竞态、保证原子性",
             "targetChunkIds": [
-                "6a963f7c45e71ddcb494f2e7",
-                "6a963f7c45e71ddcb494f2e9"
+                "6acdb0b97d2afeb9edac1451",
+                "6acdb0b97d2afeb9edac1453"
             ],
             "type": "paraphrase"
         },
@@ -395,7 +396,7 @@
             "id": "q_xnb_session",
             "query": "Mnemo 全栈项目文档里怎么描述前端会话状态管理",
             "targetChunkIds": [
-                "6a93b51352008878f87ca018"
+                "6acdb0b37d2afeb9edac129b"
             ],
             "type": "cross-notebook",
             "notebookId": "6a93b4ee52008878f87c9ff2"
@@ -404,7 +405,7 @@
             "id": "q_xnb_kafka",
             "query": "Kafka 入门笔记里消息在 Partition 内是怎么保证有序的",
             "targetChunkIds": [
-                "6a963fd545e71ddcb494f37e"
+                "6acdb0ba7d2afeb9edac14a1"
             ],
             "type": "cross-notebook",
             "notebookId": "6a83c73889acfd8995cc3221"
@@ -413,7 +414,7 @@
             "id": "q_bubble_code",
             "query": "冒泡排序的代码怎么写",
             "targetChunkIds": [
-                "6a93afd352008878f87c9ef6"
+                "6acdb0b17d2afeb9edac1212"
             ],
             "type": "code-token"
         },
@@ -421,18 +422,18 @@
             "id": "q_spawn_code",
             "query": "Node.js 用 child_process 启动子进程怎么写",
             "targetChunkIds": [
-                "6a93b26552008878f87c9fc4",
-                "6a93b26552008878f87c9fc6"
+                "6acdb0b27d2afeb9edac1263",
+                "6acdb0b27d2afeb9edac1265"
             ],
             "type": "code-token"
         },
         {
-            "id": "q_edge_structure",
-            "query": "一段内容被代码块和表格夹在中间，切分会不会被切断",
-            "targetChunkIds": [
-                "6a93c93952008878f87ca382"
-            ],
-            "type": "synthetic-edge"
+        "id": "q_edge_structure",
+        "query": "一段内容被代码块和表格夹在中间，切分会不会被切断",
+        "targetChunkIds": [
+            "6acdb0b77d2afeb9edac1388"
+        ],
+        "type": "synthetic-edge"
         },
         {
             "id": "q_neg_docker",
