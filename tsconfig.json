@@ -7,6 +7,8 @@
         // rootDir 不在此设置，由 tsconfig.build.json 控制
         // 生产构建用 tsconfig.build.json（仅含 src/）
         "outDir": "./dist",
+        // 供 ts-node 直接跑 scripts/ 下脚本：显式 rootDir 避免 TS5011（scripts 目录未纳入生产构建）
+        "rootDir": ".",
         "paths": {
             "@/*": ["src/*"] // 这里的路径是相对于 baseUrl 的
         },
@@ -53,5 +55,5 @@
         "forceConsistentCasingInFileNames": true,
         "esModuleInterop": true
     },
-    "include": ["src/**/*", "tests/**/*", "script"]
+    "include": ["src/**/*", "tests/**/*", "scripts/**/*"]
 }

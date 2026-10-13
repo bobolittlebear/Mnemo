@@ -45,6 +45,8 @@ interface ChildCandidate {
     content: string;
     parentId?: mongoose.Types.ObjectId | null;
     rank: number;
+    /** 本模态相关性分：向量路=vectorSearchScore，BM25 路=textScore（仅用于融合加权，不对外暴露） */
+    score: number;
 }
 
 /** $vectorSearch / $text 投影出的 child 字段（供结果填充 + parentId 回填） */
@@ -57,6 +59,7 @@ interface ChunkProjection {
     chunkIndex: number;
     content: string;
     parentId?: mongoose.Types.ObjectId | null;
+    score?: number;
 }
 
 interface ParentLean {
@@ -101,6 +104,7 @@ function toCandidate(doc: ChunkProjection, rank: number): ChildCandidate {
         content: doc.content,
         parentId: doc.parentId,
         rank,
+        score: doc.score ?? 0,
     };
 }
 
@@ -122,7 +126,7 @@ async function vectorSearch(
                 filter: buildFilter(userId, notebookId),
             },
         },
-        { $project: CHUNK_PROJECTION },
+        { $project: { ...CHUNK_PROJECTION, score: { $meta: 'vectorSearchScore' } } },
     ] satisfies mongoose.PipelineStage[];
 
     const start = Date.now();
@@ -155,7 +159,7 @@ async function textSearch(
         { $match: scalarFilter },
         { $sort: { textScore: -1 } },
         { $limit: limit },
-        { $project: CHUNK_PROJECTION },
+        { $project: { ...CHUNK_PROJECTION, score: '$textScore' } },
     ] satisfies mongoose.PipelineStage[];
 
     const start = Date.now();
@@ -167,19 +171,31 @@ async function textSearch(
     return docs.map((doc, index) => toCandidate(doc, index));
 }
 
-/** RRF 融合：RRF(d) = Σ 1/(RRF_K + rank)，rank 0-based，跨路按 docId 累加 */
+/**
+ * 分数感知融合（score-fusion）：先按各模态自身 top 分做 min-max 归一（消除向量余弦[0,1] 与 BM25 textScore 量纲差异），
+ * 贡献 = 归一分 × 1/(RRF_K + rank)。rank 仍惩罚低秩，归一分让"本模态强信号"在跨模态竞争中不被另一模态的数量淹没。
+ * 相比纯秩 RRF 或单模态加权（B 的 RRF_VECTOR_WEIGHT=1.5），本方案对称、无全局权重 seesaw，
+ * 既能保住向量强命中的 GT，也能让 BM25 强命中的 GT（即使落在 rank2~3）反超另一模态的尾部噪声。
+ */
 function rrfFuse(
     vectorDocs: ChildCandidate[],
     textDocs: ChildCandidate[],
     topK: number,
 ): Array<{ doc: ChildCandidate; score: number }> {
     const acc = new Map<string, { doc: ChildCandidate; score: number }>();
-    for (const doc of [...vectorDocs, ...textDocs]) {
-        const contribution = 1 / (RRF_K + doc.rank);
-        const existing = acc.get(doc._id);
-        if (existing) existing.score += contribution;
-        else acc.set(doc._id, { doc, score: contribution });
-    }
+    const addModality = (docs: ChildCandidate[]) => {
+        if (docs.length === 0) return;
+        const max = Math.max(...docs.map((d) => d.score));
+        for (const doc of docs) {
+            const norm = max > 0 ? doc.score / max : 0;
+            const contribution = norm * (1 / (RRF_K + doc.rank));
+            const existing = acc.get(doc._id);
+            if (existing) existing.score += contribution;
+            else acc.set(doc._id, { doc, score: contribution });
+        }
+    };
+    addModality(vectorDocs);
+    addModality(textDocs);
     return Array.from(acc.values())
         .sort((a, b) => b.score - a.score)
         .slice(0, topK);
@@ -198,7 +214,7 @@ export async function searchNotes(
     if (!query || !query.trim()) return [];
 
     const trimmedQuery = query.trim();
-    const candidateLimit = topK * 2;
+    const candidateLimit = topK; // 原来是topK * 2
     const start = Date.now();
 
     const { embeddings } = await generateEmbedding(trimmedQuery);

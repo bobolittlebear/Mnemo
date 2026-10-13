@@ -161,7 +161,9 @@ describe('LTM 选择层无关记忆注入率评测', () => {
         lines.push(
             '- 含义: 门控仅 A0/A1/硬上限三道；真实管线多出去重只会更优 → 本数字为无关率的**保守下界**',
         );
-        lines.push(`- embedding_model: text-embedding-v4（生产），本评测以给定 vectorScore 模拟`);
+        lines.push(
+            `- embedding_model: text-embedding-v4（生产），本评测以给定 vectorScore 模拟`,
+        );
         lines.push(`- generated_at: ${new Date().toISOString()}`);
         lines.push('');
         lines.push('## 数据集');
@@ -169,7 +171,9 @@ describe('LTM 选择层无关记忆注入率评测', () => {
         lines.push(
             `- entries: ${n}（人工标注的「对话轮次 + 混合候选池」场景）`,
         );
-        lines.push(`- candidates: ${totalCandidates}（相关标注 ${totalRelevant} 条）`);
+        lines.push(
+            `- candidates: ${totalCandidates}（相关标注 ${totalRelevant} 条）`,
+        );
         lines.push('- 标注方式: 人工标注（relevantIds 为相关性真值）');
         lines.push('');
         lines.push('## 指标定义');
@@ -186,18 +190,14 @@ describe('LTM 选择层无关记忆注入率评测', () => {
         lines.push(
             '- baseline = 同候选按 rrfScore 降序取 top-K 直接注入（四道防线全关）',
         );
-        lines.push(
-            '- 降幅 = baseline_micro − after_micro（绝对）/ 相对',
-        );
+        lines.push('- 降幅 = baseline_micro − after_micro（绝对）/ 相对');
         lines.push('');
         lines.push('## 各 entry 率');
         lines.push('');
         lines.push(
             '| id | 选中 | 无关注入 | after率 | baseline选中 | baseline无关 | baseline率 | 漏注的无关id |',
         );
-        lines.push(
-            '|---|---|---|---|---|---|---|---|',
-        );
+        lines.push('|---|---|---|---|---|---|---|---|');
         for (const e of perEntry) {
             lines.push(
                 `| ${e.id} | ${e.selected} | ${e.irrelevantInjected} | ${(e.afterRate * 100).toFixed(1)}% | ${e.baselineSelected} | ${e.baselineIrrelevant} | ${(e.baselineRate * 100).toFixed(1)}% | ${e.irrelevantIds.join(',') || '-'} |`,
@@ -221,9 +221,6 @@ describe('LTM 选择层无关记忆注入率评测', () => {
             `- 闸门有效性: after_micro ≤ baseline_micro ${afterMicro <= baselineMicro + 1e-9 ? '✅ PASS' : '❌ FAIL'}（门控不应使无关率恶化）`,
         );
         lines.push('');
-        lines.push(
-            '> 说明：本评测的 relevantIds 为初版人工标注，最终数字以复核后的标注为准。',
-        );
 
         const report = lines.join('\n');
         const reportDir = path.resolve(__dirname, 'reports');
@@ -238,7 +235,11 @@ describe('LTM 选择层无关记忆注入率评测', () => {
         // 门控不应使无关率比无闸门更差
         expect(afterMicro).toBeLessThanOrEqual(baselineMicro + 1e-9);
         // 报告已写入
-        expect(fs.existsSync(path.join(reportDir, `selection-precision_${date}.md`))).toBe(true);
+        expect(
+            fs.existsSync(
+                path.join(reportDir, `selection-precision_${date}.md`),
+            ),
+        ).toBe(true);
 
         // 控制台可见，便于本地快速核对
         console.log(

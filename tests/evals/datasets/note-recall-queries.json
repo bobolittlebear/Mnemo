@@ -1,72 +1,450 @@
 {
     "schemaVersion": "1.0",
     "meta": {
-        "purpose": "笔记 RAG 召回评测 query + ground truth 数据集模板。每条 query 记录自然语言提问、应召回的 NoteChunk._id 列表与类型，供评测 runner 对 searchNotes 三模式（向量路 / BM25 路 / hybrid RRF）计算 recall@K。",
+        "purpose": "笔记 RAG 召回评测 query + ground truth 数据集（已基于真实 dump 标注）。每条 query 记录自然语言提问、应召回的 NoteChunk._id 列表与类型，供评测 runner（scripts/run-note-recall-eval.ts）对 searchNotes 三模式（向量路 / BM25 路 / hybrid RRF）计算 recall@K。",
+        "sourceDump": "tests/evals/datasets/note-chunks-dump.json（userId=6a0d5c4c78c7d40ee8525db0，1255 chunks / 53 notes / 16 notebooks）",
+        "annotationMethod": "逐条在 dump 的 child chunk 中按关键词 + 内容语义核对，挑选确实包含答案原文的块作为 ground truth；cross-notebook 的 notebookId 取自候选块真实 notebookId。",
         "proportion": {
-            "negative": "约 10%：语料中确实无答案可召回，targetChunkIds 必须为 []",
-            "synthetic": "≤20%：含 code-token / synthetic-edge 两类，可脚本合成",
-            "hand": "其余为手标真实信息需求（从千问/元宝提问提取，映射到笔记内容）"
+            "negative": "约 10%（5/50）：语料中确实无答案可召回，targetChunkIds 必须为 []",
+            "synthetic": "≤20%（8/50）：含 code-token(5) / synthetic-edge(3) 两类",
+            "hand": "其余为手标真实信息需求（37/50）：paraphrase(17) / exact(15) / cross-notebook(5）"
         },
         "queryFields": {
             "id": "唯一字符串",
             "query": "自然语言问句，非空串",
             "targetChunkIds": "应召回的 NoteChunk._id 数组，元素为合法 24 位 hex；negative 类型必须为 []",
             "type": "枚举 paraphrase | exact | cross-notebook | code-token | synthetic-edge | negative",
-            "notebookId": "可选串，仅 cross-notebook 类型使用，验证笔记本过滤正确性"
+            "notebookId": "可选串，仅 cross-notebook 类型使用，验证笔记本过滤正确性（须为该块真实 notebookId）"
         },
         "typeEnums": [
             "paraphrase - 语义泛化（同义改写），禁止拿原文当 query",
             "exact - 精确术语命中基线",
             "cross-notebook - 跨笔记本关联，验证 notebookId 过滤正确性",
-            "code-token - 代码块 token 检索（合成）",
-            "synthetic-edge - 多字节 / 父子块回填边界（合成）",
+            "code-token - 代码块 token 检索",
+            "synthetic-edge - 父子块回填 / 切分边界",
             "negative - 拒绝能力，应返回空"
         ],
-        "placeholderNote": "示例 chunkId / notebookId 均为合法 24 位 hex 占位（形如 000000000000000000000001），非真实数据，须替换为 Mongo 真实 NoteChunk._id 后再评测。占位仅演示 schema，不得当作评测标注。",
-        "privacy": "不提交任何 note 正文 / searchText，仅提交 chunkId / notebookId / query 文本 / ground truth。",
-        "annotationRule": "hand 类标注完成一周后盲抽 5 条、仅看 query 文本 + 候选 chunk 列表重判，不一致则修订（对冲作者偏差）。评测前 chunk_id 失效检测：缺失率 >20% 中止并告警须重新标注。"
+        "annotationNote": "本数据集 targetChunkIds 已于 2026-10-12 基于真实 dump 逐条标注，全部为合法真实 NoteChunk._id，无占位符。评测前建议仍跑一次 GT chunk 缺失率检测（runner 内置 >20% 中止），以防 dump 与线上语料漂移。",
+        "privacy": "不提交任何 note 正文 / searchText，仅提交 chunkId / notebookId / query 文本 / ground truth。"
     },
     "queries": [
         {
-            "id": "note-recall-demo-paraphrase-001",
-            "query": "有必要做RAG分块质量评测吗",
+            "id": "q_l2_exact",
+            "query": "LTM 三层触发机制里 L2 超时阈值设定为多少天",
             "targetChunkIds": [
-                "6a8bec772d8aaec4eed3ac70",
-                "6a8bec772d8aaec4eed3ac76"
+                "6a93c85f52008878f87ca287",
+                "6a93c87a52008878f87ca2e0",
+                "6a93c87a52008878f87ca302"
             ],
             "type": "exact"
         },
         {
-            "id": "note-recall-demo-cross-notebook-002",
-            "query": "输出RAG召回报告格式",
+            "id": "q_session_exact",
+            "query": "会话 Session 有哪几种状态",
             "targetChunkIds": [
-                "6a93c95052008878f87ca3bb",
-                "6a93fcd645e71ddcb494f1c0"
+                "6a93c9f752008878f87ca405"
+            ],
+            "type": "exact"
+        },
+        {
+            "id": "q_token_exact",
+            "query": "上下文窗口 Token 限制策略里总预算是怎么算的",
+            "targetChunkIds": [
+                "6a93b6ff52008878f87ca1be"
+            ],
+            "type": "exact"
+        },
+        {
+            "id": "q_hallu_exact",
+            "query": "大模型幻觉分哪两类",
+            "targetChunkIds": [
+                "6a8c5065c00624279d9b0424"
+            ],
+            "type": "exact"
+        },
+        {
+            "id": "q_bulk_exact",
+            "query": "MongoDB 里 bulkWrite 是干什么用的",
+            "targetChunkIds": [
+                "6a963f6545e71ddcb494f2c0"
+            ],
+            "type": "exact"
+        },
+        {
+            "id": "q_bin_exact",
+            "query": "二分查找的前提条件是什么",
+            "targetChunkIds": [
+                "6a93af9552008878f87c9ed6"
+            ],
+            "type": "exact"
+        },
+        {
+            "id": "q_buf_exact",
+            "query": "Node.js 里 Buffer 是干什么的",
+            "targetChunkIds": [
+                "6a93b27c52008878f87c9fe2"
+            ],
+            "type": "exact"
+        },
+        {
+            "id": "q_sel_p70_exact",
+            "query": "记忆选择策略里百分位截断默认取的是第几百分位",
+            "targetChunkIds": [
+                "6a93c7e152008878f87ca205",
+                "6a93c7e152008878f87ca206"
+            ],
+            "type": "exact"
+        },
+        {
+            "id": "q_redis_cache_exact",
+            "query": "Redis 缓存穿透、击穿、雪崩这三者核心区别是什么",
+            "targetChunkIds": [
+                "6a963f9445e71ddcb494f31c",
+                "6a963f9445e71ddcb494f325"
+            ],
+            "type": "exact"
+        },
+        {
+            "id": "q_l2_para",
+            "query": "用户很久没说话，系统怎么自动把对话内容存成长期记忆",
+            "targetChunkIds": [
+                "6a93c87a52008878f87ca2d8",
+                "6a93c87a52008878f87ca2da",
+                "6a93c87a52008878f87ca2e1"
+            ],
+            "type": "paraphrase"
+        },
+        {
+            "id": "q_rag_para",
+            "query": "笔记内容是怎么被切分向量化然后送进向量库做语义检索的",
+            "targetChunkIds": [
+                "6a93c93952008878f87ca375",
+                "6a93c93952008878f87ca37a",
+                "6a93c93952008878f87ca380"
+            ],
+            "type": "paraphrase"
+        },
+        {
+            "id": "q_pipe_para",
+            "query": "记忆提取管道 L1 L2 L3 触发后 Pipeline.run 内部分哪几个阶段",
+            "targetChunkIds": [
+                "6acb4a6161e792f23d0331e7"
+            ],
+            "type": "paraphrase"
+        },
+        {
+            "id": "q_userid_para",
+            "query": "userId 是怎么从 sessionId 进入到记忆模块的",
+            "targetChunkIds": [
+                "6a93ca0f52008878f87ca42b",
+                "6a93ca0f52008878f87ca42c"
+            ],
+            "type": "paraphrase"
+        },
+        {
+            "id": "q_store_para",
+            "query": "记忆模块最终选了什么存储方案 Redis 还是 MongoDB",
+            "targetChunkIds": [
+                "6a93b58552008878f87ca0e0",
+                "6a93b58552008878f87ca0e3",
+                "6a93b58552008878f87ca0e4"
+            ],
+            "type": "paraphrase"
+        },
+        {
+            "id": "q_chunk_para",
+            "query": "做知识库检索的时候怎么判断分块切得好不好",
+            "targetChunkIds": [
+                "6a8c06d169bc7ae2b63440fc",
+                "6a8c06d169bc7ae2b63440fb"
+            ],
+            "type": "paraphrase"
+        },
+        {
+            "id": "q_lock_para",
+            "query": "乐观锁和悲观锁的核心区别是什么",
+            "targetChunkIds": [
+                "6a963f3945e71ddcb494f289",
+                "6a963f3945e71ddcb494f28f"
+            ],
+            "type": "paraphrase"
+        },
+        {
+            "id": "q_lru_para",
+            "query": "LRU 缓存算法是什么意思",
+            "targetChunkIds": [
+                "6a93b02d52008878f87c9f70"
+            ],
+            "type": "paraphrase"
+        },
+        {
+            "id": "q_vt_para",
+            "query": "View Transitions API 是干什么的",
+            "targetChunkIds": [
+                "6a93b23852008878f87c9f91"
+            ],
+            "type": "paraphrase"
+        },
+        {
+            "id": "q_lock_code",
+            "query": "MongoDB 乐观锁实现里 version 字段怎么用",
+            "targetChunkIds": [
+                "6a963f3945e71ddcb494f292",
+                "6a963f3945e71ddcb494f291"
+            ],
+            "type": "code-token"
+        },
+        {
+            "id": "q_tree_code",
+            "query": "二叉树遍历的代码怎么写",
+            "targetChunkIds": [
+                "6a93affe52008878f87c9f1a",
+                "6a93affe52008878f87c9f1b",
+                "6a93affe52008878f87c9f1c"
+            ],
+            "type": "code-token"
+        },
+        {
+            "id": "q_vec_code",
+            "query": "会话消息向量化的 Go 模型定义里 notebookId 字段是干嘛的",
+            "targetChunkIds": [
+                "6a93b65c52008878f87ca173"
+            ],
+            "type": "code-token"
+        },
+        {
+            "id": "q_xnb_mnemo",
+            "query": "会话消息的向量化构建用了什么模型定义来兼容多场景",
+            "targetChunkIds": [
+                "6a93b65c52008878f87ca173"
             ],
             "type": "cross-notebook",
-            "notebookId": "00000000000000000000000a"
+            "notebookId": "6a93b4ee52008878f87c9ff2"
         },
         {
-            "id": "note-recall-demo-cross-notebook-003",
-            "query": "mnemo rag的报告格式是怎样的？",
-            "targetChunkIds": ["6a9d5017987b1634413047e9"],
-            "type": "cross-notebook",
-            "notebookId": "00000000000000000000000a"
-        },
-        {
-            "id": "note-recall-demo-negative-004",
-            "query": "mnemo的ltm三层触发机制是怎么实现的？",
+            "id": "q_xnb_fastgpt",
+            "query": "FastGPT 是基于什么技术栈的 AI 应用",
             "targetChunkIds": [
-                "6a93c87852008878f87ca29c",
-                "6a93c87852008878f87ca2a5"
+                "6a96401445e71ddcb494f39e"
+            ],
+            "type": "cross-notebook",
+            "notebookId": "6a963ff345e71ddcb494f387"
+        },
+        {
+            "id": "q_xnb_test",
+            "query": "后端服务怎么测试 STM addMessage",
+            "targetChunkIds": [
+                "6a93c9b852008878f87ca3dc"
+            ],
+            "type": "cross-notebook",
+            "notebookId": "6a8555a17fe0f337a2c83b18"
+        },
+        {
+            "id": "q_edge_para",
+            "query": "父子块之间是怎么关联和回填的",
+            "targetChunkIds": [
+                "6a93c93952008878f87ca380",
+                "6a93c93952008878f87ca376",
+                "6a93c93952008878f87ca377"
+            ],
+            "type": "synthetic-edge"
+        },
+        {
+            "id": "q_edge_chunk_bound",
+            "query": "分块时遇到特别长的结构单元或特别短的段落分别怎么处理",
+            "targetChunkIds": [
+                "6a93c93952008878f87ca37a"
+            ],
+            "type": "synthetic-edge"
+        },
+        {
+            "id": "q_neg_gil",
+            "query": "Python 的全局解释器锁 GIL 是什么，它有什么影响",
+            "targetChunkIds": [],
+            "type": "negative"
+        },
+        {
+            "id": "q_neg_pg",
+            "query": "PostgreSQL 的 MVCC 多版本并发控制是怎么实现的",
+            "targetChunkIds": [],
+            "type": "negative"
+        },
+        {
+            "id": "q_neg_k8s",
+            "query": "Kubernetes 的 HPA 基于什么指标做自动扩缩容",
+            "targetChunkIds": [],
+            "type": "negative"
+        },
+        {
+            "id": "q_sse_ws_exact",
+            "query": "SSE 和 WebSocket 的核心区别是什么",
+            "targetChunkIds": [
+                "6a963fab45e71ddcb494f365"
             ],
             "type": "exact"
         },
         {
-            "id": "note-recall-demo-negative-005",
-            "query": "FastGPT是怎么实现RAG构建的？",
-            "targetChunkIds": ["6a96401445e71ddcb494f3a2"],
+            "id": "q_kafka_cg_exact",
+            "query": "Kafka 里的 Consumer Group 是干什么的",
+            "targetChunkIds": [
+                "6a963fd545e71ddcb494f37f"
+            ],
             "type": "exact"
+        },
+        {
+            "id": "q_heapsort_exact",
+            "query": "堆排序的最好和最坏情况时间复杂度分别是多少",
+            "targetChunkIds": [
+                "6a93afd352008878f87c9ef5"
+            ],
+            "type": "exact"
+        },
+        {
+            "id": "q_evloop_diff_exact",
+            "query": "浏览器事件循环和 Node.js 事件循环最大的区别是什么",
+            "targetChunkIds": [
+                "6aa649db588ffddf26e75e79"
+            ],
+            "type": "exact"
+        },
+        {
+            "id": "q_cjs_esm_exact",
+            "query": "CommonJS 和 ES Module 在加载时机上有什么不同",
+            "targetChunkIds": [
+                "6aa64865588ffddf26e75dd0"
+            ],
+            "type": "exact"
+        },
+        {
+            "id": "q_fiber_exact",
+            "query": "React Fiber 架构到底是什么",
+            "targetChunkIds": [
+                "6a93ae3752008878f87c9e3d"
+            ],
+            "type": "exact"
+        },
+        {
+            "id": "q_array_para",
+            "query": "JavaScript 里怎么判断一个值是不是数组",
+            "targetChunkIds": [
+                "6aa649db588ffddf26e75e5c"
+            ],
+            "type": "paraphrase"
+        },
+        {
+            "id": "q_cjs_esm_para",
+            "query": "CommonJS 和 ES Module 主要有什么区别",
+            "targetChunkIds": [
+                "6aa64865588ffddf26e75dd0",
+                "6aa64a1a588ffddf26e75ea7"
+            ],
+            "type": "paraphrase"
+        },
+        {
+            "id": "q_stm_para",
+            "query": "Mnemo 的短期记忆 STM 实际最终存在哪里",
+            "targetChunkIds": [
+                "6a93b56e52008878f87ca0ab",
+                "6a93b56e52008878f87ca0ac"
+            ],
+            "type": "paraphrase"
+        },
+        {
+            "id": "q_evloop_order_para",
+            "query": "一次事件循环 tick 里宏任务和微任务的执行顺序是怎样的",
+            "targetChunkIds": [
+                "6aa649db588ffddf26e75e76"
+            ],
+            "type": "paraphrase"
+        },
+        {
+            "id": "q_ltm_priority_para",
+            "query": "长期记忆任务拆解里优先级最高的任务是什么",
+            "targetChunkIds": [
+                "6a93b5ed52008878f87ca106"
+            ],
+            "type": "paraphrase"
+        },
+        {
+            "id": "q_rag_eval_what_para",
+            "query": "笔记 RAG 召回评测到底在评什么指标",
+            "targetChunkIds": [
+                "6a9d5017987b1634413047dc"
+            ],
+            "type": "paraphrase"
+        },
+        {
+            "id": "q_fiber_para",
+            "query": "面试里怎么解释 React Fiber 为什么可以中断",
+            "targetChunkIds": [
+                "6a93ae3752008878f87c9e3d",
+                "6a93ae3752008878f87c9e3e"
+            ],
+            "type": "paraphrase"
+        },
+        {
+            "id": "q_redis_lock_para",
+            "query": "用 Redis 做分布式锁怎么避免竞态、保证原子性",
+            "targetChunkIds": [
+                "6a963f7c45e71ddcb494f2e7",
+                "6a963f7c45e71ddcb494f2e9"
+            ],
+            "type": "paraphrase"
+        },
+        {
+            "id": "q_xnb_session",
+            "query": "Mnemo 全栈项目文档里怎么描述前端会话状态管理",
+            "targetChunkIds": [
+                "6a93b51352008878f87ca018"
+            ],
+            "type": "cross-notebook",
+            "notebookId": "6a93b4ee52008878f87c9ff2"
+        },
+        {
+            "id": "q_xnb_kafka",
+            "query": "Kafka 入门笔记里消息在 Partition 内是怎么保证有序的",
+            "targetChunkIds": [
+                "6a963fd545e71ddcb494f37e"
+            ],
+            "type": "cross-notebook",
+            "notebookId": "6a83c73889acfd8995cc3221"
+        },
+        {
+            "id": "q_bubble_code",
+            "query": "冒泡排序的代码怎么写",
+            "targetChunkIds": [
+                "6a93afd352008878f87c9ef6"
+            ],
+            "type": "code-token"
+        },
+        {
+            "id": "q_spawn_code",
+            "query": "Node.js 用 child_process 启动子进程怎么写",
+            "targetChunkIds": [
+                "6a93b26552008878f87c9fc4",
+                "6a93b26552008878f87c9fc6"
+            ],
+            "type": "code-token"
+        },
+        {
+            "id": "q_edge_structure",
+            "query": "一段内容被代码块和表格夹在中间，切分会不会被切断",
+            "targetChunkIds": [
+                "6a93c93952008878f87ca382"
+            ],
+            "type": "synthetic-edge"
+        },
+        {
+            "id": "q_neg_docker",
+            "query": "Docker 的 overlay 网络是怎么实现容器跨主机通信的",
+            "targetChunkIds": [],
+            "type": "negative"
+        },
+        {
+            "id": "q_neg_rust",
+            "query": "Rust 的所有权 ownership 机制是怎么保证内存安全的",
+            "targetChunkIds": [],
+            "type": "negative"
         }
     ]
 }

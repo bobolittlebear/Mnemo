@@ -14,7 +14,9 @@
         "test:coverage": "vitest run --coverage",
         "setup:indexes": "ts-node setup/setup-db-indexes.ts",
         "forget:memories": "cross-env NODE_ENV=development ts-node scripts/forget-memories.ts",
-        "eval:note-recall": "cross-env NODE_ENV=development ts-node -r tsconfig-paths/register scripts/run-note-recall-eval.ts"
+        "eval:note-recall": "cross-env NODE_ENV=development ts-node -r tsconfig-paths/register scripts/run-note-recall-eval.ts",
+        "dump:note-chunks": "cross-env NODE_ENV=development ts-node -r tsconfig-paths/register scripts/dump-note-chunks.ts",
+        "gen:note-recall-dataset": "cross-env NODE_ENV=development ts-node -r tsconfig-paths/register scripts/build-note-recall-dataset.ts"
     },
     "dependencies": {
         "@types/dotenv": "^6.1.1",

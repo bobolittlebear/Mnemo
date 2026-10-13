@@ -96,6 +96,24 @@ interface RecallRow {
     hybridRecall5: number | null;
     /** hybrid@5 命中 < vector@5 命中 - 1 → 退化 */
     hybridDegraded: boolean;
+    /** hybrid 排名质量（仅 non-negative 有值） */
+    hybridMrr: number | null;
+    hybridNdcg5: number | null;
+    hybridPrecision5: number | null;
+    /** 双盲：向量路@5 与 BM25 路@5 均未命中 GT */
+    doubleBlind: boolean;
+}
+
+/** 单 type 的 macro 聚合（该 type 内各 query 指标的均值） */
+interface TypeMacro {
+    type: string;
+    count: number;
+    vectorRecall5: number;
+    bm25Recall5: number;
+    hybridRecall5: number;
+    hybridMrr: number;
+    hybridNdcg5: number;
+    hybridPrecision5: number;
 }
 
 interface Metrics {
@@ -106,6 +124,7 @@ interface Metrics {
     hybridDegradedCount: number;
     hybridDegradedRatio: number;
     hybridPass: boolean;
+    bm25MacroRecall5: number;
     bm25ComplementCases: Array<{ queryId: string; chunkIds: string[] }>;
     bm25Pass: boolean;
     negativeObservations: Array<{
@@ -113,6 +132,35 @@ interface Metrics {
         maxCosine: number;
         risk: boolean;
     }>;
+    /** 分类 macro：按 type 聚合（非 category），各 type 均值再取均 */
+    typeMacro: TypeMacro[];
+    classificationMacro: {
+        vectorRecall5: number;
+        bm25Recall5: number;
+        hybridRecall5: number;
+        hybridMrr: number;
+        hybridNdcg5: number;
+        hybridPrecision5: number;
+    };
+    /** hybrid ≥ vector（macro-avg recall@5） */
+    hybridGeVectorPass: boolean;
+    /** hybrid ≥ bm25（macro-avg recall@5） */
+    hybridGeBm25Pass: boolean;
+    /** hybrid ≥ max(vector, bm25)（macro-avg recall@5） */
+    hybridGeMaxPass: boolean;
+    /** 双盲桶：两单模态@5 均未命中的 query */
+    doubleBlindCases: Array<{ queryId: string; type: string; gtCount: number }>;
+    doubleBlindCount: number;
+    /** 各模式 macro-avg 排名质量 */
+    vectorMacroMrr: number;
+    vectorMacroNdcg5: number;
+    vectorMacroPrecision5: number;
+    bm25MacroMrr: number;
+    bm25MacroNdcg5: number;
+    bm25MacroPrecision5: number;
+    hybridMacroMrr: number;
+    hybridMacroNdcg5: number;
+    hybridMacroPrecision5: number;
 }
 
 interface CorpusSnapshot {
@@ -174,6 +222,40 @@ function recallAtK(
 ): number | null {
     if (gt.size === 0) return null;
     return hitCount(ranking, gt, k) / gt.size;
+}
+
+/** 首个 GT 命中排名（1-based，限 topK）；无命中返回 0 */
+function firstHitRank(ranking: string[], gt: Set<string>, k: number): number {
+    const limit = Math.min(ranking.length, k);
+    for (let i = 0; i < limit; i++) {
+        if (gt.has(ranking[i]!)) return i + 1;
+    }
+    return 0;
+}
+
+/** MRR@K：首个 GT 命中 1/rank，无命中 0（二值相关性，GT 非空） */
+function mrrAtK(ranking: string[], gt: Set<string>, k: number): number {
+    const r = firstHitRank(ranking, gt, k);
+    return r === 0 ? 0 : 1 / r;
+}
+
+/** nDCG@K（二值相关性）：DCG/IDCG；GT 为空由调用方归 null */
+function ndcgAtK(ranking: string[], gt: Set<string>, k: number): number {
+    const idealCount = Math.min(gt.size, k);
+    let dcg = 0;
+    let idcg = 0;
+    for (let i = 0; i < k; i++) {
+        const rel = i < ranking.length && gt.has(ranking[i]!) ? 1 : 0;
+        const idealRel = i < idealCount ? 1 : 0;
+        dcg += rel / Math.log2(i + 2);
+        idcg += idealRel / Math.log2(i + 2);
+    }
+    return idcg > 0 ? dcg / idcg : 0;
+}
+
+/** precision@K = |gt ∩ topK| / K（分母固定为 K，衡量 topK 纯净度） */
+function precisionAtK(ranking: string[], gt: Set<string>, k: number): number {
+    return hitCount(ranking, gt, k) / k;
 }
 
 /** 解析并校验数据集；结构非法抛错，单条非法跳过并告警 */
@@ -358,21 +440,52 @@ async function observeNegative(results: QueryResult[]): Promise<void> {
     }
 }
 
-/** 按 §8 计算指标 */
+/** 按 §8 计算指标（含 §8+ 排名质量：MRR / nDCG@5 / precision@5 + 分类 macro + 双盲桶） */
 function computeMetrics(results: QueryResult[]): Metrics {
     const rows: RecallRow[] = [];
     const bm25ComplementCases: Array<{ queryId: string; chunkIds: string[] }> =
         [];
+    const doubleBlindCases: Array<{
+        queryId: string;
+        type: string;
+        gtCount: number;
+    }> = [];
     const negativeObservations: Array<{
         queryId: string;
         maxCosine: number;
         risk: boolean;
     }> = [];
 
-    let vectorSum = 0;
-    let hybridSum = 0;
+    let vectorRecall5Sum = 0;
+    let bm25Recall5Sum = 0;
+    let hybridRecall5Sum = 0;
     let nonNegativeCount = 0;
     let hybridDegradedCount = 0;
+
+    // 各模式排名质量累加（non-negative 全量）
+    let vectorMrrSum = 0;
+    let vectorNdcgSum = 0;
+    let vectorPrecSum = 0;
+    let bm25MrrSum = 0;
+    let bm25NdcgSum = 0;
+    let bm25PrecSum = 0;
+    let hybridMrrSum = 0;
+    let hybridNdcgSum = 0;
+    let hybridPrecSum = 0;
+
+    // 分类 macro 累加器：type → 各指标求和
+    const typeAcc = new Map<
+        string,
+        {
+            count: number;
+            vectorRecall5: number;
+            bm25Recall5: number;
+            hybridRecall5: number;
+            hybridMrr: number;
+            hybridNdcg5: number;
+            hybridPrecision5: number;
+        }
+    >();
 
     for (const r of results) {
         const gt = new Set(r.query.targetChunkIds);
@@ -396,6 +509,10 @@ function computeMetrics(results: QueryResult[]): Metrics {
                 hybridRecall3: null,
                 hybridRecall5: null,
                 hybridDegraded: false,
+                hybridMrr: null,
+                hybridNdcg5: null,
+                hybridPrecision5: null,
+                doubleBlind: false,
             });
             continue;
         }
@@ -419,14 +536,64 @@ function computeMetrics(results: QueryResult[]): Metrics {
             });
         }
 
+        // 双盲：两单模态@5 均未命中 GT（诊断桶，非断言失败）
+        const doubleBlind = vec5Hits === 0 && bm5Hits === 0;
+        if (doubleBlind) {
+            doubleBlindCases.push({
+                queryId: r.query.id,
+                type: r.query.type,
+                gtCount: gt.size,
+            });
+        }
+
         const vectorRecall3 = recallAtK(r.rankings.vector, gt, 3);
-        const vectorRecall5 = recallAtK(r.rankings.vector, gt, 5);
-        const bm25Recall5 = recallAtK(r.rankings.bm25, gt, 5);
+        const vectorRecall5 = recallAtK(r.rankings.vector, gt, 5)!;
+        const bm25Recall5 = recallAtK(r.rankings.bm25, gt, 5)!;
         const hybridRecall3 = recallAtK(r.rankings.hybrid, gt, 3);
-        const hybridRecall5 = recallAtK(r.rankings.hybrid, gt, 5);
-        if (vectorRecall5 !== null) vectorSum += vectorRecall5;
-        if (hybridRecall5 !== null) hybridSum += hybridRecall5;
+        const hybridRecall5 = recallAtK(r.rankings.hybrid, gt, 5)!;
+
+        const vecMrr = mrrAtK(r.rankings.vector, gt, 5);
+        const vecNdcg = ndcgAtK(r.rankings.vector, gt, 5);
+        const vecPrec = precisionAtK(r.rankings.vector, gt, 5);
+        const bmMrr = mrrAtK(r.rankings.bm25, gt, 5);
+        const bmNdcg = ndcgAtK(r.rankings.bm25, gt, 5);
+        const bmPrec = precisionAtK(r.rankings.bm25, gt, 5);
+        const hyMrr = mrrAtK(r.rankings.hybrid, gt, 5);
+        const hyNdcg = ndcgAtK(r.rankings.hybrid, gt, 5);
+        const hyPrec = precisionAtK(r.rankings.hybrid, gt, 5);
+
+        vectorRecall5Sum += vectorRecall5;
+        bm25Recall5Sum += bm25Recall5;
+        hybridRecall5Sum += hybridRecall5;
+        vectorMrrSum += vecMrr;
+        vectorNdcgSum += vecNdcg;
+        vectorPrecSum += vecPrec;
+        bm25MrrSum += bmMrr;
+        bm25NdcgSum += bmNdcg;
+        bm25PrecSum += bmPrec;
+        hybridMrrSum += hyMrr;
+        hybridNdcgSum += hyNdcg;
+        hybridPrecSum += hyPrec;
         nonNegativeCount++;
+
+        // 分类 macro 累加
+        const acc = typeAcc.get(r.query.type) ?? {
+            count: 0,
+            vectorRecall5: 0,
+            bm25Recall5: 0,
+            hybridRecall5: 0,
+            hybridMrr: 0,
+            hybridNdcg5: 0,
+            hybridPrecision5: 0,
+        };
+        acc.count += 1;
+        acc.vectorRecall5 += vectorRecall5;
+        acc.bm25Recall5 += bm25Recall5;
+        acc.hybridRecall5 += hybridRecall5;
+        acc.hybridMrr += hyMrr;
+        acc.hybridNdcg5 += hyNdcg;
+        acc.hybridPrecision5 += hyPrec;
+        typeAcc.set(r.query.type, acc);
 
         rows.push({
             queryId: r.query.id,
@@ -440,14 +607,21 @@ function computeMetrics(results: QueryResult[]): Metrics {
             hybridRecall3,
             hybridRecall5,
             hybridDegraded,
+            hybridMrr: hyMrr,
+            hybridNdcg5: hyNdcg,
+            hybridPrecision5: hyPrec,
+            doubleBlind,
         });
     }
 
     const vectorMacroRecall5 = nonNegativeCount
-        ? vectorSum / nonNegativeCount
+        ? vectorRecall5Sum / nonNegativeCount
+        : 0;
+    const bm25MacroRecall5 = nonNegativeCount
+        ? bm25Recall5Sum / nonNegativeCount
         : 0;
     const hybridMacroRecall5 = nonNegativeCount
-        ? hybridSum / nonNegativeCount
+        ? hybridRecall5Sum / nonNegativeCount
         : 0;
     const hybridDegradedRatio = nonNegativeCount
         ? hybridDegradedCount / nonNegativeCount
@@ -458,6 +632,63 @@ function computeMetrics(results: QueryResult[]): Metrics {
         hybridDegradedRatio > HYBRID_DEGRADED_RATIO_LIMIT
     );
     const bm25Pass = bm25ComplementCases.length >= BM25_COMPLEMENT_MIN;
+
+    // 排名质量 macro（各模式）
+    const vectorMacroMrr = nonNegativeCount
+        ? vectorMrrSum / nonNegativeCount
+        : 0;
+    const vectorMacroNdcg5 = nonNegativeCount
+        ? vectorNdcgSum / nonNegativeCount
+        : 0;
+    const vectorMacroPrecision5 = nonNegativeCount
+        ? vectorPrecSum / nonNegativeCount
+        : 0;
+    const bm25MacroMrr = nonNegativeCount ? bm25MrrSum / nonNegativeCount : 0;
+    const bm25MacroNdcg5 = nonNegativeCount
+        ? bm25NdcgSum / nonNegativeCount
+        : 0;
+    const bm25MacroPrecision5 = nonNegativeCount
+        ? bm25PrecSum / nonNegativeCount
+        : 0;
+    const hybridMacroMrr = nonNegativeCount
+        ? hybridMrrSum / nonNegativeCount
+        : 0;
+    const hybridMacroNdcg5 = nonNegativeCount
+        ? hybridNdcgSum / nonNegativeCount
+        : 0;
+    const hybridMacroPrecision5 = nonNegativeCount
+        ? hybridPrecSum / nonNegativeCount
+        : 0;
+
+    // 分类 macro：各 type 均值 → 再取均（每 type 等权）
+    const typeMacro: TypeMacro[] = Array.from(typeAcc.entries()).map(
+        ([type, acc]) => ({
+            type,
+            count: acc.count,
+            vectorRecall5: acc.vectorRecall5 / acc.count,
+            bm25Recall5: acc.bm25Recall5 / acc.count,
+            hybridRecall5: acc.hybridRecall5 / acc.count,
+            hybridMrr: acc.hybridMrr / acc.count,
+            hybridNdcg5: acc.hybridNdcg5 / acc.count,
+            hybridPrecision5: acc.hybridPrecision5 / acc.count,
+        }),
+    );
+    const tCount = typeMacro.length;
+    const mean = (sel: (t: TypeMacro) => number) =>
+        tCount ? typeMacro.reduce((s, t) => s + sel(t), 0) / tCount : 0;
+    const classificationMacro = {
+        vectorRecall5: mean((t) => t.vectorRecall5),
+        bm25Recall5: mean((t) => t.bm25Recall5),
+        hybridRecall5: mean((t) => t.hybridRecall5),
+        hybridMrr: mean((t) => t.hybridMrr),
+        hybridNdcg5: mean((t) => t.hybridNdcg5),
+        hybridPrecision5: mean((t) => t.hybridPrecision5),
+    };
+
+    const hybridGeVectorPass = hybridMacroRecall5 >= vectorMacroRecall5;
+    const hybridGeBm25Pass = hybridMacroRecall5 >= bm25MacroRecall5;
+    const hybridGeMaxPass =
+        hybridMacroRecall5 >= Math.max(vectorMacroRecall5, bm25MacroRecall5);
 
     return {
         rows,
@@ -470,6 +701,23 @@ function computeMetrics(results: QueryResult[]): Metrics {
         bm25ComplementCases,
         bm25Pass,
         negativeObservations,
+        typeMacro,
+        classificationMacro,
+        hybridGeVectorPass,
+        hybridGeBm25Pass,
+        hybridGeMaxPass,
+        doubleBlindCases,
+        doubleBlindCount: doubleBlindCases.length,
+        vectorMacroMrr,
+        vectorMacroNdcg5,
+        vectorMacroPrecision5,
+        bm25MacroRecall5,
+        bm25MacroMrr,
+        bm25MacroNdcg5,
+        bm25MacroPrecision5,
+        hybridMacroMrr,
+        hybridMacroNdcg5,
+        hybridMacroPrecision5,
     };
 }
 
@@ -486,6 +734,7 @@ interface ReportData {
     bm25Tokenizer: string;
     corpusNotes: number;
     corpusChunks: number;
+    corpusChunksTotal: number;
     queryCounts: {
         total: number;
         hand: number;
@@ -524,8 +773,8 @@ function buildReport(data: ReportData): string {
     );
     L.push(`- bm25_tokenizer: ${data.bm25Tokenizer}`);
     L.push(
-        `- corpus_size: \`{ notes: ${data.corpusNotes}, chunks: ${data.corpusChunks} }\` ` +
-            `（user 维度：distinct noteId + child chunks）`,
+        `- corpus_size: \`{ notes: ${data.corpusNotes}, child_chunks: ${data.corpusChunks}, all_chunks_incl_parent: ${data.corpusChunksTotal} }\` ` +
+            `（child_chunks 为检索单元；all_chunks_incl_parent 含父块占位，对应评测日志 count）`,
     );
     L.push(
         `- query_count: \`{ total: ${data.queryCounts.total}, hand: ${data.queryCounts.hand}, ` +
@@ -551,9 +800,33 @@ function buildReport(data: ReportData): string {
         );
     }
     L.push(
-        `| hybrid ≥ vector | ${m.hybridPass ? '✅ PASS' : '❌ FAIL'} | ` +
-            `macro-avg recall@5：vector=${m.vectorMacroRecall5.toFixed(3)} → hybrid=${m.hybridMacroRecall5.toFixed(3)}；` +
-            `退化条数 ${m.hybridDegradedCount}/${m.nonNegativeCount}（${fmtRatio(m.hybridDegradedRatio)}，容忍 ≤${fmtRatio(HYBRID_DEGRADED_RATIO_LIMIT)}） |`,
+        `| hybrid ≥ vector | ${m.hybridGeVectorPass ? '✅ PASS' : '❌ FAIL'} | ` +
+            `macro-avg recall@5：vector=${m.vectorMacroRecall5.toFixed(3)} → hybrid=${m.hybridMacroRecall5.toFixed(3)} |`,
+    );
+    L.push(
+        `| hybrid ≥ bm25 | ${m.hybridGeBm25Pass ? '✅ PASS' : '❌ FAIL'} | ` +
+            `macro-avg recall@5：bm25=${m.bm25MacroRecall5.toFixed(3)} → hybrid=${m.hybridMacroRecall5.toFixed(3)} |`,
+    );
+    L.push(
+        `| hybrid ≥ max(vector,bm25) | ${m.hybridGeMaxPass ? '✅ PASS' : '❌ FAIL'} | ` +
+            `hybrid 不弱于任一单模态整体均值 |`,
+    );
+    L.push(
+        `| 退化容忍 | ${m.hybridPass ? '✅ PASS' : '❌ FAIL'} | ` +
+            `退化条数 ${m.hybridDegradedCount}/${m.nonNegativeCount}（${fmtRatio(m.hybridDegradedRatio)}，容忍 ≤${fmtRatio(HYBRID_DEGRADED_RATIO_LIMIT)}）；` +
+            `注：hybrid≥vector 与退化容忍为两条独立判定 |`,
+    );
+    L.push(
+        `| 分类 macro recall@5 | reference | ` +
+            `hybrid=${m.classificationMacro.hybridRecall5.toFixed(3)}（各 type 等权均值，见"分类 macro"表） |`,
+    );
+    L.push(
+        `| 双盲桶 | ${m.doubleBlindCount === 0 ? '✅ 无' : `⚠️ ${m.doubleBlindCount} 条`} | ` +
+            `两单模态@5 均未命中 GT（vec@5=0 且 bm25@5=0），见"双盲桶"表 |`,
+    );
+    L.push(
+        `| 排名质量（hybrid） | reference | ` +
+            `MRR=${m.hybridMacroMrr.toFixed(3)}，nDCG@5=${m.hybridMacroNdcg5.toFixed(3)}，precision@5=${m.hybridMacroPrecision5.toFixed(3)} |`,
     );
     L.push(
         `| BM25 互补 | ${m.bm25Pass ? '✅ PASS' : '❌ FAIL'} | ` +
@@ -586,6 +859,78 @@ function buildReport(data: ReportData): string {
                 `${fmtRecall(row.hybridRecall5)} | ${row.hybridDegraded ? '是' : '否'} |`,
         );
     }
+    L.push('');
+
+    L.push('## 分类 macro（按 type 聚合）');
+    L.push('');
+    L.push(
+        '> 各 type 内取 query 指标均值，再对各 type 等权取均（macro）。' +
+            '与"全局 macro"不同：全局 macro 被样本多的 type 主导，分类 macro 让每类平等发声。',
+    );
+    L.push('');
+    L.push(
+        '| type | n | vec@5 | bm25@5 | hyb@5 | hyb MRR | hyb nDCG@5 | hyb P@5 |',
+    );
+    L.push('|---|---|---|---|---|---|---|---|');
+    for (const t of m.typeMacro) {
+        L.push(
+            `| ${t.type} | ${t.count} | ${t.vectorRecall5.toFixed(2)} | ` +
+                `${t.bm25Recall5.toFixed(2)} | ${t.hybridRecall5.toFixed(2)} | ` +
+                `${t.hybridMrr.toFixed(3)} | ${t.hybridNdcg5.toFixed(3)} | ` +
+                `${t.hybridPrecision5.toFixed(3)} |`,
+        );
+    }
+    L.push(
+        `| **分类 macro** | ${m.nonNegativeCount} | ` +
+            `${m.classificationMacro.vectorRecall5.toFixed(2)} | ` +
+            `${m.classificationMacro.bm25Recall5.toFixed(2)} | ` +
+            `${m.classificationMacro.hybridRecall5.toFixed(2)} | ` +
+            `${m.classificationMacro.hybridMrr.toFixed(3)} | ` +
+            `${m.classificationMacro.hybridNdcg5.toFixed(3)} | ` +
+            `${m.classificationMacro.hybridPrecision5.toFixed(3)} |`,
+    );
+    L.push('');
+
+    L.push('## 双盲桶（vec@5=0 且 bm25@5=0）');
+    L.push('');
+    L.push(
+        '> 两单模态在 top5 均未命中 GT 的 query。这类是真正的"盲区"：融合也无回天之力，' +
+            '需从 query 改写 / 标注 / 语料覆盖排查，而非调融合算法。诊断项，非断言失败。',
+    );
+    L.push('');
+    if (m.doubleBlindCases.length === 0) {
+        L.push('无：所有 non-negative query 至少有一种单模态在 top5 命中 GT。');
+    } else {
+        L.push('| query_id | type | gt 数 |');
+        L.push('|---|---|---|');
+        for (const c of m.doubleBlindCases) {
+            L.push(`| ${c.queryId} | ${c.type} | ${c.gtCount} |`);
+        }
+    }
+    L.push('');
+
+    L.push('## 排名质量（MRR / nDCG@5 / precision@5）');
+    L.push('');
+    L.push(
+        '> recall@5 衡量"召回全不全"，三者补"排得好不好"：' +
+            'MRR 看首个相关项位置（越小 rank 越高分）；nDCG@5 看相关性折扣累积；' +
+            'precision@5 看 top5 纯净度。GT 二值相关性（命中=1）。',
+    );
+    L.push('');
+    L.push('| mode | recall@5 | MRR | nDCG@5 | precision@5 |');
+    L.push('|---|---|---|---|---|');
+    L.push(
+        `| vector | ${m.vectorMacroRecall5.toFixed(3)} | ${m.vectorMacroMrr.toFixed(3)} | ` +
+            `${m.vectorMacroNdcg5.toFixed(3)} | ${m.vectorMacroPrecision5.toFixed(3)} |`,
+    );
+    L.push(
+        `| bm25 | ${m.bm25MacroRecall5.toFixed(3)} | ${m.bm25MacroMrr.toFixed(3)} | ` +
+            `${m.bm25MacroNdcg5.toFixed(3)} | ${m.bm25MacroPrecision5.toFixed(3)} |`,
+    );
+    L.push(
+        `| hybrid | ${m.hybridMacroRecall5.toFixed(3)} | ${m.hybridMacroMrr.toFixed(3)} | ` +
+            `${m.hybridMacroNdcg5.toFixed(3)} | ${m.hybridMacroPrecision5.toFixed(3)} |`,
+    );
     L.push('');
 
     L.push('## hybrid ≥ vector');
@@ -808,6 +1153,7 @@ async function main(): Promise<void> {
             bm25Tokenizer: 'jieba-wasm',
             corpusNotes,
             corpusChunks,
+            corpusChunksTotal: corpusBefore.count,
             queryCounts: counts,
             baseline,
             generatedAt: new Date().toISOString(),
