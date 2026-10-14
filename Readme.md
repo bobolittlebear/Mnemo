@@ -471,9 +471,7 @@ pnpm gen:note-recall-llm  # 用 LLM 自动扩写评测 query 集（生成 .gener
 
 - 📽️ **AI 写作示例**：在写模式下对 AI 说「把这段总结写入笔记」，Agent 经 `insert_at_cursor` / `replace_selection` 工具直接改写当前笔记（跨 HTTP 工具环路）。
 
-<!-- <video src="docs/ai-writing-demo.mp4" controls="controls" width="720"></video> -->
-<video controls src="https://github.com/bobolittlebear/Mnemo/raw/refs/heads/main/docs/ai-writing-demo.mp4" title="docs/ai-writing-demo.mp4"></video>
-
+https://github.com/user-attachments/assets/bfdc2990-3993-4c12-a1d7-fb260b05dca6
 
 ---
 
