@@ -4,6 +4,14 @@
 
 ---
 
+## 🎬 AI 写作功能演示
+
+- 📽️ **AI 写作示例**：在写模式下对 AI 说「把这段总结写入笔记」，Agent 经 `insert_at_cursor` / `replace_selection` 工具直接改写当前笔记（跨 HTTP 工具环路）。
+
+https://github.com/user-attachments/assets/bfdc2990-3993-4c12-a1d7-fb260b05dca6
+
+---
+
 ## 📖 项目背景
 
 在飞书知识库写作时，飞书尚未上线「问问知识库」功能。我迫切需要一个能**基于个人知识库 / 学习笔记进行 AI 对话**的工具——例如让 AI 快速提炼我面试总结里的常考题目知识。
@@ -467,13 +475,7 @@ pnpm gen:note-recall-llm  # 用 LLM 自动扩写评测 query 集（生成 .gener
 
 ---
 
-## 🎬 演示
 
-- 📽️ **AI 写作示例**：在写模式下对 AI 说「把这段总结写入笔记」，Agent 经 `insert_at_cursor` / `replace_selection` 工具直接改写当前笔记（跨 HTTP 工具环路）。
-
-https://github.com/user-attachments/assets/bfdc2990-3993-4c12-a1d7-fb260b05dca6
-
----
 
 ## 📚 设计文档
 
