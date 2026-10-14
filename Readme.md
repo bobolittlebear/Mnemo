@@ -6,7 +6,7 @@
 
 ## 📖 项目背景
 
-在飞书知识库写作时，飞书尚未上线「问问知识库」功能。我迫切需要一个能**基于个人知识库 / 学习笔记进行 AI 对话**的工具——例如让 AI 快速提炼我面试总结里的常考题目。
+在飞书知识库写作时，飞书尚未上线「问问知识库」功能。我迫切需要一个能**基于个人知识库 / 学习笔记进行 AI 对话**的工具——例如让 AI 快速提炼我面试总结里的常考题目知识。
 
 于是 Mnemo <u>ˈniːmoʊ</u> 诞生了：源自记忆女神 Mnemosyne 的名字——一个支持创建个人笔记本，并**基于笔记本知识库做 RAG 增强的 AI 聊天会话**的个人知识管理工具。
 
@@ -35,6 +35,37 @@ Mnemo 不只是一个笔记应用，而是一个具备**完整上下文管理能
 | 向量化       | text-embedding-v4（Qwen）                |
 | 向量检索      | MongoDB Atlas Vector Search + RRF 混合检索 |
 | 周期任务      | 进程内 setInterval（L2 超时扫描）               |
+
+---
+
+## 🖼️ 系统架构
+
+```mermaid
+flowchart LR
+    U[用户 / 前端 React] -->|SSE 流式对话| API[Express 后端]
+
+    subgraph 记忆与检索
+        STM[(STM<br/>Redis List)]
+        LTM[(LTM MemoryFact<br/>Mongo + Atlas 向量)]
+        RAG[(笔记 RAG NoteChunk<br/>Mongo + Atlas 向量)]
+    end
+
+    API --> LLM[Qwen 对话模型]
+    API --> STM
+    API --> L1[记忆提取管道<br/>LLM 提炼 → 向量化 → 去重入库]
+    API --> L2[笔记增量索引<br/>contentHash diff → 重切分]
+    API --> Search[混合检索<br/>向量 + BM25 + RRF 融合]
+
+    L1 --> LTM
+    L2 --> RAG
+    Search --> LTM
+    Search --> RAG
+
+    LLM -.注入上下文.-> API
+    API -->|流式回复| U
+```
+
+> 箭头含义：实线为运行时主链路调用，虚线为「检索结果拼入 System Prompt 后再送 LLM」的上下文注入。短期记忆走 Redis 滑动窗口，长期记忆与笔记 RAG 各自独立建向量索引、共享 RRF 融合与去重逻辑。
 
 ---
 
@@ -122,11 +153,7 @@ P3 短锁(<50ms)：获锁 → 二次校验终态 → 写终态 + cleanup → 清
 - MongoDB Atlas Vector Search + RRF 混合检索
 - nodejieba 中文预分词，`searchText` 字段支撑 BM25 文本检索
 - 检索结果经记忆选择层注入对话上下文（见 2.5）
-
-**近期新增设计**：
-
-- 长期记忆遗忘机制 —— 已有设计文档 `ltm-forgetting.md`：用单字段 `lastSignificantAt` 标记「最后被实质使用」时间，结合 per-category 过期阈值、置信度地板与受保护类别白名单，以四条件 AND 判定软删除；并支持 contentHash 精确复活。每日 03:00 由服务内定时任务扫描执行。（方案细节见设计文档，本文不展开实现）
-- 会话终止后的写入闸门（ENDING 状态拒收新消息，产品打磨项）
+- 长期记忆遗忘机制 —— 已有设计文档 `ltm-forgetting.md`：用单字段 `lastSignificantAt` 标记「最后被实质使用」时间，结合 per-category 过期阈值、置信度地板与受保护类别白名单，以四条件 AND 判定软删除；并支持 contentHash 精确复活。每日 03:00 由服务内定时任务扫描执行。
 
 #### 2.5 记忆选择层（Memory Selection）
 
@@ -153,7 +180,65 @@ P3 短锁(<50ms)：获锁 → 二次校验终态 → 写终态 + cleanup → 清
 - 混合检索（向量 Atlas Vector Search + BM25 关键词，`noteSearch.service.ts`）
 - **增量索引**（`noteReindex.service.ts`）：`contentHash` diff 只重建变化 chunk；脏标记由**单 worker 异步队列**消费（非并发），成功才清理、失败重试上限 3 次；派生数据（NoteChunk）物理删除，源数据（Note）软删除。
 - 父子块分块（`utils/noteChunker.ts`）：父块自适应层级切分（不向量化）+ 子块结构化 token 感知切分（向量化），markdown-aware（`##` 一级 + 段落二级 + 100 字重叠 + nodejieba 可选）。
-- 多模态 RAG（图片 / 视频 / 音频）：暂不实现（scope 外）。
+
+#### 3.1 笔记 RAG 召回评测与调优
+
+为回答「检索到底准不准」，自建了一套可复现的召回评测（脚本 `scripts/run-note-recall-eval.ts`，数据集 `tests/evals/datasets/note-recall-queries.json`）。
+
+**评测集构成**：50 道查询（37 道手写 + 8 道合成 + 5 道负例），语料为 55 篇笔记切出的 **975 个检索子块**。按问题类型分六桶，逼出不同失效模式：
+
+| 类型             | 含义                    | 典型失效点          |
+| -------------- | --------------------- | -------------- |
+| exact          | 原文术语直问                | 术语错配           |
+| paraphrase     | 口语化改写（同一知识点换说法）       | 向量语义漂移 / 关键词缺失 |
+| code-token     | 代码 / 标识符片段提问          | token 切分把符号拆散  |
+| cross-notebook | 跨笔记本查同一知识点            | 多笔记本隔离漏召       |
+| synthetic-edge | 结构边界（父子块 / 长结构单元不被切断） | 切块策略边界         |
+| negative       | 语料里根本没有的答案（应拒答）       | 误召回风险          |
+
+**最终指标（M2 query-expansion 落地后，topK=5）**：
+
+| 模式     | Recall@5  | MRR   | nDCG@5 | Precision@5 |
+| ------ | --------- | ----- | ------ | ----------- |
+| 向量     | 0.837     | 0.630 | 0.659  | 0.236       |
+| BM25   | 0.633     | 0.466 | 0.480  | 0.164       |
+| **混合** | **0.852** | 0.629 | 0.653  | 0.231       |
+
+分类 macro 混合 Recall@5：exact **0.97** / paraphrase **0.77** / code-token **0.67** / cross-notebook **1.00** / synthetic-edge **0.78**。
+
+**关键调优结论**：
+
+- ❌ **手写 jieba 领域词典净负向**：A/B 显示全量 hybrid 0.578 < 无词典 0.611，已清空词表、保留注册机制备用（不靠拍词典捞召回）。
+- ✅ **静态同义词 query-expansion 真增益**：用 `SYNONYM_TABLE` 把口语词桥接回术语（如「很久没说话」→ 映射 L2 超时触发），零回归地把 hybrid 从 0.819 提到 **0.852**。
+- ✅ **真·双盲清零**：向量与 BM25 两路 top5 都搜不到正确答案的「盲区」query，从 5 条降到 **0 条**——说明剩余问题已不在融合算法，而在语料覆盖 / query 改写。
+
+**复现命令**：
+
+```bash
+EVAL_USER_ID=<你的 NoteChunk.userId> pnpm eval:note-recall
+```
+
+示例输出（节选自 `tests/evals/reports/2026-10-13_m2-expansion.md`）：
+
+```
+## 汇总判定
+| 检查项                       | 结论     | 说明                                    |
+| hybrid ≥ vector           | PASS    | macro-avg recall@5：vector=0.837 → hybrid=0.852 |
+| hybrid ≥ bm25             | PASS    | macro-avg recall@5：bm25=0.633 → hybrid=0.852  |
+| 退化容忍                      | PASS    | 退化条数 0/45（0.0%）                          |
+| 双盲桶                       | 无      | 两单模态@5 均未命中 GT                         |
+
+## 各模式 recall@K（节选）
+| query_id        | type        | hyb@5 |
+| q_l2_exact      | exact       | 1.00  |
+| q_session_exact | exact       | 1.00  |
+| q_l2_para       | paraphrase  | 0.67  |
+| q_rag_para      | paraphrase  | 0.33  |
+| q_xnb_mnemo     | cross-note  | 1.00  |
+| q_edge_structure| synthetic   | 1.00  |
+```
+
+---
 
 ### 4. 工具调用
 
@@ -162,9 +247,8 @@ P3 短锁(<50ms)：获锁 → 二次校验终态 → 写终态 + cleanup → 清
 - **写模式三工具**（`services/chat/tools.ts`）：`update_title`（整标题替换）、`insert_at_cursor`（光标处插入）、`replace_selection`（选区替换）；单轮单工具由执行循环校验。
 - **写模式系统提示**（`writeModeContext.service.ts`）：注入 `<write_mode_instructions>` + `<current_note>` 全文；显式列出可用工具名、泛型禁令「不要调用任何未列出的工具」、声明全文已注入无需读写文件（切断模型编造 `read_file` 类工具）。
 - **跨 HTTP 工具环路**：`chatStream.service.ts` 流式输出 `tool_calls` → `onToolCall` + `onRunPaused` 暂停本轮 → 前端执行工具 → `POST /chat/tool-result` 续轮（runId 串联）→ `persistToolResult` 回显；下一轮再回 LLM。
-- **工具名白名单兜底（P0）**：模型若调用未列出的工具（如 `read_file` 幻觉工具），直接丢弃并降级为普通文本回复，绝不执行、不污染历史、不卡 run；单测覆盖 `chatStream.writeContext.test.ts`。
-- **前端配套**：写模式过程卡 / run 生命周期状态清晰化（M-F1~M-F3）、历史回放折叠摘要（F8）、写作·聊天模式切换；详见前端仓库。
-- 后续可扩展更多 Tool（搜索、计算、绘图……）。
+- **工具名白名单兜底**：模型若调用未列出的工具（如 `read_file` 幻觉工具），直接丢弃并降级为普通文本回复，绝不执行、不污染历史、不卡 run。
+- **前端配套**：写模式过程卡、历史回放折叠摘要、写作·聊天模式切换；详见 [前端仓库](https://github.com/bobolittlebear/mnemo-frontend)。
 
 ### 5. Agent 任务状态管理
 
@@ -201,11 +285,12 @@ P3 短锁(<50ms)：获锁 → 二次校验终态 → 写终态 + cleanup → 清
 | **长期记忆三层触发机制**        | ✅ **已实现**（L1/L2/L3 + 三阶段锁 + cleanup 收敛） |
 | 检索注入对话上下文闭环           | ✅ 已实现（记忆选择层 + XML 注入）                   |
 | Session 会话管理          | ✅ 已实现（三态生命周期 + 列表/删除接口）                 |
-| 笔记 RAG 向量化 & 混合检索     | ✅ 已实现                           |
-| 多模态 RAG（图片 / 视频 / 音频） | 暂不实现                                  |
-| 长期记忆遗忘机制（软删 + 复活）     | ✅ 已实现          |
-| 笔记工具调用（AI 写入）         | ✅ 已实现（写模式 3 工具 + 跨 HTTP 工具环路 + 白名单兜底） |
-| 任务状态管理                | ✅ 已实现（run 生命周期 + 悬挂修复 + 可见兜底）        |
+| 笔记 RAG 向量化 & 混合检索     | ✅ 已实现                                   |
+| 多模态 RAG（图片 / 视频 / 音频） | 暂不实现                                    |
+| 长期记忆遗忘机制（软删 + 复活）     | ✅ 已实现                                   |
+| 笔记工具调用（AI 写入）         | ✅ 已实现（写模式 3 工具 + 跨 HTTP 工具环路 + 白名单兜底）   |
+| 任务状态管理                | ✅ 已实现（run 生命周期 + 悬挂修复 + 可见兜底）           |
+| Token 预算与用量计量（W3 仪表盘） | ✅ 已实现（inputBudget 注册表 + 四块配额 + L0-L3 降级 + 埋点） |
 
 ### 近期里程碑（2026-07）
 
@@ -229,6 +314,8 @@ P3 短锁(<50ms)：获锁 → 二次校验终态 → 写终态 + cleanup → 清
 - ✅ 工具名白名单兜底（P0）：模型幻觉调用未列出的工具（如 `read_file`）直接丢弃并降级普通回复，绝不执行 / 不污染历史 / 不卡 run；单测覆盖 `chatStream.writeContext.test.ts`。
 - ✅ Agent 任务状态管理：run 生命周期（`runId` mint + `run_paused` 取代 done）、悬挂 tool_call 兜底（层1）、`ensureRunVisibleMessage` 可见兜底（层2）；前端过程卡 / run 状态 / 历史回放折叠（M-F1~M-F3、F8）/ 写作·聊天模式切换配套完成。
 - ✅ 评测：写模式 prompt 断言（toContain 三工具名 + 禁编造短语 + 快照）落地 `writeModeContext.test.ts`。
+- ✅ 笔记 RAG 召回评测与调优：50 题评测集 + A/B 验证（见 §3.1），hybrid Recall@5 0.852、真双盲 5→0。
+- ✅ Token 预算与用量计量（W3 仪表盘）：inputBudget 模型注册表 + 四块配额（system/STM/LTM/RAG）+ L0-L3 降级阶梯，埋点供前端观测。
 
 ---
 
@@ -266,6 +353,31 @@ src/
 ---
 
 ## 🚀 快速开始
+
+### 0. 准备 MongoDB Atlas 向量检索
+
+Mnemo 的语义检索依赖 **MongoDB Atlas Vector Search**。索引需在 Atlas 控制台手动创建（代码不自动建索引），要点：
+
+- 索引名：`vector_index`（NoteChunk 与 MemoryFact 共用此名，字段对齐）
+- 向量字段：`embedding`，维度 **1536**，相似度 **cosine**
+- 过滤字段（必须和 `$vectorSearch.filter` 完全一致，否则检索报错）：
+  - `notechunks` 集合：`userId` / `chunkType` / `notebookId`
+  - `memoryfacts` 集合：`userId` / `notebookId` / `type`
+
+Atlas Search 索引 JSON 示例（以 `notechunks` 为例）：
+
+```json
+{
+  "fields": [
+    { "type": "vector", "path": "embedding", "numDimensions": 1536, "similarity": "cosine" },
+    { "type": "filter", "path": "userId" },
+    { "type": "filter", "path": "chunkType" },
+    { "type": "filter", "path": "notebookId" }
+  ]
+}
+```
+
+> 若使用本地 MongoDB（非 Atlas），需改用 `$vectorSearch` 兼容方案或本地向量库，本 README 默认 Atlas 云检索。
 
 ### 1. 启动 Redis
 
@@ -311,6 +423,22 @@ pnpm start
 
 ---
 
+## 🧪 测试与评测
+
+```bash
+pnpm test                 # 全量单元测试 + 集成测试（vitest run）
+pnpm test:unit            # 仅单元测试（tests/unit）
+pnpm test:integration     # 仅集成测试（tests/integration）
+pnpm test:snapshot        # 评测快照测试（tests/evals，含记忆选择层 golden）
+pnpm eval:note-recall     # 笔记 RAG 召回评测（需先设 EVAL_USER_ID）
+pnpm reindex:all          # 全量重建笔记向量索引（contentHash diff）
+pnpm gen:note-recall-llm  # 用 LLM 自动扩写评测 query 集（生成 .generated.json）
+```
+
+> 召回评测需在 `.env` 中指定 `EVAL_USER_ID`（对应真实 `NoteChunk.userId`），评测报告写入 `tests/evals/reports/`，详细指标与分桶见 §3.1。
+
+---
+
 ## 📡 主要 API 端点
 
 | 方法     | 路径                     | 说明           | 鉴权 |
@@ -332,25 +460,32 @@ pnpm start
 
 ## 🎯 未来规划
 
-- [x] 长期记忆向量化存储与语义检索
-- [x] 长期记忆三层触发机制（L1/L2/L3 + 并发安全）
-- [x] 检索注入对话上下文完整闭环（记忆选择层 + XML 注入）
-- [x] Session 会话管理（三态生命周期 + 列表/删除）
-- [x] 记忆版本管理（ADD/UPDATE/DELETE + 软删除）
-- [x] 记忆评测集（tests/evals 快照测试）
-- [x] 笔记 RAG 混合检索（向量 + BM25）
+> 已完成功能见上方「🚦 开发进度」表格，此处仅列尚未交付的方向。
+
 - [ ] 多模态 RAG：支持图片、视频、音频等非文本笔记的向量化与检索（暂不实现）
-- [x] 记忆遗忘机制（设计文档 `ltm-forgetting.md`：单字段标记 + 四条件软删 + contentHash 复活 + 每日定时扫描）
-- [x] Tool Calling（写模式 3 工具 + 跨 HTTP 工具环路 + 白名单兜底，设计见 `tool-calling/`）
-- [x] Agent 任务状态管理（run 生命周期 + 悬挂修复 + 可见兜底 + 后台异步任务，设计见 `agent-state-machine.md`）
-- [x] Token 预算与用量计量设计
-- [x] Web 前端配套
+- [ ] 会话终止后的写入闸门（ENDING 状态拒收新消息，产品打磨项）
 
 ---
 
-## 📄 License
+## 🎬 演示
 
-MIT
+- 📽️ **AI 写作示例**：在写模式下对 AI 说「把这段总结写入笔记」，Agent 经 `insert_at_cursor` / `replace_selection` 工具直接改写当前笔记（跨 HTTP 工具环路）。
+
+<video src="docs/ai-writing-demo.mp4" controls width="720"></video>
+
+---
+
+## 📚 设计文档
+
+核心架构与算法决策沉淀在 `.claude/design/` 目录（设计优先于实现，讨论定稿后再落地）：
+
+| 文档                       | 说明                                                |
+| ------------------------ | ------------------------------------------------- |
+| `ltm-forgetting.md`      | 长期记忆遗忘机制：单字段标记 + 四条件软删 + contentHash 复活 + 每日定时扫描  |
+| `tool-calling/`          | 工具调用方案：让 AI 直接操作笔记（写模式三工具 + 跨 HTTP 工具环路）          |
+| `agent-state-machine.md` | Agent 任务状态机：run 生命周期 + 悬挂兜底 + 可见兜底                |
+| `note-rag-tuning.md`     | 笔记 RAG 召回调优：jieba 词典 A/B（证伪）+ query-expansion 真增益 |
+
 
 ---
 
