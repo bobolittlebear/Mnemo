@@ -2,13 +2,6 @@
 
 > 你的笔，记得一切。
 
----
-
-## 🎬 AI 写作功能演示
-
-- 📽️ **AI 写作示例**：在写模式下对 AI 说「把这段总结写入笔记」，Agent 经 `insert_at_cursor` / `replace_selection` 工具直接改写当前笔记（跨 HTTP 工具环路）。
-
-https://github.com/user-attachments/assets/bfdc2990-3993-4c12-a1d7-fb260b05dca6
 
 ---
 
@@ -29,6 +22,14 @@ Mnemo 不只是一个笔记应用，而是一个具备**完整上下文管理能
 - 🔍 **基于个人笔记本的 RAG 检索**，回答有据可依
 - 🛠️ **工具调用能力**，对 AI 说「把这段总结写入笔记」，Agent 自动执行
 - 🤖 **Agent 任务状态管理**，追踪 Tool Call 执行状态、保持多轮任务上下文、管理后台异步任务
+
+---
+
+## 🎬 AI 写作功能演示
+
+- 📽️ **AI 写作示例**：在写模式下对 AI 说「把这段总结写入笔记」，Agent 经 `insert_at_cursor` / `replace_selection` 工具直接改写当前笔记（跨 HTTP 工具环路）。
+
+https://github.com/user-attachments/assets/bfdc2990-3993-4c12-a1d7-fb260b05dca6
 
 ---
 
