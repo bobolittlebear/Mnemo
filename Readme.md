@@ -25,9 +25,9 @@ Mnemo 不只是一个笔记应用，而是一个具备**完整上下文管理能
 
 ---
 
-## 🎬 AI 写作功能演示
+## 🎬 AI 辅助写作功能演示
 
-- 📽️ **AI 写作示例**：在写模式下对 AI 说「把这段总结写入笔记」，Agent 经 `insert_at_cursor` / `replace_selection` 工具直接改写当前笔记（跨 HTTP 工具环路）。
+- 📽️ **AI 辅助写作示例**：在写模式下对 AI 说「把这段总结写入笔记」，Agent 经调用工具直接改写当前笔记。
 
 https://github.com/user-attachments/assets/bfdc2990-3993-4c12-a1d7-fb260b05dca6
 
@@ -39,11 +39,10 @@ https://github.com/user-attachments/assets/bfdc2990-3993-4c12-a1d7-fb260b05dca6
 | --------- | -------------------------------------- |
 | 后端框架      | Express + TypeScript                   |
 | 数据库       | MongoDB（Mongoose ODM）                  |
-| AI 能力     | OpenAI API（兼容接口）                       |
+| AI 能力     | OpenAI API                               |
 | 缓存 / 短时记忆 | Redis                                  |
 | 向量化       | text-embedding-v4（Qwen）                |
 | 向量检索      | MongoDB Atlas Vector Search + RRF 混合检索 |
-| 周期任务      | 进程内 setInterval（L2 超时扫描）               |
 
 ---
 
@@ -108,7 +107,7 @@ flowchart LR
 
 #### 2.3 长期记忆（LTM — Long-Term Memory）
 
-**提取管道（已完成）**：
+**提取管道**：
 
 - `MemoryFact` 数据模型：存储从对话中提取的事实性记忆（按 **userId** 归属）
 - `ChatMessage` 历史会话记录模型（按 **sessionId** 归属，软删除支持）
@@ -161,7 +160,7 @@ P3 短锁(<50ms)：获锁 → 二次校验终态 → 写终态 + cleanup → 清
 - MemoryFact 经 text-embedding-v4 向量化入库
 - MongoDB Atlas Vector Search + RRF 混合检索
 - nodejieba 中文预分词，`searchText` 字段支撑 BM25 文本检索
-- 检索结果经记忆选择层注入对话上下文（见 2.5）
+- 检索结果经记忆选择层注入对话上下文
 - 长期记忆遗忘机制 —— 已有设计文档 `ltm-forgetting.md`：用单字段 `lastSignificantAt` 标记「最后被实质使用」时间，结合 per-category 过期阈值、置信度地板与受保护类别白名单，以四条件 AND 判定软删除；并支持 contentHash 精确复活。每日 03:00 由服务内定时任务扫描执行。
 
 #### 2.5 记忆选择层（Memory Selection）
@@ -194,7 +193,7 @@ P3 短锁(<50ms)：获锁 → 二次校验终态 → 写终态 + cleanup → 清
 
 为回答「检索到底准不准」，自建了一套可复现的召回评测（脚本 `scripts/run-note-recall-eval.ts`，数据集 `tests/evals/datasets/note-recall-queries.json`）。
 
-**评测集构成**：50 道查询（37 道手写 + 8 道合成 + 5 道负例），语料为 55 篇笔记切出的 **975 个检索子块**。按问题类型分六桶，逼出不同失效模式：
+**评测集构成**：50 道查询（37 道手写 + 8 道合成 + 5 道负例），语料为 55 篇笔记切出的 **975 个检索子块**。按问题类型分六桶：
 
 | 类型             | 含义                    | 典型失效点          |
 | -------------- | --------------------- | -------------- |
@@ -205,7 +204,7 @@ P3 短锁(<50ms)：获锁 → 二次校验终态 → 写终态 + cleanup → 清
 | synthetic-edge | 结构边界（父子块 / 长结构单元不被切断） | 切块策略边界         |
 | negative       | 语料里根本没有的答案（应拒答）       | 误召回风险          |
 
-**最终指标（M2 query-expansion 落地后，topK=5）**：
+**最终指标**：
 
 | 模式     | Recall@5  | MRR   | nDCG@5 | Precision@5 |
 | ------ | --------- | ----- | ------ | ----------- |
@@ -217,7 +216,7 @@ P3 短锁(<50ms)：获锁 → 二次校验终态 → 写终态 + cleanup → 清
 
 **关键调优结论**：
 
-- ❌ **手写 jieba 领域词典净负向**：A/B 显示全量 hybrid 0.578 < 无词典 0.611，已清空词表、保留注册机制备用（不靠拍词典捞召回）。
+- ❌ **手写 jieba 领域词典净负向**：A/B 显示全量 hybrid 0.578 < 无词典 0.611，已清空词表、保留注册机制备用。
 - ✅ **静态同义词 query-expansion 真增益**：用 `SYNONYM_TABLE` 把口语词桥接回术语（如「很久没说话」→ 映射 L2 超时触发），零回归地把 hybrid 从 0.819 提到 **0.852**。
 - ✅ **真·双盲清零**：向量与 BM25 两路 top5 都搜不到正确答案的「盲区」query，从 5 条降到 **0 条**——说明剩余问题已不在融合算法，而在语料覆盖 / query 改写。
 
@@ -265,7 +264,7 @@ EVAL_USER_ID=<你的 NoteChunk.userId> pnpm eval:note-recall
 
 **A. Tool Call 执行状态追踪**
 
-- 写模式 run 生命周期：`runId` 由中间件 mint，首轮 `onMeta` 回传；本轮以 `onRunPaused` 取代 `done`，控制器据此不再补发 done，避免跨 HTTP 环路重复终态。
+- 写模式 run 生命周期：唯一`runId` 由中间件生成，首轮 `onMeta` 回传；本轮以 `onRunPaused` 取代 `done`，控制器据此不再补发 done，避免跨 HTTP 环路重复终态。
 - 每次工具调用的参数、执行结果（成功 / 失败）经 `persistToolResult` 落库回显；写入笔记后关联 `noteId`，方便溯源。
 - 悬挂 tool_call 兜底（层1）：历史末位 assistant 带 toolCalls 但缺对应 tool 结果时，合成兜底消息，防止畸形历史喂给模型。
 
@@ -278,53 +277,6 @@ EVAL_USER_ID=<你的 NoteChunk.userId> pnpm eval:note-recall
 
 - 长期记忆提取（三层触发 + 三阶段短锁 + processing TTL 自愈）、笔记增量 reindex（脏标记单 worker 队列）等后台任务的状态机已在 `trigger/` 与 `notebook/noteReindex.service.ts` 落地。
 - 任务排队、执行中、完成、失败等状态流转由 Redis 标记（lock / processing / terminal）驱动。
-
----
-
-## 🚦 开发进度
-
-| 模块                    | 状态                                      |
-| --------------------- | --------------------------------------- |
-| 笔记本 / 笔记 CRUD         | ✅ 已实现                                   |
-| 用户登录鉴权                | ✅ 已实现（`/stream/chat` 暂未接入，允许临时会话）       |
-| 短期记忆 STM              | ✅ 已实现                                   |
-| traceId 会话溯源          | ✅ 已实现                                   |
-| 长期记忆数据模型 & 提取服务       | ✅ 已实现                                   |
-| 长期记忆向量化 & 检索          | ✅ 已实现                                   |
-| **长期记忆三层触发机制**        | ✅ **已实现**（L1/L2/L3 + 三阶段锁 + cleanup 收敛） |
-| 检索注入对话上下文闭环           | ✅ 已实现（记忆选择层 + XML 注入）                   |
-| Session 会话管理          | ✅ 已实现（三态生命周期 + 列表/删除接口）                 |
-| 笔记 RAG 向量化 & 混合检索     | ✅ 已实现                                   |
-| 多模态 RAG（图片 / 视频 / 音频） | 暂不实现                                    |
-| 长期记忆遗忘机制（软删 + 复活）     | ✅ 已实现                                   |
-| 笔记工具调用（AI 写入）         | ✅ 已实现（写模式 3 工具 + 跨 HTTP 工具环路 + 白名单兜底）   |
-| 任务状态管理                | ✅ 已实现（run 生命周期 + 悬挂修复 + 可见兜底）           |
-| Token 预算与用量计量（W3 仪表盘） | ✅ 已实现（inputBudget 注册表 + 四块配额 + L0-L3 降级 + 埋点） |
-
-### 近期里程碑（2026-07）
-
-- ✅ 三层触发机制全链路落地：L1 显性（endSession/clearAll 双触发点）、L2 超时扫描（3 天阈值 / 30 分钟周期）、L3 阈值兜底（20 条）
-- ✅ 三阶段短锁 + 三道 SKIP 闸门，真实并发日志验证无双重提取
-- ✅ Clean Architecture 重构：trigger 纯模块 + 组合根依赖注入，STM 清理收敛至 cleanup 端口
-- ✅ 标识符作用域拆分：ChatMessage → sessionId（会话态）/ MemoryFact → userId（知识归属）
-- ✅ 配置不变式启动断言 + 单元测试（含边界用例）
-- ✅ 崩溃恢复验证（kill -9 后 processing 过期自愈重提）
-- ✅ L3 计数器 `decrBy` 防漂移修复、msg_count TTL 生效修复
-- 🔄 大窗口（100 条）提取耗时压测
-
-### 近期里程碑（2026-09）
-
-- 📄 新增设计文档 `ltm-forgetting.md`：长期记忆遗忘机制方案定稿（单字段标记 + 四条件软删 + contentHash 复活 + 每日定时扫描）
-- 📄 新增设计文档 `tool-calling/`：工具调用让 AI 直接操作笔记的方案定稿
-
-### 近期里程碑（2026-10）
-
-- ✅ 工具调用全链路落地：写模式三工具（`update_title` / `insert_at_cursor` / `replace_selection`）+ 写模式系统提示（列工具名 + 泛型禁编造）+ 跨 HTTP 工具环路（`onToolCall` → `onRunPaused` → `POST /chat/tool-result` 续轮 → `persistToolResult`）。
-- ✅ 工具名白名单兜底（P0）：模型幻觉调用未列出的工具（如 `read_file`）直接丢弃并降级普通回复，绝不执行 / 不污染历史 / 不卡 run；单测覆盖 `chatStream.writeContext.test.ts`。
-- ✅ Agent 任务状态管理：run 生命周期（`runId` mint + `run_paused` 取代 done）、悬挂 tool_call 兜底（层1）、`ensureRunVisibleMessage` 可见兜底（层2）；前端过程卡 / run 状态 / 历史回放折叠（M-F1~M-F3、F8）/ 写作·聊天模式切换配套完成。
-- ✅ 评测：写模式 prompt 断言（toContain 三工具名 + 禁编造短语 + 快照）落地 `writeModeContext.test.ts`。
-- ✅ 笔记 RAG 召回评测与调优：50 题评测集 + A/B 验证（见 §3.1），hybrid Recall@5 0.852、真双盲 5→0。
-- ✅ Token 预算与用量计量（W3 仪表盘）：inputBudget 模型注册表 + 四块配额（system/STM/LTM/RAG）+ L0-L3 降级阶梯，埋点供前端观测。
 
 ---
 
